@@ -22,12 +22,15 @@ npm run dev      # http://localhost:5173
 | `npm run build`   | Production build into `dist/` (static, relative paths) |
 | `npm run preview` | Serve the production build locally               |
 | `npm test`        | Run the headless simulation tests (Vitest)       |
+| `npm run test:e2e` | Run the browser regression tests (Playwright, desktop + phone) |
+| `npm run test:all` | Both of the above                               |
 
 Requires Node 18+.
 
 ## Play in the browser (GitHub Pages)
 
-`.github/workflows/deploy.yml` tests and builds every push, and publishes the default branch to GitHub Pages.
+`.github/workflows/deploy.yml` runs both test suites and builds on every push, and publishes the default branch to
+GitHub Pages only if everything passes.
 One-time setup: **Settings → Pages → Build and deployment → Source: GitHub Actions**. Then push (or run the
 workflow from the Actions tab). The game is served at `https://<owner>.github.io/<repo>/`.
 
@@ -85,5 +88,6 @@ src/
   game/               main loop, input → world commands
   ui/                 DOM HUD
 test/                 Vitest tests for the simulation
+e2e/                  Playwright browser tests (desktop + phone)
 docs/                 design docs
 ```

@@ -122,4 +122,18 @@ See [ROADMAP.md](ROADMAP.md) for ordering.
 - `world.test.js`: placement rules, selling, the auto-start timer, end-to-end "undefended falls" / "defended
   survives wave 1" / "enemies breach a full enclosure"
 
-Rendering and input are checked by running the game. Keep new gameplay logic in `sim/` so it can be tested the same way.
+Keep new gameplay logic in `sim/` so it can be tested the same way.
+
+`npm run test:e2e` runs Playwright browser tests against the production build (`vite preview`), with WebGL on
+SwiftShader so they work without a GPU (including on CI):
+
+- `e2e/desktop.spec.js` (1280×800): HUD loads with no errors, hotkey + click placement, drag-painting walls,
+  invalid-placement message, select + sell, right-click cancel, wave start, GPU context loss pause/recovery,
+  on-screen error overlay
+- `e2e/mobile.spec.js` (Pixel 7 profile): lighter graphics and HUD fit, touch placement (drag without moving the map,
+  ✓ builds, re-drag keeps the finger offset, ✕ cancels, invalid ✓), edge-scroll while dragging, wall painting,
+  one-finger pan and tap-to-select
+
+Tests drive the game through real input and read state through `window.game`, e.g. `game.renderer.toScreen()` to
+find where a tile is on screen. Shared helpers, including CDP-based touch drags, are in `e2e/helpers.js`. CI runs
+both suites and only deploys when both pass; on failure it uploads the Playwright report with screenshots and traces.
