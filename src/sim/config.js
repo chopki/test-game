@@ -63,7 +63,7 @@ export const BUILDINGS = {
     maxHp: 2500,
     cost: 0,
     buildable: false,
-    height: 3.2,
+    height: 2.9,
     attack: {
       range: 5,
       damage: 8,
@@ -92,7 +92,7 @@ export const BUILDINGS = {
     cost: 75,
     buildable: true,
     hotkey: '2',
-    height: 2.8,
+    height: 2.2,
     attack: {
       range: 7,
       damage: 14,
@@ -111,7 +111,7 @@ export const BUILDINGS = {
     cost: 150,
     buildable: true,
     hotkey: '3',
-    height: 1.6,
+    height: 1.1,
     attack: {
       range: 6,
       damage: 40,
@@ -130,7 +130,7 @@ export const BUILDINGS = {
     cost: 125,
     buildable: true,
     hotkey: '4',
-    height: 3.0,
+    height: 1.5,
     attack: {
       kind: 'pulse',
       range: 3.5,
@@ -147,7 +147,7 @@ export const BUILDINGS = {
     cost: 180,
     buildable: true,
     hotkey: '5',
-    height: 1.6,
+    height: 1.2,
     attack: {
       range: 10,
       minRange: 3,

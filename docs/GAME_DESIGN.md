@@ -108,7 +108,10 @@ Selling refunds 50% of the cost × remaining HP fraction.
 ![Art style reference](reference/art-style.jpg)
 
 The reference sheet above ([`docs/reference/art-style.jpg`](reference/art-style.jpg)) is the target look, including
-the five-stage upgrade art for the Town Hall, towers and walls planned on the roadmap.
+the five-stage upgrade art for the Town Hall, towers and walls planned on the roadmap. Buildings are currently drawn
+at **Stage 1**: the Town Hall is a small stone keep in a fenced yard, the Archer Tower a wooden watchtower, the Cannon
+Tower a cannon on a low stone plinth, the Magic Spire a crystal-studded mound, the Catapult a plain wooden one, and
+walls a log palisade. Later stages (stone walls and towers, the citadel) arrive with upgrades.
 
 ![UI style reference](reference/ui-style.jpg)
 

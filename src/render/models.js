@@ -3,9 +3,9 @@ import {
   BOULDER,
   GREYSTONE,
   MATERIALS,
+  ROOF_TILES,
   Parts,
   SANDSTONE,
-  SLATE,
   banner,
   barrel,
   box,
@@ -17,28 +17,21 @@ import {
   foliage,
   door,
   groundDressing,
-  ico,
   merlonsRect,
-  merlonsRing,
   octa,
   pennant,
   place,
   rbox,
   rng,
-  shingleCone,
-  shingleGable,
   sphere,
   std,
   stoneBlocks,
-  stoneRing,
-  timberFace,
   torus,
-  wheel,
   windowFrame,
 } from './modelKit.js';
 
 // The game's models, built after docs/reference/art-style.jpg: block-laid sandstone, red clay shingles, timber
-// framing and plaster, chunky crenellations, round leafy trees, green goblins and orcs, grey trolls.
+// and logs, chunky crenellations, blocky olive trees, green goblins and orcs, grey trolls.
 //
 // These are only rendered when sprites are baked (see spriteBaker.js), so they can be as detailed as needed.
 // Parts that move in game (turrets, the catapult arm, the spire crystal) are exposed on userData and baked
@@ -46,103 +39,138 @@ import {
 
 // ------------------------------------------------------------------ buildings
 
+// Every building is drawn at its first upgrade stage ("Stage 1" in the reference's upgrade rows): a small stone
+// keep in a fenced yard, a wooden watchtower, a cannon on a low plinth, a crystal-studded mound, a plain wooden
+// catapult, and a log palisade. Later stages arrive with upgrades.
+
+/** Low fence of posts and two rails along a side, from (x0, z0) to (x1, z1), skipping the gap [gapFrom, gapTo] (0..1). */
+function fence(p, { x0, z0, x1, z1, rnd, gapFrom = 2, gapTo = 2, h = 0.42 }) {
+  const M = MATERIALS;
+  const len = Math.hypot(x1 - x0, z1 - z0);
+  const ry = Math.atan2(x1 - x0, z1 - z0);
+  const posts = Math.max(2, Math.round(len / 0.32) + 1);
+  const at = (t) => ({ x: x0 + (x1 - x0) * t, z: z0 + (z1 - z0) * t });
+  for (let i = 0; i < posts; i++) {
+    const t = i / (posts - 1);
+    if (t > gapFrom && t < gapTo) continue;
+    const ph = h * rnd.range(0.95, 1.1);
+    p.add(box(0.07, ph, 0.07), M.woodDark, { ...at(t), y: ph / 2, ry });
+  }
+  // Rails, split around the gap.
+  const spans = gapFrom < 1 ? [[0, gapFrom], [gapTo, 1]] : [[0, 1]];
+  for (const [t0, t1] of spans) {
+    const mid = at((t0 + t1) / 2);
+    const l = len * (t1 - t0);
+    for (const y of [h * 0.35, h * 0.8]) p.add(box(0.04, 0.06, l), M.wood, { ...mid, y, ry });
+  }
+}
+
 function townHall() {
   const M = MATERIALS;
   const p = new Parts();
   const rnd = rng(11);
-  // Flagstone platform and front steps.
-  stoneBlocks(p, { w: 2.92, h: 0.2, d: 2.92, rows: 1, rnd, minBlock: 0.36, maxBlock: 0.62 });
-  stoneBlocks(p, { y: 0.2, z: 1.06, w: 0.8, h: 0.1, d: 0.28, rows: 1, rnd });
-  // Stone ground floor.
-  stoneBlocks(p, { y: 0.2, z: 0.1, w: 2.2, h: 1.0, d: 1.6, rows: 5, rnd });
-  // Jettied, half-timbered upper floor.
-  p.add(box(2.48, 0.1, 1.86), M.beam, { y: 1.25, z: 0.1 });
-  p.add(box(2.36, 0.9, 1.76), M.plaster, { y: 1.75, z: 0.1 });
-  timberFace(p, { y: 1.75, z: 0.98, w: 2.36, h: 0.9 });
-  timberFace(p, { y: 1.75, z: -0.78, w: 2.36, h: 0.9, ry: Math.PI });
-  timberFace(p, { x: 1.18, y: 1.75, z: 0.1, w: 1.76, h: 0.9, ry: Math.PI / 2, spacing: 0.45 });
-  timberFace(p, { x: -1.18, y: 1.75, z: 0.1, w: 1.76, h: 0.9, ry: -Math.PI / 2, spacing: 0.45 });
-  for (const x of [-0.78, 0.78]) windowFrame(p, { x, y: 1.75, z: 1.0, w: 0.26, h: 0.32 });
-  for (const z of [-0.35, 0.55]) windowFrame(p, { x: 1.2, y: 1.75, z, ry: Math.PI / 2, w: 0.24, h: 0.3 });
-  // Ground floor: door, windows and banners.
-  door(p, { z: 0.9, y: 0.2, w: 0.5, h: 0.74 });
-  for (const x of [-0.72, 0.72]) windowFrame(p, { x, y: 0.72, z: 0.92, w: 0.24, h: 0.3, shutters: false });
-  windowFrame(p, { x: 1.11, y: 0.72, z: 0.35, ry: Math.PI / 2, w: 0.24, h: 0.3, shutters: false });
-  for (const x of [-0.42, 0.42]) banner(p, { x, y: 1.1, z: 0.92, w: 0.22, h: 0.5 });
-  // Main roof and a front cross-gable over the door.
-  shingleGable(p, { y: 2.2, z: 0.1, length: 2.36, width: 1.76, height: 1.15, rnd });
-  p.add(box(0.92, 0.9, 0.56), M.plaster, { y: 1.75, z: 1.26 });
-  timberFace(p, { y: 1.75, z: 1.54, w: 0.92, h: 0.9, spacing: 0.46 });
-  windowFrame(p, { y: 1.78, z: 1.56, w: 0.22, h: 0.3 });
-  shingleGable(p, { y: 2.2, z: 1.2, length: 0.7, width: 1.0, height: 0.72, ry: Math.PI / 2, rnd, overhang: 0.1 });
-  // Chimney.
-  stoneBlocks(p, { x: 0.72, y: 2.3, z: -0.32, w: 0.3, h: 1.0, d: 0.3, rows: 4, rnd });
-  p.add(box(0.36, 0.06, 0.36), M.capstone, { x: 0.72, y: 3.33, z: -0.32 });
-  // Round stone corner tower with a stepped cone roof.
-  stoneRing(p, { x: -1.06, y: 0.2, z: -0.86, r: 0.5, h: 3.0, rnd, taper: 0.04 });
-  for (const y of [1.3, 2.3]) windowFrame(p, { x: -0.85, y, z: -0.43, ry: Math.PI / 5, w: 0.14, h: 0.26, shutters: false });
-  p.add(cyl(0.52, 0.52, 0.08, 16), M.capstone, { x: -1.06, y: 3.22, z: -0.86 });
-  shingleCone(p, { x: -1.06, y: 3.24, z: -0.86, r: 0.68, h: 1.35, rows: 7, rnd });
-  pennant(p, { x: -1.06, y: 4.55, z: -0.86, h: 0.55, w: 0.42 });
-  // Small watch turret on the front-right corner.
-  stoneRing(p, { x: 1.13, y: 0.2, z: 0.93, r: 0.3, h: 2.1, rnd, thickness: 0.16, blockLen: 0.32 });
-  shingleCone(p, { x: 1.13, y: 2.3, z: 0.93, r: 0.42, h: 0.85, rows: 5, rnd });
-  // Props.
-  barrel(p, { x: -1.15, y: 0.2, z: 1.15 });
-  barrel(p, { x: -0.92, y: 0.2, z: 1.25, r: 0.11, h: 0.26 });
-  crate(p, { x: 1.25, y: 0.2, z: -0.95, ry: 0.4 });
-  groundDressing(p, { w: 2.92, d: 2.92, rnd, count: 16 });
+  // Packed-earth yard inside a low wooden fence (gate gap at the front).
+  p.add(box(2.86, 0.05, 2.86), M.dirt, { y: 0.025 });
+  const e = 1.38;
+  fence(p, { x0: -e, z0: -e, x1: e, z1: -e, rnd });
+  fence(p, { x0: -e, z0: -e, x1: -e, z1: e, rnd });
+  fence(p, { x0: e, z0: -e, x1: e, z1: e, rnd });
+  fence(p, { x0: -e, z0: e, x1: e, z1: e, rnd, gapFrom: 0.38, gapTo: 0.62 });
+  // Square stone keep, set back in the yard: a plinth, two storeys of courses, corbels and battlements.
+  const kx = -0.12;
+  const kz = -0.2;
+  const W = 1.5;
+  stoneBlocks(p, { x: kx, z: kz, y: 0.05, w: W + 0.16, d: W + 0.16, h: 0.18, rows: 1, rnd, minBlock: 0.3, maxBlock: 0.5 });
+  const courses = 9;
+  const top = 2.25;
+  for (let i = 0; i < courses; i++) {
+    const rowH = (top - 0.23) / courses;
+    stoneBlocks(p, { x: kx, z: kz, y: 0.23 + i * rowH, w: W, d: W, h: rowH, rows: 1, along: i % 2 ? 'x' : 'z', rnd });
+  }
+  // A string course between the storeys.
+  p.add(box(W + 0.06, 0.06, W + 0.06), M.capstone, { x: kx, y: 1.2, z: kz });
+  for (let i = 0; i < 5; i++) {
+    const t = -0.5 + (i + 0.5) / 5;
+    for (const [x, z] of [
+      [t * W, W / 2],
+      [W / 2, t * W],
+      [t * W, -W / 2],
+      [-W / 2, t * W],
+    ]) {
+      p.add(box(0.13, 0.15, 0.13), rnd.pick(SANDSTONE), { x: kx + x * 1.04, y: top - 0.02, z: kz + z * 1.04 });
+    }
+  }
+  stoneBlocks(p, { x: kx, z: kz, y: top + 0.05, w: W + 0.18, d: W + 0.18, h: 0.16, rows: 1, rnd, minBlock: 0.3, maxBlock: 0.5 });
+  merlonsRect(p, { x: kx, z: kz, y: top + 0.21, w: W + 0.18, d: W + 0.18, size: 0.22, height: 0.3, spacing: 0.38, rnd });
+  p.add(box(W, 0.04, W), M.woodLight, { x: kx, y: top + 0.22, z: kz });
+  // Door, windows and a banner on the faces the camera sees.
+  door(p, { x: kx, y: 0.23, z: kz + W / 2 + 0.01, w: 0.42, h: 0.66 });
+  for (const x of [-0.42, 0.42]) windowFrame(p, { x: kx + x, y: 1.62, z: kz + W / 2 + 0.01, w: 0.2, h: 0.3, shutters: true });
+  windowFrame(p, { x: kx + W / 2 + 0.01, y: 1.62, z: kz, ry: Math.PI / 2, w: 0.2, h: 0.3 });
+  windowFrame(p, { x: kx + W / 2 + 0.01, y: 0.8, z: kz + 0.3, ry: Math.PI / 2, w: 0.16, h: 0.24, shutters: false });
+  banner(p, { x: kx + W / 2 + 0.02, y: 1.05, z: kz - 0.35, ry: Math.PI / 2, w: 0.26, h: 0.55 });
+  pennant(p, { x: kx - 0.5, y: top + 0.22, z: kz - 0.5, h: 0.95, w: 0.44 });
+  // A lean-to shed against the fence, and yard clutter.
+  p.add(box(0.7, 0.5, 0.5), M.wood, { x: 0.95, y: 0.28, z: -0.95 });
+  p.add(box(0.82, 0.05, 0.64), M.woodDark, { x: 0.95, y: 0.56, z: -0.92, rx: 0.25 });
+  barrel(p, { x: 0.95, y: 0.05, z: 0.55 });
+  barrel(p, { x: 1.12, y: 0.05, z: 0.78, r: 0.11, h: 0.26 });
+  crate(p, { x: -0.95, y: 0.05, z: 0.95, ry: 0.3 });
+  crate(p, { x: -0.72, y: 0.05, z: 1.05, s: 0.2, ry: 0.9 });
+  p.add(box(0.36, 0.22, 0.24), std({ color: 0xc9a54a }), { x: 0.65, y: 0.16, z: 0.95, ry: 0.4 }); // hay bale
+  groundDressing(p, { w: 2.86, d: 2.86, rnd, count: 10 });
   return p.build();
 }
 
+/** Peeled logs, light brown like the reference's palisade. */
+const LOGS = ['#a57444', '#b0804e', '#99683c'].map((c) => foliage(c));
+
 /**
- * A wall tile that joins up with its neighbours. `connections` = { n, e, s, w } booleans: true where the
- * neighbouring tile has a wall or another building, so runs, corners and tower joins connect.
+ * A wooden palisade tile that joins up with its neighbours. `connections` = { n, e, s, w } booleans: true where
+ * the neighbouring tile has a wall, another building or rock. Logs sit on a 1/7-tile pitch, so runs of tiles
+ * line up seamlessly.
  */
 function wall({ connections = {} } = {}) {
   const M = MATERIALS;
   const p = new Parts();
   const key = ['n', 'e', 's', 'w'].map((d) => (connections[d] ? 1 : 0)).join('');
   const rnd = rng(parseInt(key, 2) + 101);
-  const H = 1.0;
-  const T = 0.58;
   const dirs = [
     ['e', 1, 0],
     ['w', -1, 0],
     ['s', 0, 1],
     ['n', 0, -1],
   ].filter(([k]) => connections[k]);
-  const straight = dirs.length === 2 && dirs[0][1] === -dirs[1][1] && dirs[0][2] === -dirs[1][2];
-
+  const PITCH = 1 / 7;
+  const logs = [];
+  const log = (x, z, r = 0.075) => logs.push({ x, z, r });
+  log(0, 0, dirs.length === 2 && dirs[0][1] === -dirs[1][1] && dirs[0][2] === -dirs[1][2] ? 0.075 : 0.095);
   for (const [, dx, dz] of dirs) {
-    const alongX = dx !== 0;
-    const c = { x: dx * 0.25, z: dz * 0.25 };
-    const [w, d] = alongX ? [0.5, T] : [T, 0.5];
-    // Footing course, then the wall body, built along the run.
-    stoneBlocks(p, { ...c, w: alongX ? 0.5 : T + 0.1, d: alongX ? T + 0.1 : 0.5, h: 0.16, rows: 1, along: alongX ? 'x' : 'z', rnd });
-    stoneBlocks(p, { ...c, y: 0.16, w, h: H - 0.16, d, rows: 3, along: alongX ? 'x' : 'z', rnd });
-    // One merlon per arm and side, so runs of wall get evenly spaced crenellations (0.5 apart).
+    for (let i = 1; i <= 3; i++) log(dx * i * PITCH, dz * i * PITCH);
+    // Rails on both faces of the run.
     for (const side of [-1, 1]) {
-      const off = side * (T / 2 - 0.09);
-      const at = { x: alongX ? dx * 0.25 : off, z: alongX ? off : dz * 0.25 };
-      p.add(box(0.2, 0.24, 0.17), rnd.pick(SANDSTONE), { ...at, y: H + 0.12, ry: alongX ? 0 : Math.PI / 2 });
-      p.add(box(0.24, 0.05, 0.21), M.capstone, { ...at, y: H + 0.265, ry: alongX ? 0 : Math.PI / 2 });
+      const off = side * 0.085;
+      for (const y of [0.32, 0.82]) {
+        p.add(box(dx ? 0.5 : 0.05, 0.07, dx ? 0.05 : 0.5), M.woodDark, { x: dx ? dx * 0.25 : off, y, z: dz ? dz * 0.25 : off });
+      }
     }
   }
-
-  if (straight) {
-    const alongX = dirs[0][1] !== 0;
-    stoneBlocks(p, { w: T, d: T, h: 0.16, rows: 1, along: alongX ? 'x' : 'z', rnd });
-    stoneBlocks(p, { y: 0.16, w: T, d: T, h: H - 0.16, rows: 3, along: alongX ? 'x' : 'z', rnd });
-  } else {
-    // End, corner or junction: a buttressed post with its own merlons.
-    const size = dirs.length === 0 ? 0.74 : 0.7;
-    const h = H + (dirs.length === 0 ? 0.18 : 0.28);
-    stoneBlocks(p, { w: size + 0.1, d: size + 0.1, h: 0.18, rows: 1, rnd });
-    stoneBlocks(p, { y: 0.18, w: size, d: size, h: h - 0.18, rows: 4, along: 'z', rnd });
-    p.add(box(size + 0.06, 0.06, size + 0.06), M.capstone, { y: h + 0.03 });
-    merlonsRect(p, { y: h + 0.06, w: size, d: size, size: 0.17, height: 0.22, spacing: 0.27, rnd });
+  if (dirs.length === 0) {
+    // A lone stretch: a short run of logs with braces.
+    for (const i of [-2, -1, 1, 2]) log(i * PITCH, 0);
+    for (const side of [-1, 1]) p.add(box(0.07, 0.07, 0.6), M.woodDark, { x: side * 0.3, y: 0.3, z: 0.18, rx: 0.9 });
+    for (const y of [0.32, 0.82]) p.add(box(0.62, 0.07, 0.05), M.woodDark, { y, z: 0.085 });
   }
+  for (const { x, z, r } of logs) {
+    const h = rnd.range(1.0, 1.22) + (r > 0.08 ? 0.1 : 0);
+    const tilt = { rx: rnd.range(-0.04, 0.04), rz: rnd.range(-0.04, 0.04) };
+    const mat = rnd.pick(LOGS);
+    p.add(cyl(r, r * 1.05, h, 8), mat, { x, y: h / 2, z, ...tilt, ry: rnd.range(0, 3) });
+    p.add(cone(r, 0.2, 8), mat, { x, y: h + 0.1, z, ...tilt });
+  }
+  // Earth banked against the foot of the logs.
+  p.add(box(0.3, 0.06, 0.3), M.dirt, { y: 0.03 });
+  for (const [, dx, dz] of dirs) p.add(box(dx ? 0.5 : 0.28, 0.06, dx ? 0.28 : 0.5), M.dirt, { x: dx * 0.25, y: 0.03, z: dz * 0.25 });
   groundDressing(p, { w: 0.6, d: 0.6, rnd, count: 3 });
   const g = p.build();
   g.userData.connections = connections;
@@ -159,88 +187,93 @@ function archer(p, { x, y, z, ry = 0 }) {
   p.add(torus(0.12, 0.012, 10), M.woodDark, { x: bow.x, y: y + 0.2, z: bow.z, ry: ry + Math.PI / 2, sx: 0.5 });
 }
 
+/** Wooden watchtower: braced log legs on stone footings, a plank cabin and a pyramid shingle roof. */
 function archerTower() {
   const M = MATERIALS;
   const p = new Parts();
   const rnd = rng(23);
-  stoneBlocks(p, { w: 1.72, h: 0.22, d: 1.72, rows: 1, rnd, minBlock: 0.3, maxBlock: 0.5 });
-  // Tapering shaft: one course at a time, alternating direction so the corners interlock.
-  const courses = 10;
-  const top = 2.5;
-  for (let i = 0; i < courses; i++) {
-    const t = i / (courses - 1);
-    const w = 1.34 - 0.2 * t;
-    const rowH = (top - 0.22) / courses;
-    stoneBlocks(p, { y: 0.22 + i * rowH, w, d: w, h: rowH, rows: 1, along: i % 2 ? 'x' : 'z', rnd });
+  const foot = 0.58;
+  const head = 0.46;
+  const deck = 1.55;
+  for (const sx of [-1, 1]) {
+    for (const sz of [-1, 1]) {
+      stoneBlocks(p, { x: sx * foot, z: sz * foot, w: 0.24, d: 0.24, h: 0.14, rows: 1, rnd });
+      // Leg leaning in from the footing to the deck corner.
+      const lean = Math.atan2(foot - head, deck);
+      p.add(box(0.12, deck + 0.1, 0.12), M.wood, { x: sx * (foot + head) / 2, y: 0.14 + deck / 2, z: sz * (foot + head) / 2, rx: -sz * lean, rz: sx * lean });
+    }
   }
-  door(p, { y: 0.22, z: 0.67, w: 0.38, h: 0.56 });
-  for (const [x, z, ry] of [
-    [0, 0.62, 0],
-    [0.62, 0, Math.PI / 2],
+  // Cross braces on each face, and a mid rail.
+  const midW = (foot + head) / 2;
+  for (const [ry, fx, fz] of [
+    [0, 0, 1],
+    [0, 0, -1],
+    [Math.PI / 2, 1, 0],
+    [Math.PI / 2, -1, 0],
   ]) {
-    for (const y of [1.25, 1.95]) {
-      const at = place(x, z, ry, 0, 0.005);
-      p.add(box(0.07, 0.3, 0.05), M.opening, { x: at.x, y, z: at.z, ry });
-      p.add(box(0.15, 0.05, 0.07), M.capstone, { x: at.x, y: y - 0.17, z: at.z, ry });
-    }
+    const at = { x: fx * midW, z: fz * midW };
+    for (const s of [-1, 1]) p.add(box(0.06, 1.55, 0.05), M.woodDark, { ...at, y: 0.85, ry, rz: s * 0.62, order: 'YZX' });
+    p.add(box(0.06, 0.07, midW * 2), M.woodDark, { ...at, y: 0.85, ry: ry + Math.PI / 2 });
   }
-  // Corbels under an overhanging fighting platform, then the parapet.
-  for (let i = 0; i < 5; i++) {
-    const t = -0.5 + (i + 0.5) / 5;
-    for (const [x, z] of [
-      [t * 1.2, 0.6],
-      [0.6, t * 1.2],
-      [t * 1.2, -0.6],
-      [-0.6, t * 1.2],
-    ]) {
-      p.add(box(0.12, 0.16, 0.12), rnd.pick(SANDSTONE), { x: x * 1.04, y: top - 0.04, z: z * 1.04 });
-    }
+  // Ladder up the front.
+  for (const sx of [-0.13, 0.13]) p.add(box(0.04, 1.6, 0.04), M.woodLight, { x: sx, y: 0.85, z: foot + 0.06, rx: -0.12 });
+  for (let i = 0; i < 6; i++) p.add(box(0.26, 0.03, 0.03), M.woodLight, { y: 0.25 + i * 0.25, z: foot + 0.06 - (0.25 + i * 0.25 - 0.85) * 0.12 });
+  // Deck, plank cabin with lookout gaps, and the roof.
+  p.add(box(1.22, 0.1, 1.22), M.woodDark, { y: deck + 0.14 });
+  const cab = 1.1;
+  const cabH = 0.6;
+  const y0 = deck + 0.19;
+  for (const [ry, fx, fz] of [
+    [0, 0, 1],
+    [0, 0, -1],
+    [Math.PI / 2, 1, 0],
+    [Math.PI / 2, -1, 0],
+  ]) {
+    // Lower boards, two corner posts, and a lintel: leaves a wide window to shoot from.
+    p.add(box(cab, 0.32, 0.06), M.wood, { x: (fx * cab) / 2, y: y0 + 0.16, z: (fz * cab) / 2, ry });
+    p.add(box(cab, 0.1, 0.06), M.wood, { x: (fx * cab) / 2, y: y0 + cabH - 0.05, z: (fz * cab) / 2, ry });
   }
-  stoneBlocks(p, { y: top + 0.04, w: 1.56, d: 1.56, h: 0.16, rows: 1, rnd, minBlock: 0.3, maxBlock: 0.5 });
-  p.add(box(1.3, 0.04, 1.3), M.woodLight, { y: top + 0.21 });
-  merlonsRect(p, { y: top + 0.2, w: 1.56, d: 1.56, size: 0.22, height: 0.32, spacing: 0.4, rnd });
-  archer(p, { x: 0.2, y: top + 0.23, z: 0.25, ry: Math.PI / 4 });
-  pennant(p, { x: -0.55, y: top + 0.2, z: -0.55, h: 1.05, w: 0.46 });
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) p.add(box(0.09, cabH, 0.09), M.woodDark, { x: (sx * cab) / 2, y: y0 + cabH / 2, z: (sz * cab) / 2 });
+  archer(p, { x: 0.18, y: y0, z: 0.2, ry: Math.PI / 4 });
+  archer(p, { x: -0.22, y: y0, z: -0.15, ry: -Math.PI / 3 });
+  p.add(cone(0.98, 0.78, 4), rnd.pick(ROOF_TILES), { y: y0 + cabH + 0.36, ry: Math.PI / 4 });
+  p.add(box(0.08, 0.2, 0.08), M.woodDark, { y: y0 + cabH + 0.82 });
   groundDressing(p, { w: 1.72, d: 1.72, rnd, count: 9 });
   return p.build();
 }
 
+/** A cannon on a low, squat stone plinth. */
 function cannonTower() {
   const M = MATERIALS;
   const p = new Parts();
   const rnd = rng(37);
-  stoneRing(p, { r: 0.98, h: 0.2, rows: 1, rnd, thickness: 0.3, blockLen: 0.5 });
-  stoneRing(p, { y: 0.2, r: 0.88, h: 1.05, rows: 4, rnd, taper: 0.06, thickness: 0.26 });
-  p.add(cyl(0.86, 0.86, 0.08, 20), M.capstone, { y: 1.29 });
-  p.add(cyl(0.74, 0.74, 0.04, 20), M.woodLight, { y: 1.33 });
-  merlonsRing(p, { y: 1.33, r: 0.78, count: 10, size: 0.22, height: 0.28, rnd });
-  door(p, { y: 0.2, z: 0.85, w: 0.36, h: 0.54 });
-  windowFrame(p, { x: 0.6, y: 0.85, z: 0.6, ry: Math.PI / 4, w: 0.14, h: 0.22, shutters: false });
-  // A neat pyramid of cannonballs.
+  stoneBlocks(p, { w: 1.62, d: 1.62, h: 0.26, rows: 1, rnd, minBlock: 0.32, maxBlock: 0.52 });
+  stoneBlocks(p, { y: 0.26, w: 1.36, d: 1.36, h: 0.24, rows: 1, along: 'z', rnd, minBlock: 0.3, maxBlock: 0.48 });
+  stoneBlocks(p, { y: 0.5, w: 1.14, d: 1.14, h: 0.2, rows: 1, rnd, minBlock: 0.28, maxBlock: 0.44 });
+  p.add(box(1.2, 0.06, 1.2), M.capstone, { y: 0.73 });
+  p.add(cyl(0.48, 0.48, 0.03, 18), M.woodDark, { y: 0.77 });
+  // Cannonballs and a powder keg on the lower step.
   for (const [x, z, y] of [
-    [-0.42, -0.2, 0],
-    [-0.28, -0.32, 0],
-    [-0.46, -0.38, 0],
-    [-0.39, -0.3, 0.1],
+    [-0.66, 0.42, 0],
+    [-0.66, 0.28, 0],
+    [-0.66, 0.35, 0.1],
   ]) {
-    p.add(sphere(0.07, 8, 6), M.cannonball, { x, y: 1.42 + y, z });
+    p.add(sphere(0.07, 8, 6), M.cannonball, { x, y: 0.33 + y, z });
   }
-  groundDressing(p, { w: 1.9, d: 1.9, rnd, count: 9 });
+  barrel(p, { x: 0.62, y: 0.26, z: -0.6, r: 0.1, h: 0.22 });
+  groundDressing(p, { w: 1.7, d: 1.7, rnd, count: 9 });
   const g = p.build();
 
-  // Turret: a heavy cannon on a carriage with spoked wheels; rotates to aim (+z is forward).
-  const t = new Parts({ yOffset: 1.35 });
-  for (const sx of [-0.18, 0.18]) t.add(box(0.07, 0.24, 0.72), M.wood, { x: sx, y: 0.17, z: -0.02 });
-  t.add(box(0.44, 0.06, 0.5), M.woodDark, { y: 0.07 });
-  for (const sx of [-0.27, 0.27]) {
-    for (const sz of [-0.22, 0.22]) wheel(t, { x: sx, y: 0.14, z: sz, r: 0.14, spokes: 5 });
-  }
-  t.add(cyl(0.13, 0.18, 1.0, 14), M.iron, { y: 0.36, z: 0.2, rx: Math.PI / 2 - 0.2 });
-  for (const zz of [0.62, 0.04]) t.add(torus(0.17, 0.03, 14), M.iron, { y: 0.36 + (zz - 0.2) * Math.sin(0.2), z: zz, rx: -0.2 });
-  t.add(sphere(0.19, 12, 9), M.iron, { y: 0.28, z: -0.28 });
-  t.add(sphere(0.06, 8, 6), M.iron, { y: 0.24, z: -0.48 });
+  // Turret: a stubby iron cannon on a wooden block carriage; rotates to aim (+z is forward).
+  const t = new Parts({ yOffset: 0.78 });
+  t.add(box(0.46, 0.2, 0.62), M.wood, { y: 0.1 });
+  for (const sx of [-0.2, 0.2]) t.add(box(0.06, 0.3, 0.5), M.woodDark, { x: sx, y: 0.22 });
+  for (const sx of [-0.27, 0.27]) for (const sz of [-0.2, 0.2]) t.add(cyl(0.09, 0.09, 0.06, 10), M.woodDark, { x: sx, y: 0.09, z: sz, rz: Math.PI / 2 });
+  t.add(cyl(0.12, 0.17, 0.82, 14), M.iron, { y: 0.34, z: 0.14, rx: Math.PI / 2 - 0.15 });
+  for (const zz of [0.5, 0.0]) t.add(torus(0.16, 0.03, 14), M.iron, { y: 0.34 + (zz - 0.14) * Math.sin(0.15), z: zz, rx: -0.15 });
+  t.add(sphere(0.18, 12, 9), M.iron, { y: 0.3, z: -0.26 });
   const turret = t.build();
-  turret.position.y = 1.35;
+  turret.position.y = 0.78;
   g.add(turret);
   g.userData.turret = turret;
   return g;
@@ -260,126 +293,112 @@ function crystalCluster(p, { x, y, z, scale = 1, rnd }) {
   }
 }
 
+/** A low, rune-carved stone mound studded with glowing crystals. */
 function magicSpire() {
   const M = MATERIALS;
   const p = new Parts();
   const rnd = rng(41);
-  // Three-tier dark stone platform with glowing runes.
+  const stones = [...GREYSTONE.slice(0, 2), ...SANDSTONE.slice(0, 2)];
   let y = 0;
   for (const [w, h] of [
-    [1.82, 0.24],
-    [1.46, 0.28],
-    [1.12, 0.28],
+    [1.6, 0.22],
+    [1.28, 0.22],
+    [0.96, 0.2],
   ]) {
-    stoneBlocks(p, { y, w, d: w, h, rows: 1, rnd, stones: GREYSTONE, mortar: M.mortarDark, minBlock: 0.28, maxBlock: 0.46 });
-    p.add(box(w + 0.04, 0.04, w + 0.04), M.capstone, { y: y + h + 0.01 });
+    stoneBlocks(p, { y, w, d: w, h, rows: 1, rnd, stones, mortar: M.mortarDark, minBlock: 0.24, maxBlock: 0.4 });
     for (const [rx, rz, ry] of [
       [0, w / 2 + 0.01, 0],
       [w / 2 + 0.01, 0, Math.PI / 2],
     ]) {
-      for (const k of [-0.25, 0, 0.25]) {
+      for (const k of [-0.25, 0.25]) {
         const at = place(rx, rz, ry, k * w, 0);
         p.add(box(0.1, 0.05, 0.02), M.rune, { x: at.x, y: y + h / 2, z: at.z, ry });
       }
     }
-    y += h + 0.02;
+    y += h;
   }
-  // Tapering obelisk.
-  const courses = 8;
-  const top = 2.75;
-  for (let i = 0; i < courses; i++) {
-    const t = i / (courses - 1);
-    const w = 0.62 - 0.26 * t;
-    const rowH = (top - y) / courses;
-    stoneBlocks(p, { y: y + i * rowH, w, d: w, h: rowH, rows: 1, along: i % 2 ? 'x' : 'z', rnd, stones: GREYSTONE, mortar: M.mortarDark, minBlock: 0.18, maxBlock: 0.32 });
-  }
-  for (const [x, z, ry] of [
-    [0, 0.26, 0],
-    [0.26, 0, Math.PI / 2],
+  // The mound rises in smaller rounded stones to a capstone.
+  for (const [w, h] of [
+    [0.7, 0.18],
+    [0.46, 0.16],
   ]) {
-    const at = place(x, z, ry, 0, 0.0);
-    p.add(box(0.05, 1.3, 0.03), M.rune, { x: at.x, y: y + 0.9, z: at.z, ry });
+    stoneBlocks(p, { y, w, d: w, h, rows: 1, rnd, stones, mortar: M.mortarDark, minBlock: 0.16, maxBlock: 0.26 });
+    y += h;
   }
-  p.add(box(0.44, 0.08, 0.44), M.capstone, { y: top + 0.04 });
-  p.add(cone(0.34, 0.6, 4), SLATE[0], { y: top + 0.38, ry: Math.PI / 4 });
-  p.add(octa(0.07), M.crystal, { y: top + 0.74, sy: 1.8 });
-  for (const [x, z] of [
-    [0.72, 0.72],
-    [-0.72, 0.72],
-    [0.72, -0.72],
-    [-0.72, -0.72],
+  p.add(rbox(0.32, 0.16, 0.32, 0.07), rnd.pick(GREYSTONE), { y: y + 0.08, ry: Math.PI / 4 });
+  // Crystal shards breaking out of the corners of each step.
+  for (const [w, yy] of [
+    [1.6, 0.22],
+    [1.28, 0.44],
   ]) {
-    crystalCluster(p, { x, y: 0.24, z, rnd });
+    for (const [sx, sz] of [
+      [1, 1],
+      [-1, 1],
+      [1, -1],
+      [-1, -1],
+    ]) {
+      crystalCluster(p, { x: (sx * w) / 2 - sx * 0.12, y: yy - 0.04, z: (sz * w) / 2 - sz * 0.12, rnd, scale: w > 1.5 ? 1.1 : 0.9 });
+    }
   }
-  groundDressing(p, { w: 1.82, d: 1.82, rnd, count: 8 });
+  groundDressing(p, { w: 1.7, d: 1.7, rnd, count: 8 });
   const g = p.build();
-  // Floating crystal, baked separately and bobbed in game.
-  const c = new Parts({ yOffset: 3.4 });
-  c.add(octa(0.26), M.crystal, { sy: 1.6 });
-  for (const a of [0, 2.1, 4.2]) c.add(octa(0.06), M.crystal, { x: Math.cos(a) * 0.32, y: Math.sin(a * 2) * 0.08, z: Math.sin(a) * 0.32, sy: 1.7 });
+  // Central crystal, baked separately and bobbed in game.
+  const c = new Parts({ yOffset: 1.3 });
+  c.add(octa(0.18), M.crystal, { sy: 1.7 });
+  for (const a of [0, 2.1, 4.2]) c.add(octa(0.06), M.crystal, { x: Math.cos(a) * 0.15, y: -0.12, z: Math.sin(a) * 0.15, sy: 1.8, rz: Math.cos(a) * 0.4, rx: Math.sin(a) * 0.4 });
   const crystal = c.build();
-  crystal.position.y = 3.45;
+  crystal.position.y = 1.3;
   g.add(crystal);
   g.userData.crystal = crystal;
   return g;
 }
 
+/** A plain wooden catapult on four chunky wheels. */
 function catapult() {
   const M = MATERIALS;
   const p = new Parts();
   const rnd = rng(53);
-  // Plank deck on stone footings, with a pile of boulders.
-  for (const [x, z] of [
-    [-0.72, -0.72],
-    [0.72, -0.72],
-    [-0.72, 0.72],
-    [0.72, 0.72],
-  ]) {
-    stoneBlocks(p, { x, z, w: 0.24, d: 0.24, h: 0.16, rows: 1, rnd });
-  }
-  p.add(box(1.62, 0.08, 1.62), M.woodLight, { y: 0.2 });
-  for (let i = 0; i < 7; i++) p.add(box(0.03, 0.01, 1.62), M.woodDark, { x: -0.7 + i * 0.233, y: 0.245 });
-  for (const s of [-1, 1]) {
-    p.add(box(1.7, 0.09, 0.09), M.beam, { y: 0.23, z: s * 0.8 });
-    p.add(box(0.09, 0.09, 1.7), M.beam, { x: s * 0.8, y: 0.23 });
-  }
   for (const [x, z, r] of [
-    [-0.6, -0.45, 0.13],
-    [-0.45, -0.6, 0.11],
-    [-0.62, -0.62, 0.1],
-    [-0.52, -0.52, 0.09],
+    [-0.62, -0.5, 0.13],
+    [-0.5, -0.64, 0.11],
+    [-0.66, -0.66, 0.1],
+    [-0.58, -0.56, 0.09],
   ]) {
-    p.add(dodeca(r), M.boulder, { x, y: 0.3 + (r < 0.1 ? 0.12 : 0), z });
+    p.add(dodeca(r), M.boulder, { x, y: r * 0.8 + (r < 0.1 ? 0.1 : 0), z });
   }
+  p.add(box(1.5, 0.03, 1.5), M.dirt, { y: 0.015 });
   groundDressing(p, { w: 1.7, d: 1.7, rnd, count: 8 });
   const g = p.build();
 
-  // Turret: frame on wheels (rotates to aim, +z forward) carrying the throwing arm.
-  const t = new Parts({ yOffset: 0.36 });
-  for (const sx of [-0.4, 0.4]) {
-    t.add(box(0.1, 0.1, 1.3), M.wood, { x: sx, y: 0.12 });
-    t.add(box(0.09, 0.9, 0.09), M.wood, { x: sx, y: 0.52, z: -0.14, rx: 0.32 });
-    t.add(box(0.09, 0.9, 0.09), M.wood, { x: sx, y: 0.52, z: 0.14, rx: -0.32 });
-    for (const sz of [-0.48, 0.48]) wheel(t, { x: sx + Math.sign(sx) * 0.09, y: 0.12, z: sz, r: 0.15, spokes: 6 });
+  // Turret: the frame on its wheels (rotates to aim, +z forward) carrying the throwing arm.
+  const t = new Parts({ yOffset: 0 });
+  for (const sx of [-0.36, 0.36]) {
+    t.add(box(0.14, 0.14, 1.3), M.wood, { x: sx, y: 0.28 });
+    // A-frame uprights to the axle.
+    t.add(box(0.11, 0.66, 0.11), M.wood, { x: sx, y: 0.56, z: -0.16, rx: 0.4 });
+    t.add(box(0.11, 0.66, 0.11), M.wood, { x: sx, y: 0.56, z: 0.16, rx: -0.4 });
+    for (const sz of [-0.45, 0.45]) {
+      const wx = sx + Math.sign(sx) * 0.12;
+      t.add(cyl(0.2, 0.2, 0.1, 14), M.woodDark, { x: wx, y: 0.2, z: sz, rz: Math.PI / 2 });
+      t.add(cyl(0.07, 0.07, 0.12, 8), M.iron, { x: wx + Math.sign(sx) * 0.01, y: 0.2, z: sz, rz: Math.PI / 2 });
+    }
   }
-  for (const sz of [-0.56, 0.56]) t.add(box(0.9, 0.09, 0.09), M.wood, { y: 0.14, z: sz });
-  t.add(cyl(0.045, 0.045, 0.96, 8), M.iron, { y: 0.88, rz: Math.PI / 2 });
-  t.add(box(0.86, 0.1, 0.1), M.woodDark, { y: 0.6, z: 0.42 });
-  t.add(torus(0.08, 0.025, 10), M.rope, { x: 0.3, y: 0.62, z: 0.42, ry: Math.PI / 2 });
+  for (const sz of [-0.58, 0.58]) t.add(box(0.86, 0.12, 0.12), M.wood, { y: 0.3, z: sz });
+  t.add(cyl(0.05, 0.05, 0.86, 8), M.iron, { y: 0.84, rz: Math.PI / 2 });
+  t.add(box(0.8, 0.12, 0.12), M.woodDark, { y: 0.72, z: 0.4 }); // stop beam the arm hits
+  t.add(torus(0.07, 0.025, 10), M.rope, { x: 0.18, y: 0.84, ry: Math.PI / 2 });
+  t.add(torus(0.07, 0.025, 10), M.rope, { x: -0.18, y: 0.84, ry: Math.PI / 2 });
   const turret = t.build();
-  turret.position.y = 0.36;
 
-  // Throwing arm: pivots at the axle; the bucket end points to -z when loaded.
-  const a = new Parts({ yOffset: 1.24 });
-  a.add(box(0.1, 0.1, 1.5), M.woodDark, { z: -0.42 });
-  a.add(cyl(0.17, 0.11, 0.14, 12), M.wood, { y: 0.06, z: -1.12 });
-  a.add(torus(0.16, 0.02, 12), M.iron, { y: 0.12, z: -1.12, rx: Math.PI / 2 });
-  stoneBlocks(a, { y: -0.27, z: 0.38, w: 0.36, h: 0.3, d: 0.3, rows: 2, rnd });
-  for (const yy of [-0.2, -0.05]) a.add(box(0.4, 0.03, 0.34), M.iron, { y: yy, z: 0.38 });
+  // Throwing arm: pivots at the axle; the spoon end points to -z when loaded.
+  const a = new Parts({ yOffset: 0.84 });
+  a.add(box(0.11, 0.11, 1.2), M.woodDark, { z: -0.42 });
+  a.add(cyl(0.16, 0.1, 0.12, 12), M.wood, { y: 0.05, z: -1.0 });
+  a.add(torus(0.15, 0.02, 12), M.iron, { y: 0.1, z: -1.0, rx: Math.PI / 2 });
   const arm = a.build();
-  arm.position.y = 0.88;
-  const ammo = new Parts({ yOffset: 1.3 }).add(dodeca(0.13), M.boulder).build();
-  ammo.position.set(0, 0.2, -1.12);
+  arm.position.y = 0.84;
+  const ammo = new Parts({ yOffset: 1.0 }).add(dodeca(0.12), M.boulder).build();
+  ammo.position.set(0, 0.18, -1.0);
   arm.add(ammo);
   turret.add(arm);
   g.add(turret);

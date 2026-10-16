@@ -45,6 +45,8 @@ Pre-rendered sprites on a fixed isometric camera (see ARCHITECTURE.md), working 
 - [x] Step 3c: painted ground per map (grass, forest floor, gravel, water and banks, no roads), terrain sprites,
       build-mode tint on unbuildable tiles, decorative woods outside the map
 - [x] Step 3d: stamped ground detail (tufts, flowers, pebbles, leaves) and a water shimmer
+- [x] Buildings remodelled as their Stage 1 designs from the reference (keep in a fenced yard, wooden
+      watchtower, cannon on a low plinth, crystal mound, plain catapult, log palisade)
 - [ ] Step 4: animated units (8-direction walk/attack frames)
 
 ## v0.2: Defence depth

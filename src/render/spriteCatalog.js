@@ -26,7 +26,9 @@ export const spriteKeys = {
 
 /** Height of a building's turret pivot above the ground (sprites are lifted by this much). */
 export const turretHeight = (type) => createBuildingModel(type).userData.turret?.position.y ?? 0;
-export const CRYSTAL_HEIGHT = 3.45;
+let crystalY = null;
+/** Height of the Magic Spire's floating crystal above the ground. */
+export const crystalHeight = () => (crystalY ??= createBuildingModel('magicSpire').userData.crystal.position.y);
 
 /** Which buildings have separately animated parts (and so extra sprites). */
 const BUILDING_PARTS = {

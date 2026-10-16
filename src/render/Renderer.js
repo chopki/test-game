@@ -9,7 +9,7 @@ import { createProjectileModel, SCENERY_VARIANTS } from './models.js';
 import { BlobShadowBatch, HealthBarBatch } from './batches.js';
 import { ISO_QUATERNION, isoDirection } from './iso.js';
 import { SpriteLayer } from './spriteLayer.js';
-import { CATAPULT_ARM_FRAMES, CRYSTAL_HEIGHT, spriteKeys, turretHeight } from './spriteCatalog.js';
+import { CATAPULT_ARM_FRAMES, crystalHeight, spriteKeys, turretHeight } from './spriteCatalog.js';
 
 const SKY = 0xa9d3ee;
 
@@ -511,7 +511,7 @@ export class Renderer {
         this.sprites.add(spriteKeys.turret(b.type, b.aim), ground, 1, this.turretHeights[b.type]);
       }
       if (b.type === 'magicSpire') {
-        this.sprites.add(spriteKeys.crystal(), ground, 1, CRYSTAL_HEIGHT + Math.sin(this._time * 2 + view.phase) * 0.12);
+        this.sprites.add(spriteKeys.crystal(), ground, 1, crystalHeight() + Math.sin(this._time * 2 + view.phase) * 0.08);
       }
     }
     if (b.hp < b.maxHp || b.type === 'townHall') {
