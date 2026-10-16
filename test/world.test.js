@@ -139,3 +139,47 @@ describe('building towers into walls', () => {
     expect(world.canPlace('wall', 8, 10).reason).toBe('Space is occupied');
   });
 });
+
+describe('towers snap into walls', () => {
+  const walls = (world, tiles) => {
+    world.economy.earn(2000);
+    for (const [x, z] of tiles) expect(world.place('wall', x, z).ok).toBe(true);
+  };
+  const footprint = (a, size = 2) => {
+    const out = [];
+    for (let dz = 0; dz < size; dz++) for (let dx = 0; dx < size; dx++) out.push(`${a.x + dx},${a.z + dz}`);
+    return out;
+  };
+
+  it('on a straight run, the tower sits across the line with the wall carrying on from both sides', () => {
+    const world = new World({ seed: 1 });
+    walls(world, [6, 7, 8, 9, 10, 11, 12].map((x) => [x, 8])); // north of the hall (hall is 18–20)
+    for (const hoverX of [8, 9, 10]) {
+      const a = world.anchorFor('archerTower', hoverX, 8);
+      const tiles = footprint(a);
+      expect(tiles).toContain(`${hoverX},8`); // covers the hovered wall tile
+      // Two wall tiles of the line inside, wall continuing on both sides.
+      expect(tiles.filter((t) => t.endsWith(',8'))).toHaveLength(2);
+      expect(world.buildingAt(a.x - 1, 8)?.type).toBe('wall');
+      expect(world.buildingAt(a.x + 2, 8)?.type).toBe('wall');
+      expect(a.z).toBe(8); // the second row is on the hall's side of the wall
+    }
+  });
+
+  it('at a corner, the tower takes the corner so both arms join it', () => {
+    const world = new World({ seed: 1 });
+    // An L: along z = 8 from x 6–12, then down x = 12 to z 14 (corner at 12, 8).
+    walls(world, [...[6, 7, 8, 9, 10, 11, 12].map((x) => [x, 8]), ...[9, 10, 11, 12, 13, 14].map((z) => [12, z])]);
+    const a = world.anchorFor('cannonTower', 12, 8);
+    expect(footprint(a)).toContain('12,8');
+    expect(world.buildingAt(a.x - 1, 8)?.type).toBe('wall'); // west arm joins
+    expect(world.buildingAt(12, a.z + 2)?.type).toBe('wall'); // south arm joins
+    expect(world.place('cannonTower', a.x, a.z).ok).toBe(true);
+  });
+
+  it('only snaps when hovering a wall', () => {
+    const world = new World({ seed: 1 });
+    walls(world, [[8, 8], [9, 8], [10, 8]]);
+    expect(world.anchorFor('archerTower', 9, 10)).toEqual({ x: 9, z: 10 });
+  });
+});

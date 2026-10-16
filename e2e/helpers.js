@@ -137,6 +137,9 @@ export async function buildShowcase(page, testInfo, name) {
     // Towers built into the wall ring, west and south (they replace the wall tiles they cover).
     w.place('archerTower', 13, 16);
     w.place('cannonTower', 20, 23);
+    // And one dropped on the south-west corner, snapped into it as the player would.
+    const corner = w.anchorFor('archerTower', 14, 24);
+    w.place('archerTower', corner.x, corner.z);
     w.phase = 'wave';
     ['grunt', 'runner', 'orc', 'brute'].forEach((type, i) => {
       for (let n = 0; n < 3; n++) {

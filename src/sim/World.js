@@ -68,10 +68,50 @@ export class World {
     return id === null ? null : this.buildings.get(id);
   }
 
-  /** Top-left tile for a building of `type` centred (as near as possible) on the hovered tile. */
+  /**
+   * Top-left tile for a building of `type` placed at the hovered tile: centred on it (as near as possible), or,
+   * when a tower is put on a wall, snapped into the wall: across the middle of a straight run (the wall carries
+   * on from both sides) or onto a corner (both arms join it). See _wallSnap().
+   */
   anchorFor(type, tileX, tileZ) {
     const offset = Math.floor((BUILDINGS[type].size - 1) / 2);
-    return { x: tileX - offset, z: tileZ - offset };
+    const centred = { x: tileX - offset, z: tileZ - offset };
+    if (type === 'wall' || this.buildingAt(tileX, tileZ)?.type !== 'wall') return centred;
+    return this._wallSnap(type, tileX, tileZ) ?? centred;
+  }
+
+  /**
+   * Of the footprints that cover the hovered wall tile, the one that sits best in the wall: most wall ends
+   * joining it from outside (2 for a straight run or a corner), then most wall tiles replaced, then nearest the
+   * Town Hall (towers usually go on the inner side of a wall). Null if none can be built.
+   */
+  _wallSnap(type, tileX, tileZ) {
+    const size = BUILDINGS[type].size;
+    const hall = this.townHall;
+    let best = null;
+    for (let dz = 0; dz < size; dz++) {
+      for (let dx = 0; dx < size; dx++) {
+        const x = tileX - dx;
+        const z = tileZ - dz;
+        if (!this.canPlace(type, x, z, { ignoreCost: true }).ok) continue;
+        const replaced = this.wallsUnder(type, x, z).length;
+        let joins = 0;
+        for (let i = 0; i < size; i++) {
+          for (const [ox, oz] of [
+            [x + i, z - 1],
+            [x + i, z + size],
+            [x - 1, z + i],
+            [x + size, z + i],
+          ]) {
+            if (this.buildingAt(ox, oz)?.type === 'wall') joins++;
+          }
+        }
+        const toHall = Math.hypot(x + size / 2 - hall.cx, z + size / 2 - hall.cz);
+        const score = joins * 100 + replaced * 10 - toHall * 0.01;
+        if (!best || score > best.score) best = { x, z, score };
+      }
+    }
+    return best && { x: best.x, z: best.z };
   }
 
   /** Can `type` go at (x, z)? With `ignoreCost`, gold isn't checked (used when planning several at once). */

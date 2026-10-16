@@ -72,6 +72,8 @@ Enemies can't break terrain, so a full enclosure always includes some wall. Ever
 Towers can be built **into a wall line**: the wall tiles under the tower are replaced, and their sell value
 (50% of cost × HP fraction) counts towards the tower's price. The rest of the wall joins onto the tower, tied in
 with an anchor post. Anything other than walls (another tower, the Town Hall) still blocks placement.
+Hovering a wall tile with a tower selected snaps it into the wall: across the middle of a straight run (the wall
+carries on from both sides), or onto a corner so both arms join it, preferring the side facing the Town Hall.
 
 | Building     | Size | Cost | HP   | Attack                                   | Notes |
 | ------------ | ---- | ---- | ---- | ---------------------------------------- | ----- |
