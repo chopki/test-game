@@ -12,6 +12,20 @@ const BEST_KEY = 'hold-the-hall:best-wave';
 export class Game {
   constructor(container) {
     this.renderer = new Renderer(container);
+    this.contextLost = false;
+    // If the GPU resets, the canvas goes blank. Pause the game and tell the player instead of
+    // silently showing a white screen; three.js re-creates its GPU resources on restore.
+    this.renderer.canvas.addEventListener('webglcontextlost', () => {
+      this.contextLost = true;
+      this.hud.showError(
+        'Graphics were reset by your browser',
+        'The game is paused and will resume automatically when graphics are restored. If it stays like this, reload the page.',
+      );
+    });
+    this.renderer.canvas.addEventListener('webglcontextrestored', () => {
+      this.contextLost = false;
+      this.hud.hideError();
+    });
     this.build = new BuildController(this);
     this.hud = new HUD(this);
     this.speed = 1;
@@ -102,6 +116,11 @@ export class Game {
   _frame(now) {
     const dt = Math.min(0.1, (now - this._last) / 1000);
     this._last = now;
+
+    if (this.contextLost) {
+      requestAnimationFrame((t) => this._frame(t));
+      return;
+    }
 
     if (!this.paused) {
       // Run extra fixed-size steps rather than one big one so fast-forward stays stable.

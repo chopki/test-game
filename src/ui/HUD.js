@@ -178,6 +178,16 @@ export class HUD {
     this.el.help.hidden = force === undefined ? !this.el.help.hidden : !force;
   }
 
+  showError(title, message) {
+    $('error-title').textContent = title;
+    $('error-message').textContent = message;
+    $('error').hidden = false;
+  }
+
+  hideError() {
+    $('error').hidden = true;
+  }
+
   showGameOver(stats) {
     const best = this.game.recordBest(stats.wavesSurvived);
     this.el.gameoverStats.innerHTML = `

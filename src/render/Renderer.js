@@ -35,10 +35,11 @@ export class Renderer {
     this.camera = new THREE.PerspectiveCamera(45, 1, 0.1, 400);
     this.camera.position.set(0, 26, 23);
 
-    this.renderer = new THREE.WebGLRenderer({ antialias: true });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    // Capped: full 2× on large/retina screens is a big GPU load and a common cause of context loss.
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.shadowMap.type = THREE.PCFShadowMap;
     container.appendChild(this.renderer.domElement);
 
     this.controls = new MapControls(this.camera, this.renderer.domElement);
