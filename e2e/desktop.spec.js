@@ -3,7 +3,7 @@ import { buildingAt, countBuildings, expect, gold, graphicsState, openGame, sett
 
 // The Town Hall covers tiles 18–20 on both axes; tiles inside 2..37 are buildable.
 
-test('loads with the HUD and no errors', async ({ page }) => {
+test('loads with the HUD and no errors', { tag: '@smoke' }, async ({ page }) => {
   const errors = await openGame(page);
   await expect(page.locator('#gold')).toHaveText('300');
   await expect(page.locator('#wave')).toHaveText('0');
@@ -12,7 +12,7 @@ test('loads with the HUD and no errors', async ({ page }) => {
   expect(errors).toEqual([]);
 });
 
-test('hotkey + click places an archer tower and spends gold', async ({ page }) => {
+test('hotkey + click places an archer tower and spends gold', { tag: '@smoke' }, async ({ page }) => {
   const errors = await openGame(page);
   await page.keyboard.press('2');
   await expect(page.getByRole('button', { name: /Archer Tower/ })).toHaveClass(/active/);
@@ -32,7 +32,7 @@ async function mouseDrag(page, from, to, { release = true } = {}) {
   if (release) await page.mouse.up();
 }
 
-test('dragging in wall mode previews a wall line with its cost, built on release', async ({ page }) => {
+test('dragging in wall mode previews a wall line with its cost, built on release', { tag: '@smoke' }, async ({ page }) => {
   await openGame(page);
   await page.keyboard.press('1');
   await mouseDrag(page, [10, 8], [20, 8], { release: false });
@@ -106,7 +106,7 @@ test('right-click cancels build mode', async ({ page }) => {
   expect(await page.evaluate(() => window.game.build.mode)).toBe(null);
 });
 
-test('starting a wave spawns enemies', async ({ page }) => {
+test('starting a wave spawns enemies', { tag: '@smoke' }, async ({ page }) => {
   await openGame(page, { paused: false });
   await page.getByRole('button', { name: /Start wave/ }).click();
   await expect(page.locator('#wave')).toHaveText('1');
@@ -115,7 +115,7 @@ test('starting a wave spawns enemies', async ({ page }) => {
   await expect(page.locator('#chronicle-list')).toContainText('Wave 1 incoming');
 });
 
-test('a GPU context loss pauses the game and it recovers', async ({ page }) => {
+test('a GPU context loss pauses the game and it recovers', { tag: '@smoke' }, async ({ page }) => {
   await openGame(page, { paused: false });
   // Switch up to High first, so there's a preset to step down from.
   await page.getByRole('button', { name: 'Settings' }).click();
@@ -185,7 +185,7 @@ test('settings are not remembered: a fresh load always starts on Low', async ({ 
   expect((await graphicsState(page)).preset).toBe('low');
 });
 
-test('overriding one setting marks the preset Custom; FPS counter and frame cap work', async ({ page }) => {
+test('overriding one setting marks the preset Custom; FPS counter and frame cap work', { tag: '@smoke' }, async ({ page }) => {
   await openGame(page);
   await page.getByRole('button', { name: 'Settings' }).click();
   await settingButton(page, 'Shadows', 'High').click();
@@ -265,7 +265,7 @@ test('walls reshape to join their neighbours and towers', async ({ page }) => {
   await expect.poll(() => wallKey(9, 10)).toBe('-es-'); // now a corner
 });
 
-test('draw calls stay flat as walls and enemies are added (instancing)', async ({ page }) => {
+test('draw calls stay flat as walls and enemies are added (instancing)', { tag: '@smoke' }, async ({ page }) => {
   await openGame(page);
   // Lowest draw-call count over a few frames: the frame that redraws the (static) shadow map after a change
   // also counts its shadow pass, so it isn't representative.

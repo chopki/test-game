@@ -10,8 +10,10 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test",
-    "test:all": "vitest run && playwright test"
+    "test:e2e": "playwright test --grep @smoke",
+    "test:e2e:full": "playwright test",
+    "test:all": "vitest run && playwright test --grep @smoke",
+    "test:full": "vitest run && playwright test"
   },
   "dependencies": {
     "three": "^0.186.1"

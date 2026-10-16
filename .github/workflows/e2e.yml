@@ -1,10 +1,19 @@
 name: Browser tests (manual)
 
-# Playwright desktop + phone regression tests. They take a few minutes, so they don't run on
-# push: start them from the Actions tab ("Run workflow"), or run `npm run test:e2e` locally.
+# Playwright desktop + phone browser tests. They don't run on push: start them from the Actions tab
+# ("Run workflow") and choose the vital smoke set (~1–2 min) or the full regression suite.
+# Locally: `npm run test:e2e` (smoke) or `npm run test:e2e:full`.
 
 on:
   workflow_dispatch:
+    inputs:
+      suite:
+        description: Which tests to run
+        type: choice
+        options:
+          - smoke
+          - full
+        default: smoke
 
 permissions:
   contents: read
@@ -20,7 +29,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-      - run: npx playwright test
+      - run: npx playwright test ${{ inputs.suite == 'full' && ' ' || '--grep @smoke' }}
       - uses: actions/upload-artifact@v7
         if: failure()
         with:

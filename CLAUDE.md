@@ -2,9 +2,12 @@
 
 3D browser tower-defence / survival game (Three.js + Vite, plain JS ES modules).
 
-- `npm test` runs the Vitest simulation tests; `npm run test:e2e` runs the Playwright browser tests (desktop and
-  Pixel 7 phone) against the production build. Both must stay green, as must `npm run build`.
-  CI only runs the unit tests on push; run `npm run test:e2e` yourself before pushing UI/input changes. `npm run dev` starts
+- `npm test` runs the Vitest simulation tests. Browser tests (Playwright, desktop + Pixel 7 phone, against the
+  production build) come in two sizes: `npm run test:e2e` runs the vital `@smoke` set (~1.5 min: loading, placing,
+  walls, waves, crash recovery, frame-rate cap and draw-call budget, phone touch flow). Run it before pushing
+  UI/input/rendering changes. `npm run test:e2e:full` is the full regression suite: run it only when asked for a
+  full test. `npm run build` must stay green. CI only runs the unit tests on push.
+- Tag a new browser test `{ tag: '@smoke' }` only if it guards something vital; otherwise it's full-suite only. `npm run dev` starts
   the dev server.
 - **Save browser checks as tests.** Don't verify UI or input changes with one-off scripts: add or extend a spec in
   `e2e/` (helpers in `e2e/helpers.js`) so it becomes part of the regression set. Gameplay rules go in `test/`.

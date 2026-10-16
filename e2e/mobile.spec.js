@@ -5,7 +5,7 @@ import { buildingAt, cameraTarget, countBuildings, expect, gold, openGame, tileT
 
 const pendingTile = (page) => page.evaluate(() => window.game.build.pending);
 
-test('defaults to the Low graphics preset and the HUD fits the screen', async ({ page }) => {
+test('defaults to the Low graphics preset and the HUD fits the screen', { tag: '@smoke' }, async ({ page }) => {
   const errors = await openGame(page);
   const r = await page.evaluate(() => ({
     pixelRatio: window.game.renderer.renderer.getPixelRatio(),
@@ -30,7 +30,7 @@ test('defaults to the Low graphics preset and the HUD fits the screen', async ({
   expect(errors).toEqual([]);
 });
 
-test('dragging a tower moves it without moving the map, then ✓ builds it', async ({ page }) => {
+test('dragging a tower moves it without moving the map, then ✓ builds it', { tag: '@smoke' }, async ({ page }) => {
   const errors = await openGame(page);
   const touch = await touchInput(page);
   await page.getByRole('button', { name: /Archer Tower/ }).tap();
@@ -98,7 +98,7 @@ test('holding a tower at the screen edge scrolls the map', async ({ page }) => {
   expect(z).toBeLessThan(15); // the tower travelled with the scrolling map
 });
 
-test('dragging in wall mode plans a wall line that ✓ builds', async ({ page }) => {
+test('dragging in wall mode plans a wall line that ✓ builds', { tag: '@smoke' }, async ({ page }) => {
   await openGame(page);
   const touch = await touchInput(page);
   await page.getByRole('button', { name: /Castle Wall/ }).tap();
@@ -162,4 +162,25 @@ test('the settings menu fits the phone screen and can be scrolled to Done', asyn
   expect(box.height).toBeLessThanOrEqual(vp.height);
   await page.getByRole('button', { name: 'Done' }).tap();
   await expect(page.locator('#settings')).toBeHidden();
+});
+
+test('frame rate: Low caps at 30 fps and uses automatic render scale', { tag: '@smoke' }, async ({ page }) => {
+  await openGame(page, { paused: false });
+  const r = await page.evaluate(
+    () =>
+      new Promise((resolve) => {
+        const g = window.game;
+        const f0 = g.renderer.renderer.info.render.frame;
+        const t0 = performance.now();
+        setTimeout(() => {
+          const fps = ((g.renderer.renderer.info.render.frame - f0) * 1000) / (performance.now() - t0);
+          resolve({ fps, cap: g.graphics.fpsCap, auto: !!g.dynamicResolution, scale: g.renderer.effectiveScale });
+        }, 2000);
+      }),
+  );
+  expect(r.cap).toBe(30);
+  expect(r.fps).toBeLessThanOrEqual(32);
+  expect(r.fps).toBeGreaterThan(0);
+  expect(r.auto).toBe(true);
+  expect(r.scale).toBeGreaterThanOrEqual(0.5);
 });

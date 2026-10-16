@@ -158,7 +158,8 @@ See [ROADMAP.md](ROADMAP.md) for ordering.
 
 Keep new gameplay logic in `sim/` so it can be tested the same way.
 
-`npm run test:e2e` runs Playwright browser tests against the production build (`vite preview`), with WebGL on
+`npm run test:e2e` runs the vital `@smoke`-tagged browser tests and `npm run test:e2e:full` the whole
+Playwright suite, against the production build (`vite preview`), with WebGL on
 SwiftShader so they work without a GPU (including on CI):
 
 - `e2e/desktop.spec.js` (1280×800): HUD loads with no errors, hotkey + click placement, wall lines (cost tag, L-shape, snap to tower,
