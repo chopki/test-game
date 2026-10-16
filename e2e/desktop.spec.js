@@ -427,3 +427,22 @@ test('streams flow and cloud shadows drift (zoomed screenshot attached)', async 
   await testInfo.attach('water', { body: shot, contentType: 'image/png' });
   expect(errors).toEqual([]);
 });
+
+test('settings: New map starts a fresh game on another map, asking first if one is under way', async ({ page }) => {
+  const errors = await openGame(page, { map: 'terrain' });
+  const seed = () => page.evaluate(() => window.game.world.seed);
+  const first = await seed();
+  await page.evaluate(() => window.game.world.place('wall', 20, 12)); // a game under way
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await expect(page.locator('#settings-body')).toContainText(`Map ${first}`);
+  await page.getByRole('button', { name: 'New map' }).click();
+  // First press only asks.
+  await expect(page.getByRole('button', { name: /Tap again/ })).toBeVisible();
+  expect(await seed()).toBe(first);
+  await page.getByRole('button', { name: /Tap again/ }).click();
+  await expect(page.locator('#settings')).toBeHidden();
+  expect(await seed()).not.toBe(first);
+  expect(await countBuildings(page, 'wall')).toBe(0);
+  expect(await page.evaluate(() => window.game.world.waves.wave)).toBe(0);
+  expect(errors).toEqual([]);
+});

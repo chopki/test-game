@@ -59,12 +59,13 @@ export class Game {
   }
 
   /**
-   * Start a game on a newly generated map. URL options: `?seed=N` replays a map (and its waves); `?map=open`
-   * starts without terrain (the browser tests use it to place buildings anywhere).
+   * Start a game on a newly generated map. `seed` picks the map (and its waves); without it, the URL's `?seed=N`
+   * is used if given (to replay a map), else a random one. `?map=open` starts without terrain (the browser tests
+   * use it to place buildings anywhere).
    */
-  newGame() {
+  newGame({ seed } = {}) {
     const params = new URLSearchParams(location.search);
-    const seed = params.has('seed') ? Number(params.get('seed')) : Math.floor(Math.random() * 1e6);
+    seed ??= params.has('seed') ? Number(params.get('seed')) : Math.floor(Math.random() * 1e6);
     this.world = new World({ seed, terrain: params.get('map') === 'open' ? 'open' : 'generate' });
     this.renderer.attach(this.world);
     this.hud.attach(this.world);

@@ -23,6 +23,12 @@ export class SettingsMenu {
     this._wasPaused = false;
     this._openedAt = 0;
 
+    // Map: start again on a newly generated map (asks for a second tap if a game is under way).
+    this.mapButton = this._button('New map', () => this._newMap());
+    this.mapRow = this._row('Map', '', [this.mapButton]);
+    this.body.appendChild(this.mapRow);
+    this._confirmUntil = 0;
+
     this.presetButtons = PRESET_ORDER.map((preset) =>
       this._button(capitalize(preset), () => this.game.setGraphics(withPreset(this.game.graphics, preset))),
     );
@@ -30,7 +36,7 @@ export class SettingsMenu {
     this.customTag.className = 'custom-tag';
     this.customTag.textContent = 'Custom';
     this.body.appendChild(
-      this._row('Preset', 'The game always starts on Low. High looks best on desktops; changes last until you close the game.', [
+      this._row('Preset', 'The game always starts on High. If your device struggles, try Medium or Low; changes last until you close the game.', [
         ...this.presetButtons,
         this.customTag,
       ]),
@@ -75,7 +81,24 @@ export class SettingsMenu {
     if (!this._wasPaused && this.game.paused) this.game.togglePause();
   }
 
+  /** New map: straight away on a fresh game, otherwise after a second tap within a few seconds. */
+  _newMap() {
+    const world = this.game.world;
+    const underWay = world.waves.wave > 0 || world.buildings.size > 1;
+    if (underWay && performance.now() > this._confirmUntil) {
+      this._confirmUntil = performance.now() + 4000;
+      return;
+    }
+    this._confirmUntil = 0;
+    this.game.newGame({ seed: Math.floor(Math.random() * 1e6) });
+    this.close();
+  }
+
   refresh() {
+    const confirming = performance.now() < this._confirmUntil;
+    this.mapButton.textContent = confirming ? 'Tap again: this game ends' : 'New map';
+    this.mapButton.classList.toggle('warn', confirming);
+    this.mapRow.querySelector('small').textContent = `Map ${this.game.world.seed}. A new map starts a new game (woods, rocks and water are different every time).`;
     const g = this.game.graphics;
     PRESET_ORDER.forEach((preset, i) => this.presetButtons[i].classList.toggle('active', g.preset === preset));
     this.customTag.hidden = g.preset !== 'custom';

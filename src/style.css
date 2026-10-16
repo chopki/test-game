@@ -183,6 +183,13 @@ kbd {
   text-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
 }
 
+/* "Tap again" confirmation (e.g. New map while a game is under way). */
+.segmented button.warn {
+  color: #fff4dc;
+  background: linear-gradient(180deg, #c25a1e, #8a3410);
+  border-color: #4a1c08;
+}
+
 /* ------------------------------------------------------------------ top bar */
 
 .topbar {

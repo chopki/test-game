@@ -96,6 +96,9 @@ cap: it drops as soon as frames slow down and creeps back up after a few smooth 
 the sprites, so they cost nothing extra.
 The FPS counter also shows the current render scale.
 
+The menu's **Map** row shows the current map number and has a **New map** button: it starts a new game on a newly
+generated map (if a game is under way it asks for a second tap first). `?seed=N` in the address replays a map.
+
 You can override any setting on top of a preset; the preset then shows as **Custom**. There are also toggles for
 effects and an FPS counter. Changes apply immediately, except anti-aliasing, which needs a reload. Render scale is
 capped at the screen's real pixel density. If the browser resets the graphics, the game automatically drops one
