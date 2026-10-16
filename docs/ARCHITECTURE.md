@@ -64,7 +64,9 @@ including the Town Hall.
 
 - `Renderer.js`: scene, lights, terrain, `MapControls` camera, entity view sync, health bars, burst effects,
   ground picking (`pickGround` → sim coords).
-- `models.js`: procedural low-poly models. Geometries and materials are cached and shared.
+- `LOW_POWER` (in `Renderer.js`): true on touch devices. It lowers pixel ratio, shadow-map size, scenery
+  count and turns off anti-aliasing, because overloading a phone GPU makes the browser drop the WebGL context.
+- `models.js`: procedural low-poly models. Scenery uses `InstancedMesh` (a few draw calls for every tree and rock). Geometries and materials are cached and shared.
 
 The scene is centred on the grid: `scene = sim − (width/2, height/2)`. Use `renderer.toScene()` rather than doing
 the maths by hand.

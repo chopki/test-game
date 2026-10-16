@@ -6,12 +6,17 @@ import {
   createEnemyModel,
   createHealthBar,
   createProjectileModel,
-  createRock,
-  createTree,
+  createScenery,
   setHealthBar,
 } from './models.js';
 
 const SKY = 0xa9d3ee;
+
+/**
+ * Phones and tablets get lighter graphics settings: their GPUs are much weaker, and when
+ * they're overloaded the browser drops the WebGL context (and may then block WebGL entirely).
+ */
+export const LOW_POWER = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
 const BURST_GEOMETRY = new THREE.SphereGeometry(1, 12, 8);
 
 /**
@@ -35,9 +40,9 @@ export class Renderer {
     this.camera = new THREE.PerspectiveCamera(45, 1, 0.1, 400);
     this.camera.position.set(0, 26, 23);
 
-    this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    this.renderer = new THREE.WebGLRenderer({ antialias: !LOW_POWER });
     // Capped: full 2× on large/retina screens is a big GPU load and a common cause of context loss.
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, LOW_POWER ? 1 : 1.5));
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
     container.appendChild(this.renderer.domElement);
@@ -68,6 +73,8 @@ export class Renderer {
 
     window.addEventListener('resize', () => this._resize());
     this._resize();
+    // Portrait screens see much less of the map sideways; start further back so it fits.
+    if (this.camera.aspect < 1) this.camera.position.multiplyScalar(Math.min(1.8, 1 / this.camera.aspect));
   }
 
   get canvas() {
@@ -81,7 +88,8 @@ export class Renderer {
     const sun = new THREE.DirectionalLight(0xfff1dc, 2.6);
     sun.position.set(18, 34, 12);
     sun.castShadow = true;
-    sun.shadow.mapSize.set(2048, 2048);
+    const shadowSize = LOW_POWER ? 1024 : 2048;
+    sun.shadow.mapSize.set(shadowSize, shadowSize);
     const s = Math.max(GRID.width, GRID.height) * 0.65;
     Object.assign(sun.shadow.camera, { left: -s, right: s, top: s, bottom: -s, near: 1, far: 100 });
     sun.shadow.bias = -0.0005;
@@ -124,20 +132,25 @@ export class Renderer {
     this.scene.add(grid);
 
     // Scenery outside the play area.
-    const scenery = new THREE.Group();
+    const spots = [];
     const half = Math.max(W, H) / 2;
-    for (let i = 0; i < 220; i++) {
+    for (let i = 0; i < (LOW_POWER ? 120 : 220); i++) {
       const a = Math.random() * Math.PI * 2;
       const r = half + 2.5 + Math.random() * 45;
       const x = Math.cos(a) * r;
       const z = Math.sin(a) * r;
       if (Math.abs(x) < half + 1.5 && Math.abs(z) < half + 1.5) continue;
-      const obj = Math.random() < 0.85 ? createTree(0.8 + Math.random() * 0.8) : createRock(0.6 + Math.random() * 1.2);
-      obj.position.set(x, 0, z);
-      obj.rotation.y = Math.random() * Math.PI * 2;
-      scenery.add(obj);
+      const tree = Math.random() < 0.85;
+      spots.push({
+        kind: tree ? 'tree' : 'rock',
+        x,
+        z,
+        scale: tree ? 0.8 + Math.random() * 0.8 : 0.6 + Math.random() * 1.2,
+        rot: Math.random() * Math.PI * 2,
+        dark: Math.random() < 0.5,
+      });
     }
-    this.scene.add(scenery);
+    this.scene.add(createScenery(spots));
   }
 
   _resize() {

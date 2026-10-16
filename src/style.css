@@ -282,6 +282,100 @@ kbd {
   opacity: 0;
 }
 
+/* ------------------------------------------------------------------ small / touch screens */
+
+.touch-only {
+  display: none;
+}
+
+@media (pointer: coarse) {
+  kbd,
+  .build-btn .hotkey,
+  .desktop-only {
+    display: none;
+  }
+
+  .touch-only {
+    display: revert;
+  }
+}
+
+@media (max-width: 720px) {
+  :root {
+    font-size: 14px;
+  }
+
+  .topbar {
+    flex-wrap: wrap;
+    gap: 6px 12px;
+    padding: 6px 10px;
+  }
+
+  .stat .label {
+    font-size: 0.75em;
+  }
+
+  .bar {
+    width: 70px;
+  }
+
+  #hall-hp {
+    display: none;
+  }
+
+  .stat.phase {
+    order: 10;
+    flex-basis: 100%;
+    font-size: 0.9em;
+  }
+
+  .spacer {
+    display: none;
+  }
+
+  .topbar button {
+    padding: 5px 9px;
+  }
+
+  .next-wave {
+    font-size: 0.8em;
+    margin: 4px 8px 0;
+    width: auto;
+    text-align: center;
+  }
+
+  #toasts {
+    top: 120px;
+  }
+
+  .buildbar {
+    left: 6px;
+    right: 6px;
+    bottom: 8px;
+    transform: none;
+    gap: 5px;
+  }
+
+  .build-btn {
+    flex: 1;
+    min-width: 0;
+    padding: 8px 4px 6px;
+    font-size: 0.9em;
+  }
+
+  .info-panel {
+    left: 6px;
+    right: 6px;
+    bottom: 76px;
+    width: auto;
+  }
+
+  .dialog {
+    margin: 0 10px;
+    padding: 16px;
+  }
+}
+
 /* ------------------------------------------------------------------ overlays */
 
 .overlay {

@@ -187,21 +187,38 @@ export function createProjectileModel(kind) {
 
 // ------------------------------------------------------------------ scenery
 
-export function createTree(scale = 1) {
-  const g = new THREE.Group();
-  g.add(mesh(cyl(0.12, 0.16, 0.8, 6), MATERIALS.trunk, 0, 0.4, 0));
-  const leaves = Math.random() < 0.5 ? MATERIALS.leaves : MATERIALS.leavesDark;
-  g.add(mesh(cone(0.75, 1.4, 7), leaves, 0, 1.3, 0));
-  g.add(mesh(cone(0.55, 1.1, 7), leaves, 0, 1.9, 0));
-  g.scale.setScalar(scale);
-  return g;
-}
-
-export function createRock(scale = 1) {
-  const m = mesh(geo('rock', () => new THREE.DodecahedronGeometry(0.4, 0)), MATERIALS.rock);
-  m.scale.set(scale, scale * 0.6, scale);
-  m.rotation.y = Math.random() * Math.PI;
-  return m;
+/**
+ * Trees and rocks for the area around the map, drawn with instancing: a few draw
+ * calls in total instead of several per tree. `spots` is [{ x, z, scale, rot, kind }].
+ */
+export function createScenery(spots) {
+  const trees = spots.filter((p) => p.kind === 'tree');
+  const rocks = spots.filter((p) => p.kind === 'rock');
+  const group = new THREE.Group();
+  const white = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.85 });
+  const parts = [
+    { geometry: cyl(0.12, 0.16, 0.8, 6), material: MATERIALS.trunk, y: 0.4, list: trees },
+    { geometry: cone(0.75, 1.4, 7), material: white, y: 1.3, list: trees, leaves: true },
+    { geometry: cone(0.55, 1.1, 7), material: white, y: 1.9, list: trees, leaves: true },
+    { geometry: geo('rock', () => new THREE.DodecahedronGeometry(0.4, 0)), material: MATERIALS.rock, y: 0, list: rocks, rock: true },
+  ];
+  const m = new THREE.Matrix4();
+  const q = new THREE.Quaternion();
+  const up = new THREE.Vector3(0, 1, 0);
+  for (const part of parts) {
+    if (part.list.length === 0) continue;
+    const inst = new THREE.InstancedMesh(part.geometry, part.material, part.list.length);
+    part.list.forEach((p, i) => {
+      q.setFromAxisAngle(up, p.rot);
+      const sy = part.rock ? p.scale * 0.6 : p.scale;
+      m.compose(new THREE.Vector3(p.x, part.y * p.scale, p.z), q, new THREE.Vector3(p.scale, sy, p.scale));
+      inst.setMatrixAt(i, m);
+      if (part.leaves) inst.setColorAt(i, MATERIALS[p.dark ? 'leavesDark' : 'leaves'].color);
+    });
+    inst.receiveShadow = true;
+    group.add(inst);
+  }
+  return group;
 }
 
 // ------------------------------------------------------------------ overlays

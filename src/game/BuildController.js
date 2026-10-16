@@ -20,6 +20,8 @@ export class BuildController {
     this.dragging = false;
     this.lastDragTile = null;
     this._rightDown = null;
+    this._touch = null; // active single-finger touch: { id, x, y, tile, cancelled }
+    this._touchCount = 0;
 
     const scene = game.renderer.scene;
     this.ghostMaterial = new THREE.MeshBasicMaterial({ color: OK_COLOR, transparent: true, opacity: 0.45, depthWrite: false });
@@ -45,6 +47,7 @@ export class BuildController {
     canvas.addEventListener('pointermove', (e) => this._onPointerMove(e));
     canvas.addEventListener('pointerdown', (e) => this._onPointerDown(e));
     window.addEventListener('pointerup', (e) => this._onPointerUp(e));
+    window.addEventListener('pointercancel', (e) => this._onPointerUp(e));
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
   }
 
@@ -63,6 +66,8 @@ export class BuildController {
       this.ghost = null;
     }
     this.mode = mode;
+    // On touch screens one finger pans the camera, except while building or selling, when it places.
+    this.game.renderer.controls.touches.ONE = mode ? null : THREE.TOUCH.PAN;
     if (mode && BUILDINGS[mode]) {
       this.select(null);
       this.ghost = createBuildingModel(mode);
@@ -95,6 +100,15 @@ export class BuildController {
 
   _onPointerMove(ev) {
     this.hover = this._tileFromEvent(ev);
+    if (ev.pointerType === 'touch') {
+      const t = this._touch;
+      if (!t || t.id !== ev.pointerId || t.cancelled || !this.hover) return;
+      // Dragging a finger in wall mode paints walls, starting from where the finger went down.
+      if (this.mode === 'wall' && !this.dragging) {
+        this.dragging = true;
+        this.lastDragTile = t.tile;
+      }
+    }
     if (this.dragging && this.mode === 'wall' && this.hover) {
       // Fill every tile between the last placed wall and the cursor so fast drags leave no gaps.
       for (const t of lineTiles(this.lastDragTile ?? this.hover, this.hover)) this.world.place('wall', t.x, t.z);
@@ -103,37 +117,44 @@ export class BuildController {
   }
 
   _onPointerDown(ev) {
+    if (ev.pointerType === 'touch') {
+      this._touchCount++;
+      if (this._touchCount > 1) {
+        // Second finger: it's a pinch/rotate gesture, not a tap.
+        if (this._touch) this._touch.cancelled = true;
+        this.dragging = false;
+        return;
+      }
+      this.hover = this._tileFromEvent(ev);
+      this._touch = { id: ev.pointerId, x: ev.clientX, y: ev.clientY, tile: this.hover, cancelled: false };
+      return; // acted on at pointerup (tap) or pointermove (wall painting)
+    }
     if (ev.button === 2) {
       this._rightDown = { x: ev.clientX, y: ev.clientY };
       return;
     }
     if (ev.button !== 0) return;
     this.hover = this._tileFromEvent(ev);
-    const tile = this.hover;
-    if (!tile) return;
-
-    if (this.mode === 'sell') {
-      const b = this.world.buildingAt(tile.x, tile.z);
-      if (b && b !== this.world.townHall) this.world.sell(b.id);
-      return;
+    this._activate(this.hover);
+    if (this.mode === 'wall' && this.hover) {
+      this.dragging = true;
+      this.lastDragTile = this.hover;
     }
-
-    if (this.mode && BUILDINGS[this.mode]) {
-      const a = this.world.anchorFor(this.mode, tile.x, tile.z);
-      const result = this.world.place(this.mode, a.x, a.z);
-      if (!result.ok) this.game.hud?.toast(result.reason, 'warn');
-      if (this.mode === 'wall') {
-        this.dragging = true;
-        this.lastDragTile = tile;
-      }
-      return;
-    }
-
-    const b = this.world.buildingAt(tile.x, tile.z);
-    this.select(b ? b.id : null);
   }
 
   _onPointerUp(ev) {
+    if (ev.pointerType === 'touch') {
+      this._touchCount = Math.max(0, this._touchCount - 1);
+      const t = this._touch;
+      if (t && t.id === ev.pointerId) {
+        const moved = Math.hypot(ev.clientX - t.x, ev.clientY - t.y);
+        if (!t.cancelled && !this.dragging && moved < 12 && ev.type === 'pointerup') this._activate(t.tile);
+        this._touch = null;
+        this.dragging = false;
+        this.lastDragTile = null;
+      }
+      return;
+    }
     if (ev.button === 0) {
       this.dragging = false;
       this.lastDragTile = null;
@@ -147,6 +168,24 @@ export class BuildController {
       }
       this._rightDown = null;
     }
+  }
+
+  /** A click or tap on a tile: build, sell or select depending on the mode. */
+  _activate(tile) {
+    if (!tile) return;
+    if (this.mode === 'sell') {
+      const b = this.world.buildingAt(tile.x, tile.z);
+      if (b && b !== this.world.townHall) this.world.sell(b.id);
+      return;
+    }
+    if (this.mode && BUILDINGS[this.mode]) {
+      const a = this.world.anchorFor(this.mode, tile.x, tile.z);
+      const result = this.world.place(this.mode, a.x, a.z);
+      if (!result.ok) this.game.hud?.toast(result.reason, 'warn');
+      return;
+    }
+    const b = this.world.buildingAt(tile.x, tile.z);
+    this.select(b ? b.id : null);
   }
 
   // ---------------------------------------------------------------- per-frame

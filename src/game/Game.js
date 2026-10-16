@@ -19,7 +19,7 @@ export class Game {
       this.contextLost = true;
       this.hud.showError(
         'Graphics were reset by your browser',
-        'The game is paused and will resume automatically when graphics are restored. If it stays like this, reload the page.',
+        'The game is paused and will carry on when graphics come back. If it stays stuck, close this tab completely and open the game again (reloading may not be enough).',
       );
     });
     this.renderer.canvas.addEventListener('webglcontextrestored', () => {

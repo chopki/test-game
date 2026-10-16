@@ -5,7 +5,7 @@ import { Game } from './game/Game.js';
 function showFatal(title, err) {
   console.error(err);
   document.getElementById('error-title').textContent = title;
-  document.getElementById('error-message').textContent = String(err?.message ?? err);
+  document.getElementById('error-message').textContent = typeof err === 'string' ? err : String(err?.message ?? err);
   document.getElementById('error').hidden = false;
 }
 
@@ -16,5 +16,10 @@ try {
   // Handy for poking at the simulation from the browser console.
   window.game = new Game(document.getElementById('app'));
 } catch (err) {
-  showFatal('Could not start the game (WebGL 2 is required)', err);
+  showFatal(
+    'Could not start 3D graphics',
+    'Your browser refused to start WebGL. This often happens right after a graphics reset: close this tab ' +
+      '(or the browser app) completely, then open the game again. Otherwise check that hardware acceleration/WebGL ' +
+      `is enabled. (${err?.message ?? err})`,
+  );
 }

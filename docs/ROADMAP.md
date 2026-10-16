@@ -12,6 +12,8 @@ Rough order, with each milestone playable on its own. Checkboxes track progress.
 - [x] Gold from kills and wave bonuses, selling
 - [x] HUD: resources, next-wave preview, build bar, selection info, toasts, game over, best-wave record
 - [x] Headless, deterministic simulation with unit tests
+- [x] Playable on phones: touch controls, responsive HUD, lighter graphics on touch devices
+- [x] Published to GitHub Pages; errors and GPU resets are shown on screen
 
 ## v0.2: Defence depth
 
@@ -54,5 +56,4 @@ Rough order, with each milestone playable on its own. Checkboxes track progress.
 - Day/night cycle tied to the build/wave phases
 - Sound and music
 - Performance: instanced meshes for walls and enemies once counts get large
-- Touch controls
 - Meta-progression between runs (unlocks)

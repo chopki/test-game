@@ -62,6 +62,10 @@ Vercel or Cloudflare Pages.
 | `P` / `F`                | Pause / cycle speed (1×, 2×, 3×)           |
 | `H`                      | Help                                       |
 
+**On phones and tablets:** tap a build button, then tap the map to place (drag to paint walls). With no build
+mode selected, one finger pans; two fingers zoom and rotate. Graphics settings are automatically lighter on touch
+devices.
+
 ## Documentation
 
 - [Game design](docs/GAME_DESIGN.md): pillars, rules, and current unit and building stats
