@@ -4,9 +4,10 @@
 
 - `npm test` runs the Vitest simulation tests. Browser tests (Playwright, desktop + Pixel 7 phone, against the
   production build) come in two sizes: `npm run test:e2e` runs the vital `@smoke` set (~3 min: loading, placing,
-  walls, waves, crash recovery, frame-rate cap and draw-call budget, phone touch flow). Run it before pushing
-  UI/input/rendering changes. `npm run test:e2e:full` is the full regression suite: run it only when asked for a
-  full test. `npm run build` must stay green. CI only runs the unit tests on push.
+  walls, waves, crash recovery, frame-rate cap and draw-call budget, phone touch flow), and `npm run test:e2e:full`
+  is the full regression suite. **Don't run browser tests by default**: many tweaks are small. Run `npm test` and
+  `npm run build`, then ask the user whether to run the smoke set (or the full suite) before pushing. Run them
+  without asking only when the user requests it. `npm run build` must stay green. CI only runs the unit tests on push.
 - `World` defaults to an open map (`terrain: 'open'`); the game passes `terrain: 'generate'`. In e2e,
   `openGame(page)` loads `?map=open`; pass `{ map: 'terrain' }` for the generated map (fixed `TERRAIN_SEED`).
 - Tag a new browser test `{ tag: '@smoke' }` only if it guards something vital; otherwise it's full-suite only. `npm run dev` starts
