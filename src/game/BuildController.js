@@ -113,15 +113,7 @@ export class BuildController {
     this.game.renderer.controls.touches.ONE = mode ? null : THREE.TOUCH.PAN;
     if (mode && BUILDINGS[mode]) {
       this.select(null);
-      this.ghost = createBuildingModel(mode);
-      this.ghost.traverse((o) => {
-        if (o.isMesh) {
-          o.material = this.ghostMaterial;
-          o.castShadow = false;
-          o.renderOrder = 3;
-        }
-      });
-      this.game.renderer.scene.add(this.ghost);
+      this._makeGhost(null);
     }
     this.game.hud?.onModeChanged(mode);
   }
@@ -412,6 +404,21 @@ export class BuildController {
     }
   }
 
+  /** The see-through preview model: the normal one, or the in-wall version for a wall `shape`. */
+  _makeGhost(shape) {
+    if (this.ghost) this.game.renderer.scene.remove(this.ghost);
+    this.ghost = createBuildingModel(this.mode, shape ? { inWall: shape } : undefined);
+    this.ghost.userData.inWall = shape;
+    this.ghost.traverse((o) => {
+      if (o.isMesh) {
+        o.material = this.ghostMaterial;
+        o.castShadow = false;
+        o.renderOrder = 3;
+      }
+    });
+    this.game.renderer.scene.add(this.ghost);
+  }
+
   _showGhost(tile) {
     const def = BUILDINGS[this.mode];
     const a = this.world.anchorFor(this.mode, tile.x, tile.z);
@@ -420,8 +427,9 @@ export class BuildController {
     const cx = a.x + def.size / 2;
     const cz = a.z + def.size / 2;
     this.ghostMaterial.color.setHex(color);
-    // Preview the tower where it will be drawn: on the wall it's built into (see wallSeat.js).
+    // Preview the tower as it will be drawn: on the wall it's built into, with its in-wall model (wallSeat.js).
     const seat = wallSeat(this.world, this.mode, a.x, a.z);
+    if (this.ghost.userData.inWall !== seat.shape) this._makeGhost(seat.shape);
     this.game.renderer.toScene(cx + seat.dx, 0, cz + seat.dz, this.ghost.position);
     this.ghost.visible = true;
     this._showFootprint(cx, cz, def.size, color);

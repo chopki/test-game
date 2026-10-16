@@ -380,7 +380,7 @@ test('enemies are animated: walk frames cycle, blocked enemies attack, and the d
   expect(errors).toEqual([]);
 });
 
-test('a tower can be built into the middle of a wall line, and the wall is joined onto it', async ({ page }) => {
+test('a tower can be built into the middle of a wall line, and is drawn as part of the wall', async ({ page }) => {
   const errors = await openGame(page);
   await page.evaluate(() => {
     const w = window.game.world;
@@ -395,7 +395,8 @@ test('a tower can be built into the middle of a wall line, and the wall is joine
   expect(await buildingAt(page, 11, 12)).toBe('wall');
   expect(await buildingAt(page, 14, 12)).toBe('wall');
   expect(await countBuildings(page, 'wall')).toBe(7);
-  // Joint pieces tie the wall into the tower on both sides.
-  await expect.poll(() => page.evaluate(() => window.game.renderer.wallJointsDrawn)).toBe(2);
+  // It's drawn with its in-wall model (a bastion in the wall line), which carries its own wall stubs.
+  await expect.poll(() => page.evaluate(() => window.game.renderer.inWallDrawn)).toBe(1);
+  expect(await page.evaluate(() => window.game.renderer.wallJointsDrawn)).toBe(0);
   expect(errors).toEqual([]);
 });

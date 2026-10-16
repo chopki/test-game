@@ -295,9 +295,16 @@ function cannonTower() {
   barrel(p, { x: 0.62, y: 0.26, z: -0.6, r: 0.1, h: 0.22 });
   groundDressing(p, { w: 1.7, d: 1.7, rnd, count: 9 });
   const g = p.build();
+  const turret = cannonTurret(0.78);
+  g.add(turret);
+  g.userData.turret = turret;
+  return g;
+}
 
-  // Turret: a stubby iron cannon on a wooden block carriage; rotates to aim (+z is forward).
-  const t = new Parts({ yOffset: 0.78 });
+/** A stubby iron cannon on a wooden block carriage, at height `y`; rotates to aim (+z is forward). */
+function cannonTurret(y) {
+  const M = MATERIALS;
+  const t = new Parts({ yOffset: y });
   t.add(box(0.46, 0.2, 0.62), M.wood, { y: 0.1 });
   for (const sx of [-0.2, 0.2]) t.add(box(0.06, 0.3, 0.5), M.woodDark, { x: sx, y: 0.22 });
   for (const sx of [-0.27, 0.27]) for (const sz of [-0.2, 0.2]) t.add(cyl(0.09, 0.09, 0.06, 10), M.woodDark, { x: sx, y: 0.09, z: sz, rz: Math.PI / 2 });
@@ -305,10 +312,8 @@ function cannonTower() {
   for (const zz of [0.5, 0.0]) t.add(torus(0.16, 0.03, 14), M.iron, { y: 0.34 + (zz - 0.14) * Math.sin(0.15), z: zz, rx: -0.15 });
   t.add(sphere(0.18, 12, 9), M.iron, { y: 0.3, z: -0.26 });
   const turret = t.build();
-  turret.position.y = 0.78;
-  g.add(turret);
-  g.userData.turret = turret;
-  return g;
+  turret.position.y = y;
+  return turret;
 }
 
 function crystalCluster(p, { x, y, z, scale = 1, rnd }) {
@@ -401,9 +406,14 @@ function catapult() {
   p.add(box(1.5, 0.03, 1.5), M.dirt, { y: 0.015 });
   groundDressing(p, { w: 1.7, d: 1.7, rnd, count: 8 });
   const g = p.build();
+  addCatapultTurret(g, 0);
+  return g;
+}
 
-  // Turret: the frame on its wheels (rotates to aim, +z forward) carrying the throwing arm.
-  const t = new Parts({ yOffset: 0 });
+/** The catapult itself (frame on wheels, rotating to aim with +z forward, carrying the throwing arm) at `y`. */
+function addCatapultTurret(g, y) {
+  const M = MATERIALS;
+  const t = new Parts({ yOffset: y });
   for (const sx of [-0.36, 0.36]) {
     t.add(box(0.14, 0.14, 1.3), M.wood, { x: sx, y: 0.28 });
     // A-frame uprights to the axle.
@@ -421,27 +431,170 @@ function catapult() {
   t.add(torus(0.07, 0.025, 10), M.rope, { x: 0.18, y: 0.84, ry: Math.PI / 2 });
   t.add(torus(0.07, 0.025, 10), M.rope, { x: -0.18, y: 0.84, ry: Math.PI / 2 });
   const turret = t.build();
+  turret.position.y = y;
 
   // Throwing arm: pivots at the axle; the spoon end points to -z when loaded.
-  const a = new Parts({ yOffset: 0.84 });
+  const a = new Parts({ yOffset: y + 0.84 });
   a.add(box(0.11, 0.11, 1.2), M.woodDark, { z: -0.42 });
   a.add(cyl(0.16, 0.1, 0.12, 12), M.wood, { y: 0.05, z: -1.0 });
   a.add(torus(0.15, 0.02, 12), M.iron, { y: 0.1, z: -1.0, rx: Math.PI / 2 });
   const arm = a.build();
   arm.position.y = 0.84;
-  const ammo = new Parts({ yOffset: 1.0 }).add(dodeca(0.12), M.boulder).build();
+  const ammo = new Parts({ yOffset: y + 1.0 }).add(dodeca(0.12), M.boulder).build();
   ammo.position.set(0, 0.18, -1.0);
   arm.add(ammo);
   turret.add(arm);
   g.add(turret);
   Object.assign(g.userData, { turret, arm, ammo });
-  return g;
 }
+
+// ------------------------------------------------------------------ towers built into walls
+// A tower built into a wall is drawn on the wall line (see wallSeat.js) with a model of its own: the palisade
+// widens into a square log bastion around it, and wall stubs run out to where the neighbouring wall tiles begin.
+// `shape` names the arms: 'we' / 'ns' for a straight run, or a corner such as 'ws' (arms west and south).
+// Straight-run arms reach 1 tile from the tower's centre; corner arms 1.5 (the tower sits on the corner tile).
+
+export const IN_WALL_SHAPES = ['we', 'ns', 'wn', 'ws', 'en', 'es'];
+const ARM = { n: [0, -1], e: [1, 0], s: [0, 1], w: [-1, 0] };
+
+function palisadeLog(p, rnd, x, z, { r = 0.075, h = rnd.range(1.0, 1.22) } = {}) {
+  const mat = rnd.pick(LOGS);
+  const tilt = { rx: rnd.range(-0.04, 0.04), rz: rnd.range(-0.04, 0.04) };
+  p.add(cyl(r, r * 1.05, h, 8), mat, { x, y: h / 2, z, ...tilt, ry: rnd.range(0, 3) });
+  p.add(cone(r, 0.2, 8), mat, { x, y: h + 0.1, z, ...tilt });
+}
+
+/**
+ * A square log bastion of half-width `r`: logs on every side, thick iron-banded corner posts and rails. With
+ * `deck`, it's filled with earth and planked over at that height (a rampart for a gun to stand on).
+ */
+function bastion(p, rnd, { r, h = 1.15, deck = 0 }) {
+  const M = MATERIALS;
+  const n = Math.max(2, Math.round((2 * r) / (1 / 7)));
+  for (let i = 0; i < n; i++) {
+    const t = -r + ((i + 0.5) * 2 * r) / n;
+    for (const [x, z] of [
+      [t, r],
+      [t, -r],
+      [r, t],
+      [-r, t],
+    ]) {
+      palisadeLog(p, rnd, x, z, { h: h * rnd.range(0.92, 1.05) });
+    }
+  }
+  for (const sx of [-1, 1]) {
+    for (const sz of [-1, 1]) {
+      p.add(cyl(0.11, 0.12, h + 0.25, 10), rnd.pick(LOGS), { x: sx * r, y: (h + 0.25) / 2, z: sz * r });
+      p.add(cone(0.11, 0.22, 10), rnd.pick(LOGS), { x: sx * r, y: h + 0.36, z: sz * r });
+      for (const y of [0.35, h - 0.1]) p.add(torus(0.115, 0.02, 12), M.iron, { x: sx * r, y, z: sz * r, rx: Math.PI / 2 });
+    }
+  }
+  for (const y of [0.32, 0.82].filter((y) => y < h - 0.1)) {
+    for (const s of [-1, 1]) {
+      p.add(box(2 * r, 0.07, 0.05), M.woodDark, { y, z: s * (r + 0.085) });
+      p.add(box(0.05, 0.07, 2 * r), M.woodDark, { x: s * (r + 0.085), y });
+    }
+  }
+  if (deck) {
+    p.add(box(2 * r - 0.1, deck - 0.02, 2 * r - 0.1), M.dirt, { y: (deck - 0.02) / 2 });
+    p.add(box(2 * r + 0.06, 0.06, 2 * r + 0.06), M.woodDark, { y: deck });
+    for (let i = 0; i < 6; i++) p.add(box(0.02, 0.01, 2 * r), M.wood, { x: -r + ((i + 0.5) * 2 * r) / 6, y: deck + 0.035 });
+  }
+  p.add(box(2 * r + 0.3, 0.05, 2 * r + 0.3), M.dirt, { y: 0.025 });
+}
+
+/** Palisade stubs from the bastion (half-width `from`) out along each arm of `shape`, on the wall's log grid. */
+function wallStubs(p, rnd, shape, from) {
+  const M = MATERIALS;
+  const straight = shape === 'we' || shape === 'ns';
+  const len = straight ? 1 : 1.5;
+  // Wall tiles put logs at (tile + (j + 0.5) / 7); measured from the tower's drawn centre, that grid is offset
+  // by 0 for a straight run (centre on a tile edge) and 0.5 for a corner (centre on a tile centre).
+  const shift = straight ? 0 : 0.5;
+  for (const dir of shape) {
+    const [dx, dz] = ARM[dir];
+    for (let j = 0; j < 14; j++) {
+      const d = (j + 0.5) / 7 - shift;
+      if (d > from + 0.03 && d < len) palisadeLog(p, rnd, dx * d, dz * d);
+    }
+    const mid = (from + len) / 2;
+    const l = len - from;
+    for (const side of [-1, 1]) {
+      const off = side * 0.085;
+      for (const y of [0.32, 0.82]) p.add(box(dx ? l : 0.05, 0.07, dx ? 0.05 : l), M.woodDark, { x: dx ? dx * mid : off, y, z: dz ? dz * mid : off });
+    }
+    p.add(box(dx ? l : 0.28, 0.06, dx ? 0.28 : l), M.dirt, { x: dx * mid, y: 0.03, z: dz * mid });
+  }
+}
+
+function inWallParts(shape, r, opts) {
+  const p = new Parts();
+  const rnd = rng(IN_WALL_SHAPES.indexOf(shape) * 17 + Math.round(r * 100));
+  bastion(p, rnd, { r, ...opts });
+  wallStubs(p, rnd, shape, r);
+  return p.build();
+}
+
+const IN_WALL_MODELS = {
+  // The watchtower's legs rise out of the bastion; its cabin looks out over the wall.
+  archerTower: (shape) => {
+    const g = archerTower();
+    g.add(inWallParts(shape, 0.72, { h: 1.15 }));
+    return g;
+  },
+  // The cannon stands on a raised log-and-earth rampart in the wall.
+  cannonTower: (shape) => {
+    const g = new THREE.Group();
+    g.add(inWallParts(shape, 0.74, { h: 1.0, deck: 0.98 }));
+    const balls = new Parts({ yOffset: 1.0 });
+    for (const [x, z, y] of [
+      [-0.5, 0.45, 0],
+      [-0.5, 0.31, 0],
+      [-0.5, 0.38, 0.1],
+    ]) {
+      balls.add(sphere(0.07, 8, 6), MATERIALS.cannonball, { x, y: 0.07 + y, z });
+    }
+    const b = balls.build();
+    b.position.y = 1.01;
+    g.add(b);
+    const turret = cannonTurret(1.02);
+    g.add(turret);
+    g.userData.turret = turret;
+    return g;
+  },
+  // The crystal mound sits inside a low bastion ring.
+  magicSpire: (shape) => {
+    const g = magicSpire();
+    g.add(inWallParts(shape, 0.88, { h: 0.72 }));
+    return g;
+  },
+  // The catapult works from a rampart platform in the wall.
+  catapult: (shape) => {
+    const g = new THREE.Group();
+    g.add(inWallParts(shape, 0.8, { h: 0.86, deck: 0.86 }));
+    const pile = new Parts({ yOffset: 0.9 });
+    for (const [x, z, r] of [
+      [-0.55, -0.5, 0.11],
+      [-0.45, -0.6, 0.09],
+    ]) {
+      pile.add(dodeca(r), MATERIALS.boulder, { x, y: r * 0.8, z });
+    }
+    const pb = pile.build();
+    pb.position.y = 0.89;
+    g.add(pb);
+    addCatapultTurret(g, 0.89);
+    return g;
+  },
+};
 
 const BUILDING_MODELS = { townHall, wall, wallJoint, archerTower, cannonTower, magicSpire, catapult };
 
-/** `opts` is model-specific (walls take `{ connections }`, wall joints `{ dir }`). */
+/**
+ * `opts` is model-specific: walls take `{ connections }`, wall joints `{ dir }`, and towers `{ inWall: shape }`
+ * for the version built into a wall (see IN_WALL_SHAPES).
+ */
 export function createBuildingModel(type, opts) {
+  if (opts?.inWall) return IN_WALL_MODELS[type](opts.inWall);
   return BUILDING_MODELS[type](opts);
 }
 

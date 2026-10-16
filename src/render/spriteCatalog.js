@@ -1,5 +1,5 @@
 import { BUILDINGS, ENEMIES } from '../sim/config.js';
-import { createBuildingModel, createEnemyModel, createSceneryObject, ENEMY_ANIMS, poseEnemy, SCENERY_TYPES, SCENERY_VARIANTS } from './models.js';
+import { createBuildingModel, createEnemyModel, createSceneryObject, ENEMY_ANIMS, IN_WALL_SHAPES, poseEnemy, SCENERY_TYPES, SCENERY_VARIANTS } from './models.js';
 
 export { ENEMY_ANIMS };
 
@@ -18,6 +18,8 @@ const angleIndex = (angle, steps) => ((Math.round((angle / (Math.PI * 2)) * step
 
 export const spriteKeys = {
   building: (type) => `b:${type}`,
+  /** A tower's base when built into a wall (`shape`: see IN_WALL_SHAPES in models.js). */
+  inWall: (type, shape) => `bw:${type}:${shape}`,
   icon: (type) => `icon:${type}`,
   wall: (connectionKey) => `wall:${connectionKey}`,
   /** The piece that ties a wall into a building's edge tile; `dir` points from the building to the wall. */
@@ -30,8 +32,9 @@ export const spriteKeys = {
   scenery: (kind, variant) => `s:${kind}:${variant}`,
 };
 
-/** Height of a building's turret pivot above the ground (sprites are lifted by this much). */
-export const turretHeight = (type) => createBuildingModel(type).userData.turret?.position.y ?? 0;
+/** Height of a building's turret pivot above the ground (sprites are lifted by this much); `inWall`: a shape. */
+export const turretHeight = (type, inWall) =>
+  createBuildingModel(type, inWall ? { inWall } : undefined).userData.turret?.position.y ?? 0;
 let crystalY = null;
 /** Height of the Magic Spire's floating crystal above the ground. */
 export const crystalHeight = () => (crystalY ??= createBuildingModel('magicSpire').userData.crystal.position.y);
@@ -77,6 +80,21 @@ export function spriteSpecs() {
         return base;
       },
     });
+
+    // The same base built into a wall, for each wall shape.
+    if (BUILDINGS[type].buildable) {
+      for (const shape of IN_WALL_SHAPES) {
+        specs.push({
+          key: spriteKeys.inWall(type, shape),
+          make: () => {
+            const base = createBuildingModel(type, { inWall: shape });
+            base.userData.turret?.removeFromParent();
+            base.userData.crystal?.removeFromParent();
+            return base;
+          },
+        });
+      }
+    }
 
     const parts = BUILDING_PARTS[type] ?? {};
     if (parts.turret) {

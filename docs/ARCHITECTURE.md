@@ -85,8 +85,11 @@ so the whole battlefield is ~15 draw calls and a few hundred triangles however d
   spire crystal (bobbed by offset).
 - Wall joints: where a wall touches a tower or the Town Hall, `Renderer._drawWallJoints()` adds a `join:<dir>`
   sprite (the `wallJoint` model: a palisade arm into the building's edge tile, ending at an anchor post).
-  `wallSeat.js` (pure, unit-tested) gives the half-tile draw offset that puts a tower built into a wall on the
-  wall line (or a corner tower on the junction); the renderer and the build preview both use it.
+  `wallSeat.js` (pure, unit-tested) decides whether a tower sits in a wall: a straight run ('we'/'ns') or a
+  corner ('wn', 'ws', 'en', 'es'), plus the half-tile draw offset that puts it on the wall line or junction. Those
+  towers use their in-wall model (`IN_WALL_MODELS` in models.js: a log bastion plus wall stubs on the walls' log
+  grid), baked as `bw:<type>:<shape>`; in-wall turrets sit at their own heights (`turretHeight(type, shape)`).
+  The renderer and the build preview both use it; other towers touching walls get joint pieces.
 - **Animated enemies**: each enemy model is a rig (legs, body and arms as separate parts; see `models.js`) that
   `poseEnemy()` puts into baked frames: 6 walk, 4 attack and 4 death (`ENEMY_ANIMS`), for each of 8 headings.
   Sprite keys are `e:<type>[:elite]:<dir>:<anim>:<frame>`. The renderer advances walk frames by distance

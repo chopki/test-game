@@ -469,6 +469,7 @@ export class Renderer {
     this._time += dt;
     this._dt = dt;
     this.wallJointsDrawn = 0;
+    this.inWallDrawn = 0;
     const world = this.world;
     this.controls.update();
     this.sprites.begin();
@@ -549,39 +550,47 @@ export class Renderer {
   }
 
   _createBuildingView(b) {
-    if (!(b.type in this.turretHeights)) this.turretHeights[b.type] = turretHeight(b.type);
     return { phase: Math.random() * Math.PI * 2, wallKey: null };
   }
 
   _updateBuildingView(view, b) {
-    // Towers built into a wall are drawn on it (half a tile off their footprint centre; see wallSeat.js).
-    const seat = b.type === 'wall' ? { dx: 0, dz: 0 } : wallSeat(this.world, b.type, b.x, b.z);
+    // Towers built into a wall are drawn on it, with their in-wall model (see wallSeat.js).
+    const seat = b.type === 'wall' ? { shape: null, dx: 0, dz: 0 } : wallSeat(this.world, b.type, b.x, b.z);
     const ground = this.toScene(b.cx + seat.dx, 0, b.cz + seat.dz, this._v);
     if (b.type === 'wall') {
       view.wallKey = this._wallConnections(b).key;
       this.sprites.add(spriteKeys.wall(view.wallKey), ground);
       this.shadowSprites.add(spriteKeys.wall(view.wallKey), ground);
     } else {
-      const key = spriteKeys.building(b.type);
+      const key = seat.shape ? spriteKeys.inWall(b.type, seat.shape) : spriteKeys.building(b.type);
+      if (seat.shape) this.inWallDrawn++;
       this.sprites.add(key, ground);
       this.shadowSprites.add(key, ground);
+      const lift = this._turretHeight(b.type, seat.shape);
       const attack = b.def.attack;
       if (b.type === 'catapult') {
         // Arm thrown forward when it fires, winched back while reloading.
         const reload = 1 - b.cooldown / attack.cooldown;
         const frame = Math.min(CATAPULT_ARM_FRAMES - 1, Math.floor(THREE.MathUtils.smoothstep(reload, 0.05, 0.75) * (CATAPULT_ARM_FRAMES - 1) + 0.5));
-        this.sprites.add(spriteKeys.turret(b.type, b.aim, frame), ground, 1, this.turretHeights[b.type]);
-      } else if (this.turretHeights[b.type]) {
-        this.sprites.add(spriteKeys.turret(b.type, b.aim), ground, 1, this.turretHeights[b.type]);
+        this.sprites.add(spriteKeys.turret(b.type, b.aim, frame), ground, 1, lift);
+      } else if (lift) {
+        this.sprites.add(spriteKeys.turret(b.type, b.aim), ground, 1, lift);
       }
       if (b.type === 'magicSpire') {
         this.sprites.add(spriteKeys.crystal(), ground, 1, crystalHeight() + Math.sin(this._time * 2 + view.phase) * 0.08);
       }
-      this._drawWallJoints(b);
+      if (!seat.shape) this._drawWallJoints(b); // in-wall models carry their own wall stubs
     }
     if (b.hp < b.maxHp || b.type === 'townHall') {
       this.healthBars.add(this.toScene(b.cx + seat.dx, b.def.height + 0.6, b.cz + seat.dz, this._v), Math.min(2.4, 0.8 * b.size + 0.2), b.hp / b.maxHp);
     }
+  }
+
+  /** Turret pivot height for a building type, normal or built into a wall (cached; models are built once). */
+  _turretHeight(type, shape) {
+    const key = shape ? `${type}:${shape}` : type;
+    if (!(key in this.turretHeights)) this.turretHeights[key] = turretHeight(type, shape);
+    return this.turretHeights[key];
   }
 
   /**
