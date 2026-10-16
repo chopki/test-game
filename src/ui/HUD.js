@@ -27,6 +27,7 @@ export class HUD {
       gameoverStats: $('gameover-stats'),
       help: $('help'),
       confirm: $('confirm'),
+      fps: $('fps'),
       confirmYes: $('confirm-yes'),
     };
     this._last = {};
@@ -117,6 +118,11 @@ export class HUD {
 
     this._updateInfo();
     this._updateConfirm();
+    if (!this.el.fps.hidden) this._set('fps', `${this.game.fps} FPS`);
+  }
+
+  setFpsVisible(visible) {
+    this.el.fps.hidden = !visible;
   }
 
   // ✓/✕ buttons floating above a pending touch placement.

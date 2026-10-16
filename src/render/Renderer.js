@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { MapControls } from 'three/addons/controls/MapControls.js';
 import { GRID } from '../sim/config.js';
+import { SCENERY_COUNT, SHADOW_MAP_SIZE } from './graphicsSettings.js';
 import {
   createBuildingModel,
   createEnemyModel,
@@ -12,11 +13,6 @@ import {
 
 const SKY = 0xa9d3ee;
 
-/**
- * Phones and tablets get lighter graphics settings: their GPUs are much weaker, and when
- * they're overloaded the browser drops the WebGL context (and may then block WebGL entirely).
- */
-export const LOW_POWER = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
 const BURST_GEOMETRY = new THREE.SphereGeometry(1, 12, 8);
 
 /**
@@ -28,7 +24,8 @@ const BURST_GEOMETRY = new THREE.SphereGeometry(1, 12, 8);
  * coordinates with the grid centred on the origin.
  */
 export class Renderer {
-  constructor(container) {
+  /** `graphics` is a settings object from graphicsSettings.js; see applySettings(). */
+  constructor(container, graphics) {
     this.container = container;
     this.offsetX = GRID.width / 2;
     this.offsetZ = GRID.height / 2;
@@ -40,10 +37,11 @@ export class Renderer {
     this.camera = new THREE.PerspectiveCamera(45, 1, 0.1, 400);
     this.camera.position.set(0, 26, 23);
 
-    this.renderer = new THREE.WebGLRenderer({ antialias: !LOW_POWER });
-    // Capped: full 2× on large/retina screens is a big GPU load and a common cause of context loss.
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, LOW_POWER ? 1 : 1.5));
-    this.renderer.shadowMap.enabled = true;
+    // Anti-aliasing can only be chosen when the WebGL context is created; other settings apply live.
+    this.renderer = new THREE.WebGLRenderer({
+      antialias: graphics.antialias,
+      powerPreference: graphics.preset === 'low' ? 'low-power' : 'default',
+    });
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
     container.appendChild(this.renderer.domElement);
 
@@ -71,6 +69,7 @@ export class Renderer {
     this._groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
     this._time = 0;
 
+    this.applySettings(graphics);
     window.addEventListener('resize', () => this._resize());
     this._resize();
     // Portrait screens see much less of the map sideways; start further back so it fits.
@@ -87,9 +86,7 @@ export class Renderer {
     this.scene.add(new THREE.HemisphereLight(0xe8f4ff, 0x4a5a35, 1.4));
     const sun = new THREE.DirectionalLight(0xfff1dc, 2.6);
     sun.position.set(18, 34, 12);
-    sun.castShadow = true;
-    const shadowSize = LOW_POWER ? 1024 : 2048;
-    sun.shadow.mapSize.set(shadowSize, shadowSize);
+    this.sun = sun;
     const s = Math.max(GRID.width, GRID.height) * 0.65;
     Object.assign(sun.shadow.camera, { left: -s, right: s, top: s, bottom: -s, near: 1, far: 100 });
     sun.shadow.bias = -0.0005;
@@ -131,10 +128,17 @@ export class Renderer {
     grid.position.y = 0.01;
     this.scene.add(grid);
 
-    // Scenery outside the play area.
+    this.scenery = null;
+  }
+
+  /** (Re)build the trees and rocks around the play area. */
+  _buildScenery(count) {
+    if (this.scenery) this.scene.remove(this.scenery);
+    this.scenery = null;
+    if (count === 0) return;
     const spots = [];
-    const half = Math.max(W, H) / 2;
-    for (let i = 0; i < (LOW_POWER ? 120 : 220); i++) {
+    const half = Math.max(GRID.width, GRID.height) / 2;
+    for (let i = 0; i < count; i++) {
       const a = Math.random() * Math.PI * 2;
       const r = half + 2.5 + Math.random() * 45;
       const x = Math.cos(a) * r;
@@ -150,7 +154,37 @@ export class Renderer {
         dark: Math.random() < 0.5,
       });
     }
-    this.scene.add(createScenery(spots));
+    this.scenery = createScenery(spots);
+    this.scene.add(this.scenery);
+  }
+
+  /**
+   * Apply graphics settings without recreating the WebGL context (anti-aliasing is the exception:
+   * it's fixed at creation). Resolution is capped at the device's real pixel ratio.
+   */
+  applySettings(graphics) {
+    const prev = this.graphics;
+    this.graphics = { ...graphics };
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, graphics.resolution));
+    this._resize();
+
+    const size = SHADOW_MAP_SIZE[graphics.shadows];
+    const enabled = size > 0;
+    if (enabled !== this.renderer.shadowMap.enabled) {
+      this.renderer.shadowMap.enabled = enabled;
+      // Materials compile different shaders with and without shadows.
+      this.scene.traverse((o) => {
+        for (const m of [o.material].flat()) if (m) m.needsUpdate = true;
+      });
+    }
+    this.sun.castShadow = enabled;
+    if (enabled && this.sun.shadow.mapSize.x !== size) {
+      this.sun.shadow.mapSize.set(size, size);
+      this.sun.shadow.map?.dispose();
+      this.sun.shadow.map = null;
+    }
+
+    if (!prev || prev.scenery !== graphics.scenery) this._buildScenery(SCENERY_COUNT[graphics.scenery]);
   }
 
   _resize() {
@@ -351,6 +385,7 @@ export class Renderer {
   }
 
   _spawnBurst(x, y, z, color, size, life) {
+    if (!this.graphics.effects) return;
     const obj = new THREE.Mesh(
       BURST_GEOMETRY,
       new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.7, depthWrite: false }),

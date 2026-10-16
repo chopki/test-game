@@ -64,8 +64,11 @@ including the Town Hall.
 
 - `Renderer.js`: scene, lights, terrain, `MapControls` camera, entity view sync, health bars, burst effects,
   ground picking (`pickGround` → sim coords).
-- `LOW_POWER` (in `Renderer.js`): true on touch devices. It lowers pixel ratio, shadow-map size, scenery
-  count and turns off anti-aliasing, because overloading a phone GPU makes the browser drop the WebGL context.
+- `graphicsSettings.js`: graphics presets (Low/Medium/High), per-setting options, saving to `localStorage`, and
+  `stepDown()` for after a GPU crash. It has no three.js dependency and is unit-tested in `test/graphics.test.js`.
+  `Renderer.applySettings()` applies everything live except anti-aliasing, which is fixed when the WebGL context is
+  created. The frame-rate cap is enforced in `Game._frame`, and the menu is `ui/SettingsMenu.js`. Touch devices
+  default to Low; when the context is lost, `Game` drops one preset automatically.
 - `models.js`: procedural low-poly models. Scenery uses `InstancedMesh` (a few draw calls for every tree and rock). Geometries and materials are cached and shared.
 
 The scene is centred on the grid: `scene = sim − (width/2, height/2)`. Use `renderer.toScene()` rather than doing

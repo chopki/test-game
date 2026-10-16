@@ -22,6 +22,8 @@
         <button id="start-wave" class="primary">Start wave <kbd>Space</kbd></button>
         <button id="pause" title="Pause (P)">❚❚</button>
         <button id="speed" title="Game speed (F)">1×</button>
+        <span id="fps" class="small" hidden></span>
+        <button id="settings-btn" title="Graphics settings" aria-label="Settings">⚙</button>
         <button id="help-btn" title="Help (H)">?</button>
       </div>
       <div id="next-wave" class="next-wave"></div>
@@ -63,6 +65,18 @@
             <tr><td><kbd>P</kbd> / <kbd>F</kbd></td><td>Pause / Change speed</td></tr>
           </table>
           <button id="help-close" class="primary">Got it</button>
+        </div>
+      </div>
+
+      <div id="settings" class="overlay" hidden>
+        <div class="panel dialog settings-dialog">
+          <h2>Graphics</h2>
+          <div id="settings-body"></div>
+          <p id="settings-reload-note" class="reload-note" hidden>
+            Anti-aliasing changes after a reload, which restarts the current game.
+            <button id="settings-reload" type="button">Reload now</button>
+          </p>
+          <button id="settings-close" class="primary" type="button">Done</button>
         </div>
       </div>
 

@@ -5,15 +5,19 @@ import { buildingAt, cameraTarget, countBuildings, expect, gold, openGame, tileT
 
 const pendingTile = (page) => page.evaluate(() => window.game.build.pending);
 
-test('uses the lighter graphics profile and the HUD fits the screen', async ({ page }) => {
+test('defaults to the Low graphics preset and the HUD fits the screen', async ({ page }) => {
   const errors = await openGame(page);
   const r = await page.evaluate(() => ({
     pixelRatio: window.game.renderer.renderer.getPixelRatio(),
+    preset: window.game.graphics.preset,
+    shadows: window.game.renderer.renderer.shadowMap.enabled,
     overflowX: document.documentElement.scrollWidth > window.innerWidth,
     topbarBottom: document.querySelector('.topbar').getBoundingClientRect().bottom,
     buttons: [...document.querySelectorAll('.build-btn')].map((b) => b.getBoundingClientRect().toJSON()),
   }));
-  expect(r.pixelRatio).toBe(1);
+  expect(r.preset).toBe('low');
+  expect(r.pixelRatio).toBe(0.75);
+  expect(r.shadows).toBe(false);
   expect(r.overflowX).toBe(false);
   expect(r.topbarBottom).toBeLessThan(915 * 0.3);
   const vp = page.viewportSize();
@@ -116,4 +120,16 @@ test('one finger pans the map when not building, and a tap selects', async ({ pa
 
   await touch.tap(await tileToScreen(page, 19, 19));
   await expect(page.locator('#info')).toContainText('Town Hall');
+});
+
+test('the settings menu fits the phone screen and can be scrolled to Done', async ({ page }) => {
+  await openGame(page);
+  await page.getByRole('button', { name: 'Settings' }).tap();
+  const box = await page.locator('.settings-dialog').boundingBox();
+  const vp = page.viewportSize();
+  expect(box.x).toBeGreaterThanOrEqual(0);
+  expect(box.x + box.width).toBeLessThanOrEqual(vp.width);
+  expect(box.height).toBeLessThanOrEqual(vp.height);
+  await page.getByRole('button', { name: 'Done' }).tap();
+  await expect(page.locator('#settings')).toBeHidden();
 });

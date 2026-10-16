@@ -2,6 +2,8 @@ import { BUILDINGS } from '../sim/config.js';
 import { World } from '../sim/World.js';
 import { Renderer } from '../render/Renderer.js';
 import { HUD } from '../ui/HUD.js';
+import { SettingsMenu } from '../ui/SettingsMenu.js';
+import { loadSettings, saveSettings, stepDown } from '../render/graphicsSettings.js';
 import { BuildController } from './BuildController.js';
 
 const SPEEDS = [1, 2, 3];
@@ -11,15 +13,22 @@ const BEST_KEY = 'hold-the-hall:best-wave';
 /** Wires the simulation, renderer, input and HUD together and runs the main loop. */
 export class Game {
   constructor(container) {
-    this.renderer = new Renderer(container);
+    this.graphics = loadSettings();
+    // Settings fixed when the WebGL context was created (anti-aliasing); used to flag "reload to apply".
+    this.startupGraphics = { ...this.graphics };
+    this.renderer = new Renderer(container, this.graphics);
     this.contextLost = false;
     // If the GPU resets, the canvas goes blank. Pause the game and tell the player instead of
     // silently showing a white screen; three.js re-creates its GPU resources on restore.
+    // Also drop one graphics preset so it's less likely to happen again.
     this.renderer.canvas.addEventListener('webglcontextlost', () => {
       this.contextLost = true;
+      const lower = stepDown(this.graphics);
+      if (lower) this.setGraphics(lower);
+      const switched = lower ? ` Graphics have been lowered to ${lower.preset[0].toUpperCase()}${lower.preset.slice(1)} to make this less likely (change it in ⚙ Settings).` : '';
       this.hud.showError(
         'Graphics were reset by your browser',
-        'The game is paused and will carry on when graphics come back. If it stays stuck, close this tab completely and open the game again (reloading may not be enough).',
+        `The game is paused and will carry on when graphics come back.${switched} If it stays stuck, close this tab completely and open the game again (reloading may not be enough).`,
       );
     });
     this.renderer.canvas.addEventListener('webglcontextrestored', () => {
@@ -28,6 +37,8 @@ export class Game {
     });
     this.build = new BuildController(this);
     this.hud = new HUD(this);
+    this.settingsMenu = new SettingsMenu(this);
+    this.hud.setFpsVisible(this.graphics.showFps);
     this.speed = 1;
     this.paused = false;
     this.keys = new Set();
@@ -38,6 +49,9 @@ export class Game {
 
     this.newGame();
     this._last = performance.now();
+    this._fpsFrames = 0;
+    this._fpsSince = this._last;
+    this.fps = 0;
     requestAnimationFrame((t) => this._frame(t));
   }
 
@@ -54,6 +68,14 @@ export class Game {
   cycleSpeed() {
     this.speed = SPEEDS[(SPEEDS.indexOf(this.speed) + 1) % SPEEDS.length];
     this.hud.setSpeed(this.speed);
+  }
+
+  /** Apply and save new graphics settings (see render/graphicsSettings.js). */
+  setGraphics(settings) {
+    this.graphics = settings;
+    saveSettings(settings);
+    this.renderer.applySettings(settings);
+    this.hud.setFpsVisible(settings.showFps);
   }
 
   togglePause() {
@@ -75,6 +97,7 @@ export class Game {
   _onKeyDown(e) {
     if (e.target instanceof HTMLInputElement) return;
     const key = e.key.toLowerCase();
+    if (this.settingsMenu.isOpen && key !== 'escape') return;
     this.keys.add(key);
 
     const hotkeyType = Object.keys(BUILDINGS).find((t) => BUILDINGS[t].hotkey === key);
@@ -94,6 +117,7 @@ export class Game {
         this.build.setMode(null);
         this.build.select(null);
         this.hud.toggleHelp(false);
+        this.settingsMenu.close();
         break;
       case 'p':
         this.togglePause();
@@ -114,8 +138,21 @@ export class Game {
   }
 
   _frame(now) {
+    // Frame-rate cap: skip this animation frame if it's too soon (less GPU work and heat on phones).
+    const cap = this.graphics.fpsCap;
+    if (cap > 0 && now - this._last < 1000 / cap - 2) {
+      requestAnimationFrame((t) => this._frame(t));
+      return;
+    }
     const dt = Math.min(0.1, (now - this._last) / 1000);
     this._last = now;
+
+    this._fpsFrames++;
+    if (now - this._fpsSince >= 500) {
+      this.fps = Math.round((this._fpsFrames * 1000) / (now - this._fpsSince));
+      this._fpsFrames = 0;
+      this._fpsSince = now;
+    }
 
     if (this.contextLost) {
       requestAnimationFrame((t) => this._frame(t));

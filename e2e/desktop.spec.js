@@ -1,5 +1,5 @@
 import { test } from '@playwright/test';
-import { buildingAt, countBuildings, expect, gold, openGame, tileToScreen } from './helpers.js';
+import { buildingAt, countBuildings, expect, gold, graphicsState, openGame, settingButton, tileToScreen } from './helpers.js';
 
 // The Town Hall covers tiles 18–20 on both axes; tiles inside 2..37 are buildable.
 
@@ -83,6 +83,9 @@ test('a GPU context loss pauses the game and it recovers', async ({ page }) => {
   });
   await expect(page.locator('#error')).toBeVisible();
   await expect(page.locator('#error-title')).toHaveText('Graphics were reset by your browser');
+  // Desktop starts on High; the crash drops it one step to Medium.
+  await expect(page.locator('#error-message')).toContainText('lowered to Medium');
+  expect((await graphicsState(page)).preset).toBe('medium');
   const timer = await page.evaluate(() => window.game.world.phaseTimer);
   await page.waitForTimeout(500);
   expect(await page.evaluate(() => window.game.world.phaseTimer)).toBe(timer); // paused while lost
@@ -100,4 +103,57 @@ test('runtime errors are shown on screen instead of a blank page', async ({ page
   });
   await expect(page.locator('#error')).toBeVisible();
   await expect(page.locator('#error-message')).toHaveText('simulated failure');
+});
+
+test('graphics presets apply live, persist across reloads, and pause the game while open', async ({ page }) => {
+  await openGame(page, { paused: false });
+  expect(await graphicsState(page)).toMatchObject({ preset: 'high', shadowsOn: true, shadowSize: 2048 });
+
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await expect(page.locator('#settings')).toBeVisible();
+  expect(await page.evaluate(() => window.game.paused)).toBe(true);
+
+  await settingButton(page, 'Preset', 'Low').click();
+  expect(await graphicsState(page)).toMatchObject({ preset: 'low', fpsCap: 30, shadowsOn: false, pixelRatio: 0.75 });
+  await expect(settingButton(page, 'Preset', 'Low')).toHaveClass(/active/);
+  await expect(settingButton(page, 'Shadows', 'Off')).toHaveClass(/active/);
+
+  await page.getByRole('button', { name: 'Done' }).click();
+  await expect(page.locator('#settings')).toBeHidden();
+  expect(await page.evaluate(() => window.game.paused)).toBe(false);
+
+  await page.reload();
+  await page.waitForFunction(() => window.game?.world);
+  expect(await graphicsState(page)).toMatchObject({ preset: 'low', shadowsOn: false });
+});
+
+test('overriding one setting marks the preset Custom; FPS counter and frame cap work', async ({ page }) => {
+  await openGame(page);
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await settingButton(page, 'Shadows', 'Low').click();
+  await expect(page.locator('.custom-tag')).toBeVisible();
+  expect(await graphicsState(page)).toMatchObject({ preset: 'custom', shadowsOn: true, shadowSize: 1024 });
+
+  await settingButton(page, 'Scenery', 'Off').click();
+  expect((await graphicsState(page)).sceneryParts).toBe(0);
+  await settingButton(page, 'Scenery', 'High').click();
+  expect((await graphicsState(page)).sceneryParts).toBeGreaterThan(0);
+
+  await settingButton(page, 'Show FPS', 'On').click();
+  await settingButton(page, 'Frame rate cap', '30').click();
+  await page.getByRole('button', { name: 'Done' }).click();
+  await expect(page.locator('#fps')).toBeVisible();
+  await expect(page.locator('#fps')).toHaveText(/^\d+ FPS$/);
+  await page.waitForTimeout(1500);
+  expect(await page.evaluate(() => window.game.fps)).toBeLessThanOrEqual(32);
+});
+
+test('changing anti-aliasing offers a reload', async ({ page }) => {
+  await openGame(page);
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await expect(page.locator('#settings-reload-note')).toBeHidden();
+  await settingButton(page, 'Anti-aliasing', 'Off').click();
+  await expect(page.locator('#settings-reload-note')).toBeVisible();
+  await settingButton(page, 'Anti-aliasing', 'On').click();
+  await expect(page.locator('#settings-reload-note')).toBeHidden();
 });

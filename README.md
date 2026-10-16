@@ -72,6 +72,21 @@ cancel. You can drag the building again before confirming. Walls are painted dir
 selected, one finger pans; two fingers zoom and rotate. Graphics settings are automatically lighter on touch
 devices.
 
+## Graphics settings
+
+Open **⚙** in the top bar. The game pauses while the menu is open.
+
+| Preset | Render scale | Anti-aliasing | Shadows | Frame-rate cap | Scenery |
+| ------ | ------------ | ------------- | ------- | -------------- | ------- |
+| Low (phone/tablet default) | 75% | off | off | 30 fps | low |
+| Medium | 100% | off | low (1024) | 60 fps | medium |
+| High (desktop default) | 150% | on | high (2048) | unlimited | high |
+
+You can override any setting on top of a preset; the preset then shows as **Custom**. There are also toggles for
+effects and an FPS counter. Changes apply immediately, except anti-aliasing, which needs a reload. Render scale is
+capped at the screen's real pixel density. If the browser resets the graphics, the game automatically drops one
+preset (Custom goes to Low) and tells you. Settings are saved in the browser.
+
 ## Documentation
 
 - [Game design](docs/GAME_DESIGN.md): pillars, rules, and current unit and building stats

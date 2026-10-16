@@ -14,6 +14,9 @@ Rough order, with each milestone playable on its own. Checkboxes track progress.
 - [x] Headless, deterministic simulation with unit tests
 - [x] Playable on phones: touch controls, responsive HUD, lighter graphics on touch devices
 - [x] Published to GitHub Pages; errors and GPU resets are shown on screen
+- [x] Graphics settings: Low/Medium/High presets with per-setting overrides, FPS cap and counter, auto step-down
+      after a GPU crash
+- [x] Touch placement with drag-to-position and ✓/✕ confirm; Playwright browser regression suite (manual in CI)
 
 ## v0.2: Defence depth
 

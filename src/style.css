@@ -282,6 +282,94 @@ kbd {
   opacity: 0;
 }
 
+/* ------------------------------------------------------------------ settings */
+
+.settings-dialog {
+  width: min(560px, 100% - 20px);
+  max-height: calc(100% - 20px);
+  overflow-y: auto;
+  text-align: left;
+}
+
+.settings-dialog h2,
+.settings-dialog > .primary {
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+  text-align: center;
+}
+
+.setting {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.setting-label {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+  text-align: left;
+}
+
+.setting-label small {
+  display: block;
+  font-weight: 400;
+  font-size: 0.8em;
+  color: var(--muted);
+}
+
+.segmented {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.segmented button {
+  padding: 5px 9px;
+  font-size: 0.85em;
+}
+
+.segmented button.active {
+  background: #8a5a1c;
+  border-color: var(--accent);
+}
+
+.custom-tag {
+  padding: 5px 9px;
+  font-size: 0.85em;
+  border-radius: 6px;
+  border: 1px dashed var(--accent);
+  color: var(--accent);
+}
+
+.custom-tag[hidden] {
+  display: none;
+}
+
+.reload-note {
+  margin: 12px 0 0;
+  font-size: 0.85em;
+  color: var(--warn);
+}
+
+.reload-note[hidden] {
+  display: none;
+}
+
+.reload-note button {
+  margin-left: 6px;
+}
+
+.settings-dialog > .primary {
+  margin-top: 16px;
+}
+
 /* ------------------------------------------------------------------ touch placement ✓ / ✕ */
 
 .confirm {
@@ -389,6 +477,16 @@ kbd {
 
   #toasts {
     top: 120px;
+  }
+
+  .setting {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .segmented {
+    max-width: none;
+    justify-content: flex-start;
   }
 
   .buildbar {
