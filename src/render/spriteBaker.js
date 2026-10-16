@@ -14,8 +14,9 @@ import { inkSprite } from './inkStyle.js';
  * With `ink` (the default), each object layer also gets the hand-drawn treatment from inkStyle.js: two more
  * renders (surface normals and depth) find the edges to ink, and the shading is flattened and warmed.
  *
- * Sprites are packed into atlas pages. A frame records where it is in the atlas, its size in world units, and
- * the anchor: where the model's origin (its spot on the ground) falls inside the sprite.
+ * Sprites are rendered first, then packed into atlas pages tallest first (shelf packing wastes little that
+ * way), and the last page is trimmed to what it uses. A frame records where it is in the atlas, its size in
+ * world units, and the anchor: where the model's origin (its spot on the ground) falls inside the sprite.
  */
 
 const PAGE_SIZE = 2048;
@@ -23,9 +24,6 @@ const PADDING = 3;
 
 class Page {
   constructor() {
-    this.canvas = document.createElement('canvas');
-    this.canvas.width = this.canvas.height = PAGE_SIZE;
-    this.ctx = this.canvas.getContext('2d');
     this.x = PADDING;
     this.y = PADDING;
     this.rowHeight = 0;
@@ -44,6 +42,18 @@ class Page {
     this.rowHeight = Math.max(this.rowHeight, h);
     return spot;
   }
+
+  get usedHeight() {
+    return this.y + this.rowHeight + PADDING;
+  }
+}
+
+/** A canvas of the given size (a sprite on its own, before packing). */
+function canvasOf(w, h) {
+  const c = document.createElement('canvas');
+  c.width = w;
+  c.height = h;
+  return c;
 }
 
 /** The baked result: atlas pages (as textures) and frames by key. */
@@ -59,7 +69,7 @@ export class SpriteAtlas {
 }
 
 /**
- * Bake `specs` = [{ key, make: () => Object3D, shadow = true }] into a SpriteAtlas.
+ * Bake `specs` = [{ key, make: () => Object3D, shadow = true, ink = true, pxPerUnit? }] into a SpriteAtlas.
  * `pxPerUnit` is the sprite resolution at zoom 1 (rendered at `supersample`× and scaled down for smooth edges).
  */
 export function bakeSprites(specs, { pxPerUnit = 64, supersample = 2, ink = true } = {}) {
@@ -67,6 +77,7 @@ export function bakeSprites(specs, { pxPerUnit = 64, supersample = 2, ink = true
   const atlas = new SpriteAtlas();
   const canvas = document.createElement('canvas');
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: true, preserveDrawingBuffer: true });
+  const rendered = []; // { key, image, shadowImage?, w, h, anchorX, anchorY }
   try {
     renderer.setPixelRatio(1);
     renderer.setClearColor(0x000000, 0);
@@ -126,15 +137,13 @@ export function bakeSprites(specs, { pxPerUnit = 64, supersample = 2, ink = true
     const inverse = ISO_QUATERNION.clone().invert();
     const v = new THREE.Vector3();
     const box = new THREE.Box3();
-    let page = new Page();
-    atlas.pages.push(page);
 
     for (const spec of specs) {
       const { key, make, shadow = true } = spec;
       const object = make();
       scene.add(object);
       object.updateMatrixWorld(true);
-      box.setFromObject(object);
+      box.setFromObject(object, true); // precise: tight around rotated parts, so frames stay small
       if (box.isEmpty()) {
         scene.remove(object);
         continue;
@@ -164,14 +173,9 @@ export function bakeSprites(specs, { pxPerUnit = 64, supersample = 2, ink = true
 
       const w = maxX - minX;
       const h = maxY - minY;
-      const outW = Math.max(1, Math.ceil(w * pxPerUnit));
-      const outH = Math.max(1, Math.ceil(h * pxPerUnit));
-      let spot = page.place(outW, outH);
-      if (!spot) {
-        page = new Page();
-        atlas.pages.push(page);
-        spot = page.place(outW, outH);
-      }
+      const ppu = spec.pxPerUnit ?? pxPerUnit; // a spec can bake at its own resolution (small, moving sprites)
+      const outW = Math.max(1, Math.ceil(w * ppu));
+      const outH = Math.max(1, Math.ceil(h * ppu));
 
       camera.left = minX;
       camera.right = maxX;
@@ -233,27 +237,20 @@ export function bakeSprites(specs, { pxPerUnit = 64, supersample = 2, ink = true
         workCtx.putImageData(color, 0, 0);
         source = work;
       }
-      page.ctx.drawImage(source, 0, 0, source.width, source.height, spot.x, spot.y, outW, outH);
-      const objectFrame = frameFor(atlas.pages.length - 1, spot, outW, outH, w, h, -minX, -minY);
-      atlas.frames.set(key, objectFrame);
+      const image = canvasOf(outW, outH);
+      image.getContext('2d').drawImage(source, 0, 0, source.width, source.height, 0, 0, outW, outH);
+      const item = { key, image, w, h, anchorX: -minX, anchorY: -minY };
+      rendered.push(item);
 
       // Layer 2: its shadow on the ground (the object itself writes depth only). Shadows are soft, so they're
       // stored at half resolution.
       if (shadow) {
-        const sw = Math.ceil(outW / 2);
-        const sh = Math.ceil(outH / 2);
-        let shadowSpot = page.place(sw, sh);
-        if (!shadowSpot) {
-          page = new Page();
-          atlas.pages.push(page);
-          shadowSpot = page.place(sw, sh);
-        }
         for (const [o] of meshes) o.material = depthOnly;
         catcher.visible = true;
         renderer.render(scene, camera);
         for (const [o, mat] of meshes) o.material = mat;
-        page.ctx.drawImage(canvas, 0, 0, canvas.width, canvas.height, shadowSpot.x, shadowSpot.y, sw, sh);
-        objectFrame.shadow = frameFor(atlas.pages.length - 1, shadowSpot, sw, sh, w, h, -minX, -minY);
+        item.shadowImage = canvasOf(Math.ceil(outW / 2), Math.ceil(outH / 2));
+        item.shadowImage.getContext('2d').drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, item.shadowImage.width, item.shadowImage.height);
       }
       scene.remove(object);
     }
@@ -262,9 +259,45 @@ export function bakeSprites(specs, { pxPerUnit = 64, supersample = 2, ink = true
     renderer.forceContextLoss();
   }
 
+  packAtlas(atlas, rendered);
   atlas.bakeMs = Math.round(performance.now() - started);
-  atlas.pages = atlas.pages.map((p) => ({ source: p.canvas, texture: pageTexture(new THREE.CanvasTexture(p.canvas)) }));
   return atlas;
+}
+
+/** Pack rendered sprites (and their shadows) onto pages, tallest first; trim the last page's height. */
+function packAtlas(atlas, rendered) {
+  const rects = [];
+  for (const item of rendered) {
+    rects.push({ item, image: item.image, shadow: false });
+    if (item.shadowImage) rects.push({ item, image: item.shadowImage, shadow: true });
+  }
+  rects.sort((a, b) => b.image.height - a.image.height || b.image.width - a.image.width);
+  const pages = [new Page()];
+  for (const r of rects) {
+    r.spot = pages.at(-1).place(r.image.width, r.image.height);
+    if (!r.spot) {
+      pages.push(new Page());
+      r.spot = pages.at(-1).place(r.image.width, r.image.height);
+    }
+    r.page = pages.length - 1;
+  }
+  const canvases = pages.map((p, i) => canvasOf(PAGE_SIZE, i === pages.length - 1 ? Math.ceil(p.usedHeight / 4) * 4 : PAGE_SIZE));
+  for (const r of rects) {
+    const c = canvases[r.page];
+    c.getContext('2d').drawImage(r.image, r.spot.x, r.spot.y);
+    const { item } = r;
+    const frame = frameFor(r.page, r.spot, r.image.width, r.image.height, item.w, item.h, item.anchorX, item.anchorY, c.width, c.height);
+    // An object and its shadow are packed separately, in either order; link them up whichever comes second.
+    if (r.shadow) {
+      item.shadowFrame = frame;
+      const objectFrame = atlas.frames.get(item.key);
+      if (objectFrame) objectFrame.shadow = frame;
+    } else {
+      if (item.shadowFrame) frame.shadow = item.shadowFrame;
+      atlas.frames.set(item.key, frame);
+    }
+  }
+  atlas.pages = canvases.map((c) => ({ source: c, texture: pageTexture(new THREE.CanvasTexture(c)) }));
 }
 
 function pageTexture(texture) {
@@ -302,14 +335,14 @@ export async function loadAtlas(baseUrl) {
   return atlas;
 }
 
-function frameFor(pageIndex, spot, outW, outH, w, h, anchorX, anchorY) {
+function frameFor(pageIndex, spot, outW, outH, w, h, anchorX, anchorY, pageW = PAGE_SIZE, pageH = PAGE_SIZE) {
   return {
     page: pageIndex,
     // UV rectangle (v measured from the bottom, as WebGL textures are flipped).
-    u0: spot.x / PAGE_SIZE,
-    v0: 1 - (spot.y + outH) / PAGE_SIZE,
-    u1: (spot.x + outW) / PAGE_SIZE,
-    v1: 1 - spot.y / PAGE_SIZE,
+    u0: spot.x / pageW,
+    v0: 1 - (spot.y + outH) / pageH,
+    u1: (spot.x + outW) / pageW,
+    v1: 1 - spot.y / pageH,
     pixels: { x: spot.x, y: spot.y, w: outW, h: outH },
     w,
     h,

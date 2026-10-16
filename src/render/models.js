@@ -414,14 +414,47 @@ export function createBuildingModel(type, opts) {
 }
 
 // ------------------------------------------------------------------ enemies
-// Each enemy's parts are merged into a `body` group. Models face +z.
+// Enemies are rigs, so the baker can pose them for walk, attack and death frames (see poseEnemy):
+//
+//   root          (feet on the ground, faces +z; the catalogue turns it to each heading)
+//   └ figure      (tips over when dying)
+//     ├ legs[0..1] pivot at the hips
+//     └ body       pivot at the hips: torso and head
+//       └ arms[0..1] pivot at the shoulders; arms[1] (right) holds the weapon
+//
+// Each part is built in its own Parts, in coordinates relative to its pivot.
 
-function finishEnemy(p) {
-  const g = new THREE.Group();
-  const body = p.build();
-  g.add(body);
-  g.userData.body = body;
-  return g;
+/** Frames baked per animation. */
+export const ENEMY_ANIMS = { walk: 6, attack: 4, death: 4 };
+
+function rig({ hipY, legX, buildLeg, buildBody, shoulder, buildArm, crown }) {
+  const root = new THREE.Group();
+  const figure = new THREE.Group();
+  root.add(figure);
+  const legs = [-1, 1].map((s) => {
+    const p = new Parts({ yOffset: hipY });
+    buildLeg(p, s);
+    const leg = p.build();
+    leg.position.set(s * legX, hipY, 0);
+    figure.add(leg);
+    return leg;
+  });
+  const bp = new Parts({ yOffset: hipY });
+  buildBody(bp);
+  const body = bp.build();
+  body.position.y = hipY;
+  figure.add(body);
+  const arms = [-1, 1].map((s) => {
+    const p = new Parts({ yOffset: hipY + shoulder.y });
+    buildArm(p, s);
+    const arm = p.build();
+    arm.position.set(s * shoulder.x, shoulder.y, shoulder.z);
+    body.add(arm);
+    return arm;
+  });
+  root.userData.rig = { figure, legs, body, arms, hipY, crown };
+  root.userData.body = body;
+  return root;
 }
 
 function goblinHead(p, { y, z = 0.02, s = 1 }) {
@@ -437,86 +470,123 @@ function goblinHead(p, { y, z = 0.02, s = 1 }) {
 
 function grunt() {
   const M = MATERIALS;
-  const p = new Parts();
-  for (const s of [-1, 1]) {
-    p.add(capsule(0.045, 0.18), M.goblinSkinDark, { x: s * 0.08, y: 0.13 });
-    p.add(box(0.08, 0.05, 0.12), M.leatherDark, { x: s * 0.08, y: 0.025, z: 0.02 });
-  }
-  p.add(box(0.26, 0.12, 0.18), M.cloth, { y: 0.28 }); // loincloth
-  p.add(capsule(0.13, 0.14), M.leather, { y: 0.45, z: 0.02, rx: 0.25 }); // hunched torso in a vest
-  p.add(box(0.28, 0.04, 0.2), M.leatherDark, { y: 0.36, z: 0.02 }); // belt
-  goblinHead(p, { y: 0.72, z: 0.08 });
-  for (const s of [-1, 1]) p.add(capsule(0.04, 0.2), M.goblinSkin, { x: s * 0.19, y: 0.45, z: 0.06, rz: s * 0.25, rx: -0.4 });
-  // Spiked club.
-  p.add(cyl(0.035, 0.065, 0.42, 8), M.woodDark, { x: 0.23, y: 0.48, z: 0.2, rx: 0.9 });
-  for (let i = 0; i < 4; i++) p.add(cone(0.02, 0.06, 4), M.bone, { x: 0.23 + (i % 2 ? 0.05 : -0.05), y: 0.6, z: 0.36, rx: 0.9 + i });
-  return finishEnemy(p);
+  return rig({
+    hipY: 0.24,
+    legX: 0.08,
+    buildLeg: (p) => {
+      p.add(capsule(0.045, 0.18), M.goblinSkinDark, { y: -0.11 });
+      p.add(box(0.08, 0.05, 0.12), M.leatherDark, { y: -0.215, z: 0.02 });
+    },
+    buildBody: (p) => {
+      p.add(box(0.26, 0.12, 0.18), M.cloth, { y: 0.04 }); // loincloth
+      p.add(capsule(0.13, 0.14), M.leather, { y: 0.21, z: 0.02, rx: 0.25 }); // hunched torso in a vest
+      p.add(box(0.28, 0.04, 0.2), M.leatherDark, { y: 0.12, z: 0.02 }); // belt
+      goblinHead(p, { y: 0.48, z: 0.08 });
+    },
+    shoulder: { x: 0.17, y: 0.3, z: 0.04 },
+    buildArm: (p, s) => {
+      p.add(capsule(0.04, 0.2), M.goblinSkin, { x: s * 0.02, y: -0.12, z: 0.03, rz: s * 0.15, rx: -0.3 });
+      if (s < 0) return;
+      // Spiked club.
+      p.add(cyl(0.035, 0.065, 0.42, 8), M.woodDark, { x: 0.06, y: -0.06, z: 0.16, rx: 0.9 });
+      for (let i = 0; i < 4; i++) p.add(cone(0.02, 0.06, 4), M.bone, { x: 0.06 + (i % 2 ? 0.05 : -0.05), y: 0.06, z: 0.32, rx: 0.9 + i });
+    },
+    crown: { y: 0.66, z: 0.08 },
+  });
 }
 
 function runner() {
   const M = MATERIALS;
-  const p = new Parts();
-  for (const s of [-1, 1]) p.add(capsule(0.035, 0.18), M.goblinSkinDark, { x: s * 0.065, y: 0.12, rx: s * 0.3 });
-  p.add(capsule(0.1, 0.12), M.hood, { y: 0.38, z: 0.03, rx: 0.4 });
-  goblinHead(p, { y: 0.6, z: 0.1, s: 0.85 });
-  p.add(cone(0.15, 0.26, 8), M.hood, { y: 0.7, z: 0.06, rx: -0.3 }); // hood
-  p.add(cone(0.16, 0.36, 8), M.hood, { y: 0.32, z: -0.08, rx: -0.5 }); // cape
-  p.add(box(0.025, 0.025, 0.26), M.iron, { x: 0.15, y: 0.38, z: 0.18 }); // dagger
-  p.add(box(0.06, 0.03, 0.03), M.gold, { x: 0.15, y: 0.38, z: 0.05 });
-  return finishEnemy(p);
+  return rig({
+    hipY: 0.24,
+    legX: 0.065,
+    buildLeg: (p) => p.add(capsule(0.035, 0.18), M.goblinSkinDark, { y: -0.12 }),
+    buildBody: (p) => {
+      p.add(capsule(0.1, 0.12), M.hood, { y: 0.14, z: 0.03, rx: 0.4 });
+      goblinHead(p, { y: 0.36, z: 0.1, s: 0.85 });
+      p.add(cone(0.15, 0.26, 8), M.hood, { y: 0.46, z: 0.06, rx: -0.3 }); // hood
+      p.add(cone(0.16, 0.36, 8), M.hood, { y: 0.08, z: -0.08, rx: -0.5 }); // cape
+    },
+    shoulder: { x: 0.12, y: 0.24, z: 0.06 },
+    buildArm: (p, s) => {
+      p.add(capsule(0.03, 0.14), M.goblinSkinDark, { y: -0.1, z: 0.02 });
+      if (s < 0) return;
+      p.add(box(0.025, 0.025, 0.26), M.iron, { x: 0.02, y: -0.17, z: 0.14 }); // dagger
+      p.add(box(0.06, 0.03, 0.03), M.gold, { x: 0.02, y: -0.17, z: 0.02 });
+    },
+    crown: { y: 0.56, z: 0.1 },
+  });
 }
 
 function orc() {
   const M = MATERIALS;
-  const p = new Parts();
-  for (const s of [-1, 1]) {
-    p.add(capsule(0.07, 0.22), M.leatherDark, { x: s * 0.11, y: 0.17 });
-    p.add(box(0.12, 0.07, 0.17), M.iron, { x: s * 0.11, y: 0.035, z: 0.03 });
-  }
-  p.add(box(0.36, 0.16, 0.24), M.leather, { y: 0.38 });
-  p.add(capsule(0.19, 0.16), M.orcSkin, { y: 0.62, z: 0.02, rx: 0.15 });
-  p.add(box(0.4, 0.3, 0.3), M.iron, { y: 0.66, z: 0.03, rx: 0.15 }); // breastplate
-  for (const s of [-1, 1]) {
-    p.add(sphere(0.13, 10, 7), M.iron, { x: s * 0.27, y: 0.84, sy: 0.7 }); // pauldrons
-    p.add(cone(0.035, 0.12, 5), M.bone, { x: s * 0.3, y: 0.95, rz: -s * 0.5 });
-    p.add(capsule(0.065, 0.24), M.orcSkin, { x: s * 0.32, y: 0.6, z: 0.05, rz: s * 0.15, rx: -0.3 });
-  }
-  p.add(sphere(0.15, 12, 9), M.orcSkin, { y: 1.0, z: 0.06 });
-  p.add(box(0.2, 0.06, 0.12), M.orcSkin, { y: 0.92, z: 0.15 }); // jaw
-  for (const s of [-1, 1]) {
-    p.add(cone(0.022, 0.08, 5), M.bone, { x: s * 0.06, y: 0.97, z: 0.2 });
-    p.add(sphere(0.028, 6, 5), M.eyes, { x: s * 0.06, y: 1.04, z: 0.18 });
-  }
-  p.add(box(0.2, 0.05, 0.05), M.leatherDark, { y: 1.08, z: 0.16 }); // brow
-  // Two-handed axe.
-  p.add(cyl(0.025, 0.025, 0.8, 6), M.woodDark, { x: 0.36, y: 0.6, z: 0.18, rx: 0.15 });
-  p.add(box(0.03, 0.24, 0.2), M.iron, { x: 0.36, y: 0.92, z: 0.3, rx: 0.15 });
-  return finishEnemy(p);
+  return rig({
+    hipY: 0.3,
+    legX: 0.11,
+    buildLeg: (p) => {
+      p.add(capsule(0.07, 0.22), M.leatherDark, { y: -0.13 });
+      p.add(box(0.12, 0.07, 0.17), M.iron, { y: -0.265, z: 0.03 });
+    },
+    buildBody: (p) => {
+      p.add(box(0.36, 0.16, 0.24), M.leather, { y: 0.08 });
+      p.add(capsule(0.19, 0.16), M.orcSkin, { y: 0.32, z: 0.02, rx: 0.15 });
+      p.add(box(0.4, 0.3, 0.3), M.iron, { y: 0.36, z: 0.03, rx: 0.15 }); // breastplate
+      for (const s of [-1, 1]) {
+        p.add(sphere(0.13, 10, 7), M.iron, { x: s * 0.27, y: 0.54, sy: 0.7 }); // pauldrons
+        p.add(cone(0.035, 0.12, 5), M.bone, { x: s * 0.3, y: 0.65, rz: -s * 0.5 });
+      }
+      p.add(sphere(0.15, 12, 9), M.orcSkin, { y: 0.7, z: 0.06 });
+      p.add(box(0.2, 0.06, 0.12), M.orcSkin, { y: 0.62, z: 0.15 }); // jaw
+      for (const s of [-1, 1]) {
+        p.add(cone(0.022, 0.08, 5), M.bone, { x: s * 0.06, y: 0.67, z: 0.2 });
+        p.add(sphere(0.028, 6, 5), M.eyes, { x: s * 0.06, y: 0.74, z: 0.18 });
+      }
+      p.add(box(0.2, 0.05, 0.05), M.leatherDark, { y: 0.78, z: 0.16 }); // brow
+    },
+    shoulder: { x: 0.32, y: 0.5, z: 0.05 },
+    buildArm: (p, s) => {
+      p.add(capsule(0.065, 0.24), M.orcSkin, { y: -0.2, z: 0.03, rx: -0.3 });
+      if (s < 0) return;
+      // Two-handed axe.
+      p.add(cyl(0.025, 0.025, 0.8, 6), M.woodDark, { x: 0.04, y: -0.2, z: 0.13, rx: 0.15 });
+      p.add(box(0.03, 0.24, 0.2), M.iron, { x: 0.04, y: 0.12, z: 0.25, rx: 0.15 });
+    },
+    crown: { y: 0.86, z: 0.06 },
+  });
 }
 
 function brute() {
   const M = MATERIALS;
-  const p = new Parts();
-  for (const s of [-1, 1]) {
-    p.add(cyl(0.12, 0.16, 0.42, 10), M.trollSkinDark, { x: s * 0.2, y: 0.21 });
-    p.add(sphere(0.13, 10, 7), M.trollSkinDark, { x: s * 0.2, y: 0.04, z: 0.06, sy: 0.5 });
-  }
-  p.add(box(0.56, 0.2, 0.42), M.leather, { y: 0.46 }); // loincloth
-  p.add(sphere(0.42, 14, 10), M.trollSkin, { y: 0.86, z: 0.04, sy: 1.05, sz: 0.9 }); // hunched torso
-  p.add(sphere(0.3, 12, 9), M.trollSkinDark, { y: 1.08, z: -0.12, sx: 1.1 }); // back hump
-  p.add(sphere(0.17, 12, 9), M.trollSkin, { y: 1.18, z: 0.3 }); // head, jutting forward
-  p.add(box(0.22, 0.07, 0.12), M.trollSkinDark, { y: 1.1, z: 0.42 }); // jaw
-  for (const s of [-1, 1]) {
-    p.add(sphere(0.032, 6, 5), M.eyes, { x: s * 0.065, y: 1.22, z: 0.45 });
-    p.add(cone(0.025, 0.07, 5), M.bone, { x: s * 0.07, y: 1.15, z: 0.47, rx: -0.4 });
-    // Long arms ending in big fists.
-    p.add(cyl(0.08, 0.12, 0.72, 10), M.trollSkin, { x: s * 0.46, y: 0.62, z: 0.14, rz: s * 0.18 });
-    p.add(sphere(0.13, 10, 7), M.trollSkinDark, { x: s * 0.52, y: 0.24, z: 0.18 });
-  }
-  // Tree-trunk club.
-  p.add(cyl(0.07, 0.15, 0.95, 10), M.woodDark, { x: 0.55, y: 0.38, z: 0.45, rx: 1.05 });
-  p.add(dodeca(0.13), MATERIALS.boulder, { x: 0.55, y: 0.14, z: 0.82 });
-  return finishEnemy(p);
+  return rig({
+    hipY: 0.42,
+    legX: 0.2,
+    buildLeg: (p) => {
+      p.add(cyl(0.12, 0.16, 0.42, 10), M.trollSkinDark, { y: -0.21 });
+      p.add(sphere(0.13, 10, 7), M.trollSkinDark, { y: -0.38, z: 0.06, sy: 0.5 });
+    },
+    buildBody: (p) => {
+      p.add(box(0.56, 0.2, 0.42), M.leather, { y: 0.04 }); // loincloth
+      p.add(sphere(0.42, 14, 10), M.trollSkin, { y: 0.44, z: 0.04, sy: 1.05, sz: 0.9 }); // hunched torso
+      p.add(sphere(0.3, 12, 9), M.trollSkinDark, { y: 0.66, z: -0.12, sx: 1.1 }); // back hump
+      p.add(sphere(0.17, 12, 9), M.trollSkin, { y: 0.76, z: 0.3 }); // head, jutting forward
+      p.add(box(0.22, 0.07, 0.12), M.trollSkinDark, { y: 0.68, z: 0.42 }); // jaw
+      for (const s of [-1, 1]) {
+        p.add(sphere(0.032, 6, 5), M.eyes, { x: s * 0.065, y: 0.8, z: 0.45 });
+        p.add(cone(0.025, 0.07, 5), M.bone, { x: s * 0.07, y: 0.73, z: 0.47, rx: -0.4 });
+      }
+    },
+    shoulder: { x: 0.42, y: 0.56, z: 0.1 },
+    buildArm: (p, s) => {
+      // Long arms ending in big fists.
+      p.add(cyl(0.08, 0.12, 0.72, 10), M.trollSkin, { x: s * 0.04, y: -0.36, z: 0.04, rz: s * 0.18 });
+      p.add(sphere(0.13, 10, 7), M.trollSkinDark, { x: s * 0.1, y: -0.74, z: 0.08 });
+      if (s < 0) return;
+      // Tree-trunk club.
+      p.add(cyl(0.07, 0.15, 0.95, 10), M.woodDark, { x: 0.13, y: -0.6, z: 0.35, rx: 1.05 });
+      p.add(dodeca(0.13), MATERIALS.boulder, { x: 0.13, y: -0.84, z: 0.72 });
+    },
+    crown: { y: 0.94, z: 0.3 },
+  });
 }
 
 const ENEMY_MODELS = { grunt, runner, orc, brute };
@@ -532,10 +602,54 @@ export function createEnemyModel(type, elite = false) {
       crown.add(cone(0.03, 0.08, 4), MATERIALS.gold, { x: Math.cos(a) * 0.12, y: 0.07, z: Math.sin(a) * 0.12 });
     }
     const c = crown.build();
-    c.position.set(0, type === 'brute' ? 1.36 : 1.15, type === 'brute' ? 0.3 : 0);
+    const { y, z } = g.userData.rig.crown;
+    c.position.set(0, y, z);
     g.userData.body.add(c);
   }
   return g;
+}
+
+const ease = (t) => t * t * (3 - 2 * t);
+
+/**
+ * Pose an enemy rig for frame `frame` of `anim` ('walk', 'attack' or 'death'; see ENEMY_ANIMS).
+ *  - walk: a full stride over the frames (legs and arms swing, the body bobs);
+ *  - attack: ready → wind up → raised → strike (the blow lands on the last frame, as the hit does in the sim);
+ *  - death: topples over (backwards and sideways), arms flung up.
+ */
+export function poseEnemy(model, anim, frame) {
+  const { figure, legs, body, arms, hipY } = model.userData.rig;
+  const n = ENEMY_ANIMS[anim];
+  figure.rotation.set(0, 0, 0);
+  body.rotation.set(0, 0, 0);
+  body.position.y = hipY;
+  for (const part of [...legs, ...arms]) part.rotation.set(0, 0, 0);
+  if (anim === 'walk') {
+    const a = (frame / n) * Math.PI * 2;
+    const swing = Math.sin(a);
+    legs[0].rotation.x = swing * 0.6;
+    legs[1].rotation.x = -swing * 0.6;
+    arms[0].rotation.x = -swing * 0.5;
+    arms[1].rotation.x = swing * 0.3;
+    body.position.y = hipY + Math.abs(Math.cos(a)) * hipY * 0.12;
+    body.rotation.x = 0.08;
+  } else if (anim === 'attack') {
+    const raise = [-0.5, -1.6, -2.4, 0.55][frame];
+    arms[1].rotation.x = raise;
+    arms[0].rotation.x = frame === 3 ? -0.2 : -0.6;
+    body.rotation.x = [0.05, -0.08, -0.15, 0.3][frame];
+    legs[0].rotation.x = -0.25;
+    legs[1].rotation.x = 0.2;
+  } else {
+    // Topple diagonally (backwards and to one side), so the fall reads from any heading in the iso view.
+    const t = ease((frame + 1) / n);
+    figure.rotation.set(-1.05 * t, 0, 1.05 * t);
+    arms[0].rotation.x = -1.6 * t;
+    arms[1].rotation.x = -1.2 * t;
+    legs[0].rotation.x = 0.35 * t;
+    legs[1].rotation.x = -0.15 * t;
+  }
+  return model;
 }
 
 // ------------------------------------------------------------------ projectiles (drawn live)

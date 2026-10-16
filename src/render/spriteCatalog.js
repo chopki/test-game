@@ -1,5 +1,7 @@
 import { BUILDINGS, ENEMIES } from '../sim/config.js';
-import { createBuildingModel, createEnemyModel, createSceneryObject, SCENERY_TYPES, SCENERY_VARIANTS } from './models.js';
+import { createBuildingModel, createEnemyModel, createSceneryObject, ENEMY_ANIMS, poseEnemy, SCENERY_TYPES, SCENERY_VARIANTS } from './models.js';
+
+export { ENEMY_ANIMS };
 
 // Which sprites to bake, and how the renderer names them. Everything the battlefield shows (except
 // projectiles and effects) is drawn from these.
@@ -20,7 +22,9 @@ export const spriteKeys = {
   wall: (connectionKey) => `wall:${connectionKey}`,
   turret: (type, aim, frame = 0) => `t:${type}:${angleIndex(aim, TURRET_DIRECTIONS)}:${frame}`,
   crystal: () => 'crystal',
-  enemy: (type, heading, elite = false) => `e:${type}:${elite ? 'elite:' : ''}${angleIndex(heading, ENEMY_DIRECTIONS)}`,
+  /** An enemy frame: `anim` is 'walk', 'attack' or 'death' (see ENEMY_ANIMS). */
+  enemy: (type, heading, elite = false, anim = 'walk', frame = 0) =>
+    `e:${type}:${elite ? 'elite:' : ''}${angleIndex(heading, ENEMY_DIRECTIONS)}:${anim}:${frame}`,
   scenery: (kind, variant) => `s:${kind}:${variant}`,
 };
 
@@ -39,6 +43,8 @@ const BUILDING_PARTS = {
 
 /** Options every bake uses (runtime and scripts/bake-sprites.mjs). */
 export const BAKE_OPTIONS = { pxPerUnit: 72, supersample: 2 };
+/** Enemies are small and always moving, so they're baked at a lower resolution (there are ~560 frames). */
+const ENEMY_PX_PER_UNIT = 56;
 
 /** Pose the catapult arm for a reload frame. */
 function poseArm(userData, frame) {
@@ -79,6 +85,8 @@ export function spriteSpecs() {
           specs.push({
             key: spriteKeys.turret(type, angle, f),
             shadow: false,
+            // The catapult has 64 aim × reload frames; a little lower resolution keeps them compact.
+            pxPerUnit: parts.arm ? 60 : undefined,
             make: () => {
               const m = createBuildingModel(type);
               const turret = m.userData.turret;
@@ -116,15 +124,21 @@ export function spriteSpecs() {
     for (const elite of variants) {
       for (let d = 0; d < ENEMY_DIRECTIONS; d++) {
         const heading = (d / ENEMY_DIRECTIONS) * Math.PI * 2;
-        specs.push({
-          key: spriteKeys.enemy(type, heading, elite),
-          shadow: false,
-          make: () => {
-            const m = createEnemyModel(type, elite);
-            m.rotation.y = heading;
-            return m;
-          },
-        });
+        for (const [anim, frames] of Object.entries(ENEMY_ANIMS)) {
+          for (let f = 0; f < frames; f++) {
+            specs.push({
+              key: spriteKeys.enemy(type, heading, elite, anim, f),
+              shadow: false,
+              // Elites are drawn 1.3× bigger; this keeps their frames the same size in pixels.
+              pxPerUnit: elite ? ENEMY_PX_PER_UNIT / 1.3 : ENEMY_PX_PER_UNIT,
+              make: () => {
+                const m = poseEnemy(createEnemyModel(type, elite), anim, f);
+                m.rotation.y = heading;
+                return m;
+              },
+            });
+          }
+        }
       }
     }
   }

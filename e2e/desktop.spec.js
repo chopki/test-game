@@ -335,3 +335,44 @@ test('showcase: a walled base with every tower and enemy renders without errors 
   await buildShowcase(page, testInfo, 'showcase-desktop');
   expect(errors).toEqual([]);
 });
+
+test('enemies are animated: walk frames cycle, blocked enemies attack, and the dead topple before vanishing', async ({ page }) => {
+  const errors = await openGame(page, { paused: false });
+  // Software WebGL manages only a few fps on High, too few to watch animation; Low runs at its 30 fps cap.
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await settingButton(page, 'Preset', 'Low').click();
+  await page.getByRole('button', { name: 'Done' }).click();
+  const view = () =>
+    page.evaluate(() => {
+      const e = window.game.world.enemies[0];
+      const v = e && window.game.renderer.views.enemies.get(e.id);
+      return v ? { anim: v.anim, frame: v.frame } : null;
+    });
+  // One goblin walking south from the north edge, straight at a wall line across its path.
+  await page.evaluate(() => {
+    const w = window.game.world;
+    w.economy.earn(1000);
+    for (let x = 3; x <= 36; x++) w.place('wall', x, 8);
+    w.phase = 'wave';
+    w.spawnTiles.north = [[20, 0]];
+    w._spawnEnemy({ type: 'grunt', side: 'north', hpMult: 1, elite: false });
+  });
+  // Walk frames advance as it moves (polled, as the first frames after a preset change can be slow).
+  const frames = new Set();
+  await expect
+    .poll(
+      async () => {
+        const v = await view();
+        if (v?.anim === 'walk') frames.add(v.frame);
+        return frames.size;
+      },
+      { timeout: 15_000, intervals: [60] },
+    )
+    .toBeGreaterThan(2);
+  await expect.poll(async () => (await view())?.anim, { timeout: 20_000 }).toBe('attack');
+
+  await page.evaluate(() => window.game.world._damageEnemy(window.game.world.enemies[0], 9999));
+  expect(await page.evaluate(() => window.game.renderer.corpses.length)).toBe(1);
+  await expect.poll(() => page.evaluate(() => window.game.renderer.corpses.length), { timeout: 5_000 }).toBe(0);
+  expect(errors).toEqual([]);
+});

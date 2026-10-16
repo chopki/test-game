@@ -49,7 +49,7 @@ Pre-rendered sprites on a fixed isometric camera (see ARCHITECTURE.md), working 
       watchtower, cannon on a low plinth, crystal mound, plain catapult, log palisade)
 - [x] Hand-drawn look baked into every sprite (ink outlines and inner lines, banded warm shading, hatching)
       and drifting cloud shadows
-- [ ] Step 4: animated units (8-direction walk/attack frames)
+- [x] Step 4: animated units (8 directions × 6 walk, 4 attack and 4 death frames, baked from posable rigs)
 
 ## v0.2: Defence depth
 

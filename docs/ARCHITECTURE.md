@@ -82,7 +82,15 @@ so the whole battlefield is ~15 draw calls and a few hundred triangles however d
   Renderer.js: blended in the opaque pass, renderOrder 1); sprites are renderOrder 2; live 3D projectiles,
   effects and the build ghost renderOrder 3.
 - Moving parts get their own sprites: 16 turret aim directions (cannon, catapult × 4 arm reload frames), the
-  spire crystal (bobbed by offset), 8 facing directions per enemy (walk bob and attack lunge are offsets).
+  spire crystal (bobbed by offset).
+- **Animated enemies**: each enemy model is a rig (legs, body and arms as separate parts; see `models.js`) that
+  `poseEnemy()` puts into baked frames: 6 walk, 4 attack and 4 death (`ENEMY_ANIMS`), for each of 8 headings.
+  Sprite keys are `e:<type>[:elite]:<dir>:<anim>:<frame>`. The renderer advances walk frames by distance
+  covered (`WALK_STRIDE`), takes attack frames from the sim's attack timer (the blow lands on the hit), and keeps
+  killed enemies as corpses that play their death frames before vanishing.
+- Atlas size: sprites can bake at their own resolution (`pxPerUnit` per spec: enemies 56, catapult frames 60,
+  everything else 72), frames use tight bounds, and pages are packed tallest-first with the last page trimmed.
+  ~680 sprites fit in about 2.5 pages of 2048².
 - `Renderer.js`: scene, terrain, the iso `MapControls` camera (pan and zoom only), entity view sync into the
   sprite layers, health bars, burst effects, ground picking (`pickGround` → sim coords).
 - `graphicsSettings.js`: graphics presets (Low/Medium/High), per-setting options, `startupSettings()` and

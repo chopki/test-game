@@ -125,7 +125,9 @@ green goblins and orcs, grey trolls. Terrain follows the reference's environment
 stepped pines, big flat-faced pale sandstone boulders, warm olive-yellow grass with dark grass strokes and few
 flowers, bright turquoise water sunk below the grass with a brown earth bank on the far side, and strong dark
 ground shadows. Sprites get a hand-drawn finish when baked: warm dark-brown ink outlines and inner lines, shading
-pulled into soft bands, and light hatching in the shadows. Cloud shadows drift slowly across the battlefield. Everything is built from code (procedural
+pulled into soft bands, and light hatching in the shadows. Cloud shadows drift slowly across the battlefield.
+Enemies are animated: they walk with a stride matched to their speed, wind up and swing their weapons in time
+with their hits, and topple over when killed. Everything is built from code (procedural
 textures in `render/textures.js`, models in `render/models.js`), so there are no asset files to manage.
 
 ## Economy (v0.1)

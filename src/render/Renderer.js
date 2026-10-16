@@ -10,7 +10,7 @@ import { createProjectileModel, SCENERY_VARIANTS } from './models.js';
 import { BlobShadowBatch, HealthBarBatch } from './batches.js';
 import { ISO_QUATERNION, isoDirection } from './iso.js';
 import { SpriteLayer } from './spriteLayer.js';
-import { CATAPULT_ARM_FRAMES, crystalHeight, spriteKeys, turretHeight } from './spriteCatalog.js';
+import { CATAPULT_ARM_FRAMES, ENEMY_ANIMS, crystalHeight, spriteKeys, turretHeight } from './spriteCatalog.js';
 
 const SKY = 0xa9d3ee;
 
@@ -24,6 +24,10 @@ const NEIGHBOURS = [
 ];
 const ENEMY_BAR_WIDTH = { grunt: 0.6, runner: 0.6, orc: 0.75, brute: 0.9 };
 const ENEMY_BLOB_RADIUS = { grunt: 0.28, runner: 0.24, orc: 0.38, brute: 0.6 };
+// Tiles covered by one walk cycle, so feet keep pace with the ground.
+const WALK_STRIDE = { grunt: 0.7, runner: 0.8, orc: 0.85, brute: 1.2 };
+const DEATH_FRAME_TIME = 0.11; // seconds per death frame
+const CORPSE_TIME = 0.9; // how long a fallen enemy stays before vanishing
 // Visible world height at zoom 1 is at least this; portrait screens show at least VIEW_WIDTH across.
 const VIEW_HEIGHT = 30;
 const VIEW_WIDTH = 30;
@@ -97,6 +101,7 @@ export class Renderer {
     this.healthBars = new HealthBarBatch(this.overlayLayer);
     this.blobShadows = new BlobShadowBatch(this.groundLayer);
     this.effects = [];
+    this.corpses = [];
     this._unsubscribe = [];
     this._raycaster = new THREE.Raycaster();
     this._groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
@@ -397,6 +402,7 @@ export class Renderer {
     }
     for (const fx of this.effects) this.scene.remove(fx.obj);
     this.effects = [];
+    this.corpses = [];
 
     this.world = world;
     this._buildTerrain();
@@ -407,7 +413,10 @@ export class Renderer {
         if (p.kind === 'boulder') this._spawnBurst(p.x, 0.2, p.z, 0xb59a70, p.splash, 0.5);
       }),
       ev.on('towerPulse', ({ x, z, radius }) => this._spawnRing(x, z, radius, 0xa66bff, 0.55)),
-      ev.on('enemyKilled', ({ enemy }) => this._spawnBurst(enemy.x, 0.5, enemy.z, 0x9a8f80, 0.5, 0.4)),
+      ev.on('enemyKilled', ({ enemy }) => {
+        this._spawnBurst(enemy.x, 0.5, enemy.z, 0x9a8f80, 0.5, 0.4);
+        this.corpses.push({ type: enemy.type, elite: enemy.elite, heading: enemy.heading, x: enemy.x, z: enemy.z, age: 0 });
+      }),
       ev.on('buildingDestroyed', ({ building }) =>
         this._spawnBurst(building.cx, 0.6, building.cz, 0x8a7f70, building.size * 0.9, 0.7),
       ),
@@ -457,6 +466,7 @@ export class Renderer {
 
   update(dt) {
     this._time += dt;
+    this._dt = dt;
     const world = this.world;
     this.controls.update();
     this.sprites.begin();
@@ -473,7 +483,8 @@ export class Renderer {
     this._clouds.material.uniforms.time.value = this._time;
     if (world) {
       this._sync(this.views.buildings, world.buildings.values(), (b) => this._createBuildingView(b), (v, b) => this._updateBuildingView(v, b));
-      this._sync(this.views.enemies, world.enemies, () => ({ phase: Math.random() * Math.PI * 2 }), (v, e) => this._updateEnemyView(v, e));
+      this._sync(this.views.enemies, world.enemies, () => ({ walk: Math.random() }), (v, e) => this._updateEnemyView(v, e));
+      this._drawCorpses(dt);
       this._sync(this.views.projectiles, world.projectiles, (p) => this._createProjectileView(p), (v, p) => this._updateProjectileView(v, p));
     }
     this.sprites.end();
@@ -569,26 +580,48 @@ export class Renderer {
   }
 
   _updateEnemyView(view, e) {
-    // Walk bob or attack lunge.
-    const t = this._time * e.def.speed * 6 + view.phase;
-    let lift = 0;
-    let lunge = 0;
-    if (e.moving) lift = Math.abs(Math.sin(t)) * 0.08;
-    else if (e.attackTargetId !== null) lunge = Math.max(0, Math.sin(this._time * 8 + view.phase)) * 0.15;
-    const scale = e.elite ? 1.3 : 1;
-    const ground = this.toScene(e.x + Math.sin(e.heading) * lunge, 0, e.z + Math.cos(e.heading) * lunge, this._v);
-    let key = spriteKeys.enemy(e.type, e.heading, e.elite);
-    let spriteScale = 1;
-    if (!this.atlas.frame(key)) {
-      // No baked elite sprite for this type: scale the normal one.
-      key = spriteKeys.enemy(e.type, e.heading);
-      spriteScale = scale;
+    // Animation frame: attacks follow the sim's attack timer (the blow lands on the last frame, as the hit
+    // does); walking advances with the distance actually covered.
+    let anim = 'walk';
+    let frame = 0;
+    if (e.attackTargetId !== null) {
+      anim = 'attack';
+      const t = 1 - e.attackTimer / e.def.attackCooldown;
+      frame = Math.min(ENEMY_ANIMS.attack - 1, Math.max(0, Math.floor(t * ENEMY_ANIMS.attack)));
+    } else {
+      if (e.moving) view.walk = (view.walk + (e.def.speed * e.slowFactor * this._dt) / (WALK_STRIDE[e.type] ?? 0.8)) % 1;
+      frame = Math.floor(view.walk * ENEMY_ANIMS.walk) % ENEMY_ANIMS.walk;
     }
-    this.sprites.add(key, ground, spriteScale, lift);
+    view.anim = anim;
+    view.frame = frame;
+    const scale = e.elite ? 1.3 : 1;
+    this._addEnemySprite(e.type, e.elite, e.heading, anim, frame, this.toScene(e.x, 0, e.z, this._v));
     this.blobShadows.add(this.toScene(e.x, 0.02, e.z, this._v), (ENEMY_BLOB_RADIUS[e.type] ?? 0.3) * scale);
     if (e.hp < e.maxHp) {
       this.healthBars.add(this.toScene(e.x, e.def.height * scale + 0.25, e.z, this._v), ENEMY_BAR_WIDTH[e.type] ?? 0.6, e.hp / e.maxHp);
     }
+  }
+
+  _addEnemySprite(type, elite, heading, anim, frame, ground) {
+    let key = spriteKeys.enemy(type, heading, elite, anim, frame);
+    let spriteScale = 1;
+    if (elite && !this.atlas.frame(key)) {
+      // No baked elite sprite for this type: scale the normal one.
+      key = spriteKeys.enemy(type, heading, false, anim, frame);
+      spriteScale = 1.3;
+    }
+    this.sprites.add(key, ground, spriteScale);
+  }
+
+  /** Killed enemies play their death frames, lie still a moment, then vanish. */
+  _drawCorpses(dt) {
+    this.corpses = this.corpses.filter((c) => {
+      c.age += dt;
+      if (c.age > ENEMY_ANIMS.death * DEATH_FRAME_TIME + CORPSE_TIME) return false;
+      const frame = Math.min(ENEMY_ANIMS.death - 1, Math.floor(c.age / DEATH_FRAME_TIME));
+      this._addEnemySprite(c.type, c.elite, c.heading, 'death', frame, this.toScene(c.x, 0, c.z, this._v));
+      return true;
+    });
   }
 
   _createProjectileView(p) {
