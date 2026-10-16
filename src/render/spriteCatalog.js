@@ -20,6 +20,8 @@ export const spriteKeys = {
   building: (type) => `b:${type}`,
   icon: (type) => `icon:${type}`,
   wall: (connectionKey) => `wall:${connectionKey}`,
+  /** The piece that ties a wall into a building's edge tile; `dir` points from the building to the wall. */
+  wallJoint: (dir) => `join:${dir}`,
   turret: (type, aim, frame = 0) => `t:${type}:${angleIndex(aim, TURRET_DIRECTIONS)}:${frame}`,
   crystal: () => 'crystal',
   /** An enemy frame: `anim` is 'walk', 'attack' or 'death' (see ENEMY_ANIMS). */
@@ -113,6 +115,8 @@ export function spriteSpecs() {
       });
     }
   }
+
+  for (const dir of WALL_DIRS) specs.push({ key: spriteKeys.wallJoint(dir), make: () => createBuildingModel('wallJoint', { dir }) });
 
   for (const key of WALL_KEYS) {
     const connections = Object.fromEntries(WALL_DIRS.map((d, i) => [d, key[i] === d]));

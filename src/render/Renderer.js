@@ -467,6 +467,7 @@ export class Renderer {
   update(dt) {
     this._time += dt;
     this._dt = dt;
+    this.wallJointsDrawn = 0;
     const world = this.world;
     this.controls.update();
     this.sprites.begin();
@@ -573,9 +574,30 @@ export class Renderer {
       if (b.type === 'magicSpire') {
         this.sprites.add(spriteKeys.crystal(), ground, 1, crystalHeight() + Math.sin(this._time * 2 + view.phase) * 0.08);
       }
+      this._drawWallJoints(b);
     }
     if (b.hp < b.maxHp || b.type === 'townHall') {
       this.healthBars.add(this.toScene(b.cx, b.def.height + 0.6, b.cz, this._v), Math.min(2.4, 0.8 * b.size + 0.2), b.hp / b.maxHp);
+    }
+  }
+
+  /** Where a wall touches this building, tie it in with a joint piece in the building's edge tile. */
+  _drawWallJoints(b) {
+    const grid = this.world.grid;
+    for (let i = 0; i < b.size; i++) {
+      for (const [dir, ix, iz, ox, oz] of [
+        ['n', b.x + i, b.z, b.x + i, b.z - 1],
+        ['s', b.x + i, b.z + b.size - 1, b.x + i, b.z + b.size],
+        ['w', b.x, b.z + i, b.x - 1, b.z + i],
+        ['e', b.x + b.size - 1, b.z + i, b.x + b.size, b.z + i],
+      ]) {
+        const id = grid.get(ox, oz);
+        if (id === null || this.world.buildings.get(id)?.type !== 'wall') continue;
+        const at = this.toScene(ix + 0.5, 0, iz + 0.5, this._v);
+        this.sprites.add(spriteKeys.wallJoint(dir), at);
+        this.shadowSprites.add(spriteKeys.wallJoint(dir), at);
+        this.wallJointsDrawn++;
+      }
     }
   }
 

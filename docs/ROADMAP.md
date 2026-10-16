@@ -53,6 +53,7 @@ Pre-rendered sprites on a fixed isometric camera (see ARCHITECTURE.md), working 
 
 ## v0.2: Defence depth
 
+- [x] Build towers into wall lines (replacing the wall tiles they cover), with joint pieces tying the wall in
 - [ ] **Upgrades, 5 stages each** (per the art reference): Town Hall levels; Archer/Cannon/Spire/Catapult stages
       that improve stats and change the model; wall stages wooden palisade → reinforced wood → dry stone →
       stone battlements → heavy citadel wall

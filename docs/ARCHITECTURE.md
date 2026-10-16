@@ -83,6 +83,8 @@ so the whole battlefield is ~15 draw calls and a few hundred triangles however d
   effects and the build ghost renderOrder 3.
 - Moving parts get their own sprites: 16 turret aim directions (cannon, catapult × 4 arm reload frames), the
   spire crystal (bobbed by offset).
+- Wall joints: where a wall touches a tower or the Town Hall, `Renderer._drawWallJoints()` adds a `join:<dir>`
+  sprite (the `wallJoint` model: a palisade arm into the building's edge tile, ending at an anchor post).
 - **Animated enemies**: each enemy model is a rig (legs, body and arms as separate parts; see `models.js`) that
   `poseEnemy()` puts into baked frames: 6 walk, 4 attack and 4 death (`ENEMY_ANIMS`), for each of 8 headings.
   Sprite keys are `e:<type>[:elite]:<dir>:<anim>:<frame>`. The renderer advances walk frames by distance

@@ -86,10 +86,28 @@ export class World {
     for (const [tx, tz] of this.grid.footprint(x, z, def.size)) {
       if (!this.grid.isBuildable(tx, tz)) return { ok: false, reason: 'Blocked by terrain' };
     }
-    if (!this.grid.isAreaFree(x, z, def.size)) return { ok: false, reason: 'Space is occupied' };
+    const replaces = this.wallsUnder(type, x, z);
+    if (!replaces) return { ok: false, reason: 'Space is occupied' };
     if (this._enemyInArea(x, z, def.size)) return { ok: false, reason: 'Enemies in the way' };
-    if (!ignoreCost && !this.economy.canAfford(def.cost)) return { ok: false, reason: 'Not enough gold' };
-    return { ok: true };
+    // Walls a tower replaces are sold, and that refund counts towards the tower.
+    const refund = replaces.reduce((sum, w) => sum + this.sellValue(w), 0);
+    if (!ignoreCost && this.economy.gold + refund < def.cost) return { ok: false, reason: 'Not enough gold' };
+    return { ok: true, replaces, refund };
+  }
+
+  /**
+   * The walls a building of `type` at (x, z) would replace: [] on clear ground, the walls in its footprint when
+   * a tower is built into a wall line, or null if anything else is in the way (walls can't replace walls).
+   */
+  wallsUnder(type, x, z) {
+    const found = new Set();
+    for (const [tx, tz] of this.grid.footprint(x, z, BUILDINGS[type].size)) {
+      const b = this.buildingAt(tx, tz);
+      if (!b) continue;
+      if (b.type !== 'wall' || type === 'wall') return null;
+      found.add(b);
+    }
+    return [...found];
   }
 
   /** Plan a wall line from tile `from` to tile `to` (see planWall in wallPlanner.js). */
@@ -118,6 +136,11 @@ export class World {
   place(type, x, z) {
     const check = this.canPlace(type, x, z);
     if (!check.ok) return check;
+    for (const wall of check.replaces) {
+      this._removeBuilding(wall);
+      this.events.emit('buildingSold', { building: wall, refund: this.sellValue(wall) });
+    }
+    if (check.refund) this.economy.earn(check.refund, 'sell');
     this.economy.spend(BUILDINGS[type].cost);
     const building = this._addBuilding(type, x, z);
     this.events.emit('buildingPlaced', { building });

@@ -376,3 +376,23 @@ test('enemies are animated: walk frames cycle, blocked enemies attack, and the d
   await expect.poll(() => page.evaluate(() => window.game.renderer.corpses.length), { timeout: 5_000 }).toBe(0);
   expect(errors).toEqual([]);
 });
+
+test('a tower can be built into the middle of a wall line, and the wall is joined onto it', async ({ page }) => {
+  const errors = await openGame(page);
+  await page.evaluate(() => {
+    const w = window.game.world;
+    w.economy.earn(500);
+    for (let x = 8; x <= 16; x++) w.place('wall', x, 12);
+  });
+  // Hover-and-click an archer tower over the middle of the line.
+  await page.keyboard.press('2');
+  const p = await tileToScreen(page, 12, 12);
+  await page.mouse.click(p.x, p.y);
+  expect(await buildingAt(page, 12, 12)).toBe('archerTower');
+  expect(await buildingAt(page, 11, 12)).toBe('wall');
+  expect(await buildingAt(page, 14, 12)).toBe('wall');
+  expect(await countBuildings(page, 'wall')).toBe(7);
+  // Joint pieces tie the wall into the tower on both sides.
+  await expect.poll(() => page.evaluate(() => window.game.renderer.wallJointsDrawn)).toBe(2);
+  expect(errors).toEqual([]);
+});

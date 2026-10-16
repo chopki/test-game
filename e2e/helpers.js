@@ -134,6 +134,9 @@ export async function buildShowcase(page, testInfo, name) {
     w.place('magicSpire', 15, 22);
     w.place('catapult', 22, 22);
     w.place('archerTower', 18, 16);
+    // Towers built into the wall ring, west and south (they replace the wall tiles they cover).
+    w.place('archerTower', 13, 16);
+    w.place('cannonTower', 20, 23);
     w.phase = 'wave';
     ['grunt', 'runner', 'orc', 'brute'].forEach((type, i) => {
       for (let n = 0; n < 3; n++) {

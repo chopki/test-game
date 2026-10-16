@@ -69,6 +69,10 @@ Enemies can't break terrain, so a full enclosure always includes some wall. Ever
 
 ## Buildings
 
+Towers can be built **into a wall line**: the wall tiles under the tower are replaced, and their sell value
+(50% of cost × HP fraction) counts towards the tower's price. The rest of the wall joins onto the tower, tied in
+with an anchor post. Anything other than walls (another tower, the Town Hall) still blocks placement.
+
 | Building     | Size | Cost | HP   | Attack                                   | Notes |
 | ------------ | ---- | ---- | ---- | ---------------------------------------- | ----- |
 | Town Hall    | 3×3  | n/a  | 2500 | 8 dmg, range 5, 1 shot/s                 | Lose when destroyed |

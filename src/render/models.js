@@ -177,6 +177,38 @@ function wall({ connections = {} } = {}) {
   return g;
 }
 
+/**
+ * Where a wall meets a tower or the Town Hall: drawn in the building's edge tile, it carries the palisade on
+ * into the building and ends it at a tall, iron-banded post on a stone footing, so the wall looks anchored to
+ * the building rather than stopping short. `dir` ('n', 'e', 's' or 'w') points from the building out to the wall.
+ */
+function wallJoint({ dir = 'e' } = {}) {
+  const M = MATERIALS;
+  const p = new Parts();
+  const rnd = rng('nesw'.indexOf(dir) * 13 + 211);
+  const [dx, dz] = { n: [0, -1], e: [1, 0], s: [0, 1], w: [-1, 0] }[dir];
+  const PITCH = 1 / 7;
+  // The palisade arm, matching wall tiles (same log pitch, rails and banked earth).
+  for (let i = 1; i <= 3; i++) {
+    const h = rnd.range(1.0, 1.22);
+    const mat = rnd.pick(LOGS);
+    const tilt = { rx: rnd.range(-0.04, 0.04), rz: rnd.range(-0.04, 0.04) };
+    p.add(cyl(0.075, 0.079, h, 8), mat, { x: dx * i * PITCH, y: h / 2, z: dz * i * PITCH, ...tilt, ry: rnd.range(0, 3) });
+    p.add(cone(0.075, 0.2, 8), mat, { x: dx * i * PITCH, y: h + 0.1, z: dz * i * PITCH, ...tilt });
+  }
+  for (const side of [-1, 1]) {
+    const off = side * 0.085;
+    for (const y of [0.32, 0.82]) p.add(box(dx ? 0.5 : 0.05, 0.07, dx ? 0.05 : 0.5), M.woodDark, { x: dx ? dx * 0.25 : off, y, z: dz ? dz * 0.25 : off });
+  }
+  p.add(box(dx ? 0.5 : 0.28, 0.06, dx ? 0.28 : 0.5), M.dirt, { x: dx * 0.25, y: 0.03, z: dz * 0.25 });
+  // Anchor post: stone footing and a thick log with iron bands.
+  stoneBlocks(p, { w: 0.38, d: 0.38, h: 0.18, rows: 1, rnd, minBlock: 0.18, maxBlock: 0.24 });
+  p.add(cyl(0.12, 0.13, 1.42, 10), rnd.pick(LOGS), { y: 0.18 + 0.71 });
+  p.add(cone(0.12, 0.24, 10), rnd.pick(LOGS), { y: 0.18 + 1.42 + 0.12 });
+  for (const y of [0.45, 1.25]) p.add(torus(0.125, 0.022, 12), M.iron, { y, rx: Math.PI / 2 });
+  return p.build();
+}
+
 /** A small archer figure (for the archer tower's fighting platform). */
 function archer(p, { x, y, z, ry = 0 }) {
   const M = MATERIALS;
@@ -406,9 +438,9 @@ function catapult() {
   return g;
 }
 
-const BUILDING_MODELS = { townHall, wall, archerTower, cannonTower, magicSpire, catapult };
+const BUILDING_MODELS = { townHall, wall, wallJoint, archerTower, cannonTower, magicSpire, catapult };
 
-/** `opts` is model-specific (walls take `{ connections }`). */
+/** `opts` is model-specific (walls take `{ connections }`, wall joints `{ dir }`). */
 export function createBuildingModel(type, opts) {
   return BUILDING_MODELS[type](opts);
 }
