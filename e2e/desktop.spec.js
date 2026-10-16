@@ -400,3 +400,30 @@ test('a tower can be built into the middle of a wall line, and is drawn as part 
   expect(await page.evaluate(() => window.game.renderer.wallJointsDrawn)).toBe(0);
   expect(errors).toEqual([]);
 });
+
+test('streams flow and cloud shadows drift (zoomed screenshot attached)', async ({ page }, testInfo) => {
+  const errors = await openGame(page, { map: 'terrain' });
+  const state = await page.evaluate(() => {
+    const r = window.game.renderer;
+    const flow = r._shimmer.geometry.getAttribute('flow').array;
+    return { flowing: flow.some((v) => Math.abs(v) > 0.5), time: r._clouds.material.uniforms.time.value };
+  });
+  expect(state.flowing).toBe(true); // map 8's stream has flow directions
+  await expect.poll(() => page.evaluate(() => window.game.renderer._clouds.material.uniforms.time.value)).toBeGreaterThan(state.time + 0.3);
+  expect(await page.evaluate(() => window.game.renderer._shimmer.material.uniforms.time.value)).toBeGreaterThan(state.time);
+
+  // Zoom in on the stream for a look.
+  const tile = await nearestTerrainTile(page, 'water');
+  await page.evaluate(([x, z]) => {
+    const r = window.game.renderer;
+    const target = r.toScene(x + 0.5, 0, z + 0.5);
+    r.camera.position.add(target.clone().sub(r.controls.target));
+    r.controls.target.copy(target);
+    r.camera.zoom = 2.4;
+    r.camera.updateProjectionMatrix();
+  }, [tile.x, tile.z]);
+  await page.waitForTimeout(600);
+  const shot = await page.screenshot({ path: testInfo.outputPath('water.png') });
+  await testInfo.attach('water', { body: shot, contentType: 'image/png' });
+  expect(errors).toEqual([]);
+});

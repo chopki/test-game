@@ -7,6 +7,8 @@ import { AUTO_RESOLUTION, GROUND_DETAIL, GROUND_PX, SCENERY_COUNT } from './grap
 import { OUTER_GROUND, outsideForest, paintTerrain } from './terrainPainter.js';
 import { cloudTexture } from './textures.js';
 import { wallSeat } from './wallSeat.js';
+import { waterFlow } from './waterFlow.js';
+import { streakTexture } from './waterTextures.js';
 import { createProjectileModel, SCENERY_VARIANTS } from './models.js';
 import { BlobShadowBatch, HealthBarBatch } from './batches.js';
 import { ISO_QUATERNION, isoDirection } from './iso.js';
@@ -174,10 +176,10 @@ export class Renderer {
         uniform float time;
         varying vec2 vWorld;
         void main() {
-          // Two layers drifting at slightly different speeds, so the clouds slowly change shape.
-          vec2 wind = vec2(0.55, 0.32) * time;
-          float a = texture2D(mask, (vWorld + wind) / 46.0).r;
-          float b = texture2D(mask, (vWorld * 0.7 + wind * 0.8 + 13.0) / 46.0).r;
+          // Two layers drifting at different speeds and slightly different headings, so the clouds visibly move
+          // and slowly change shape.
+          float a = texture2D(mask, (vWorld - vec2(1.6, 0.9) * time) / 46.0).r;
+          float b = texture2D(mask, (vWorld * 0.7 - vec2(1.1, 1.0) * time + 13.0) / 46.0).r;
           float cloud = smoothstep(0.22, 0.5, a * 0.7 + b * 0.55);
           vec3 shade = mix(vec3(1.0), vec3(0.66, 0.69, 0.78), cloud);
           gl_FragColor = vec4(shade, 1.0);
@@ -257,13 +259,36 @@ export class Renderer {
     this._buildScenery(SCENERY_COUNT[scenery]);
   }
 
-  /** Moving glints on water and fords: one quad per wet tile, masked to the painted shoreline. */
+  /**
+   * Moving water: foam streaks drifting downstream (streams flow off the map; see waterFlow.js) and glints on
+   * every wet tile, masked to the painted shoreline. One quad per wet tile; each corner carries the flow direction
+   * averaged from the tiles around it, so the streaks turn smoothly round bends.
+   */
   _createShimmer(painted) {
     const grid = this.world.grid;
     const { width: TW, height: TH } = painted.tiles;
     const b = painted.border;
+    const flow = waterFlow(grid);
+    const W = grid.width;
+    const cornerFlow = (cx, cz) => {
+      let fx = 0;
+      let fz = 0;
+      for (const [x, z] of [
+        [cx - 1, cz - 1],
+        [cx, cz - 1],
+        [cx - 1, cz],
+        [cx, cz],
+      ]) {
+        if (!grid.inBounds(x, z)) continue;
+        fx += flow[(z * W + x) * 2];
+        fz += flow[(z * W + x) * 2 + 1];
+      }
+      const len = Math.hypot(fx, fz);
+      return len > 1e-6 ? [fx / len, fz / len] : [0, 0];
+    };
     const positions = [];
     const uvs = [];
+    const flows = [];
     for (let z = 0; z < grid.height; z++) {
       for (let x = 0; x < grid.width; x++) {
         const t = grid.terrain[z * grid.width + x];
@@ -279,35 +304,53 @@ export class Renderer {
         for (const [qx, qz] of quad) {
           positions.push(qx - this.offsetX, 0.005, qz - this.offsetZ);
           uvs.push((qx + b) / TW, 1 - (qz + b) / TH);
+          flows.push(...cornerFlow(qx, qz));
         }
       }
     }
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
     geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+    geometry.setAttribute('flow', new THREE.Float32BufferAttribute(flows, 2));
     const mask = new THREE.CanvasTexture(painted.waterMask);
     const material = new THREE.ShaderMaterial({
-      uniforms: { mask: { value: mask }, time: { value: 0 } },
+      uniforms: { mask: { value: mask }, streaks: { value: streakTexture() }, time: { value: 0 } },
       vertexShader: /* glsl */ `
+        attribute vec2 flow;
         varying vec2 vUv;
         varying vec2 vWorld;
+        varying vec2 vFlow;
         void main() {
           vUv = uv;
           vWorld = position.xz;
+          vFlow = flow;
           gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
         }`,
       fragmentShader: /* glsl */ `
         uniform sampler2D mask;
+        uniform sampler2D streaks;
         uniform float time;
         varying vec2 vUv;
         varying vec2 vWorld;
+        varying vec2 vFlow;
         void main() {
           float m = texture2D(mask, vUv).a;
           vec2 p = vWorld;
+          // Glints everywhere (still water too).
           float w = sin(p.x * 4.1 + time * 1.3 + sin(p.y * 2.3 + time * 0.7) * 1.6)
                   + sin(p.y * 5.3 - time * 1.1 + sin(p.x * 1.9 - time * 0.5) * 1.4);
-          float glint = smoothstep(1.35, 1.85, w);
-          gl_FragColor = vec4(vec3(0.92, 0.97, 1.0), glint * m * 0.45);
+          float glint = smoothstep(1.35, 1.85, w) * 0.4;
+          // Foam streaks, lined up with the flow and scrolling downstream (two layers at different speeds).
+          float speed = length(vFlow);
+          float foam = 0.0;
+          if (speed > 0.05) {
+            vec2 d = vFlow / speed;
+            vec2 q = vec2(dot(p, d), dot(p, vec2(-d.y, d.x)));
+            float a = texture2D(streaks, vec2(q.x - time * 1.1, q.y * 2.2) / 3.2).r;
+            float b = texture2D(streaks, vec2(q.x - time * 0.7 + 0.37, q.y * 2.2 + 0.5) / 2.3).r;
+            foam = max(a, b * 0.7) * smoothstep(0.05, 0.4, speed) * 0.6;
+          }
+          gl_FragColor = vec4(vec3(0.94, 0.98, 1.0), max(glint, foam) * m);
         }`,
     });
     underlay(material); // drawn over the ground, under every sprite
