@@ -120,7 +120,9 @@ so the whole battlefield is ~15 draw calls and a few hundred triangles however d
   warmer shadows and light hatching. Pure pixel code, unit-tested in `test/inkStyle.test.js`; tune `INK_STYLE`.
 - Flowing water: `waterFlow.js` (pure, unit-tested) gives each water tile a flow direction (streams run off the
   map from one edge to the other, round their bends; lakes are still). The water mesh carries it per corner, and
-  its shader scrolls foam streaks (`waterTextures.js`) downstream, plus glints on all water.
+  its shader draws ripple bands and soft foam streaks carried downstream (`waterTextures.js`: streaks in R, noise
+  in G), sun glints, and foam lapping at the shoreline (from the painted water mask). Its quads must stay wound
+  to face up, or they're culled.
 - Cloud shadows: `Renderer._createClouds()` draws one ground plane after the sprites that multiplies a drifting,
   tileable cloud mask (`cloudTexture()` in textures.js) into the frame. Shown with the Effects setting.
 - `terrainPainter.js`: paints each map's ground into one canvas texture (`paintTerrain`). A low-res colour pass

@@ -8,7 +8,7 @@ import { OUTER_GROUND, outsideForest, paintTerrain } from './terrainPainter.js';
 import { cloudTexture } from './textures.js';
 import { wallSeat } from './wallSeat.js';
 import { waterFlow } from './waterFlow.js';
-import { streakTexture } from './waterTextures.js';
+import { waterTexture } from './waterTextures.js';
 import { createProjectileModel, SCENERY_VARIANTS } from './models.js';
 import { BlobShadowBatch, HealthBarBatch } from './batches.js';
 import { ISO_QUATERNION, isoDirection } from './iso.js';
@@ -293,13 +293,14 @@ export class Renderer {
       for (let x = 0; x < grid.width; x++) {
         const t = grid.terrain[z * grid.width + x];
         if (t !== T.water && t !== T.ford) continue;
+        // Wound anticlockwise seen from above, so the quads face up (the camera) and aren't culled.
         const quad = [
           [x, z],
-          [x + 1, z],
+          [x, z + 1],
           [x + 1, z + 1],
           [x, z],
           [x + 1, z + 1],
-          [x, z + 1],
+          [x + 1, z],
         ];
         for (const [qx, qz] of quad) {
           positions.push(qx - this.offsetX, 0.005, qz - this.offsetZ);
@@ -314,7 +315,12 @@ export class Renderer {
     geometry.setAttribute('flow', new THREE.Float32BufferAttribute(flows, 2));
     const mask = new THREE.CanvasTexture(painted.waterMask);
     const material = new THREE.ShaderMaterial({
-      uniforms: { mask: { value: mask }, streaks: { value: streakTexture() }, time: { value: 0 } },
+      uniforms: {
+        mask: { value: mask },
+        water: { value: waterTexture() },
+        time: { value: 0 },
+        tileUv: { value: new THREE.Vector2(1 / TW, 1 / TH) }, // one tile, in mask UVs
+      },
       vertexShader: /* glsl */ `
         attribute vec2 flow;
         varying vec2 vUv;
@@ -328,29 +334,44 @@ export class Renderer {
         }`,
       fragmentShader: /* glsl */ `
         uniform sampler2D mask;
-        uniform sampler2D streaks;
+        uniform sampler2D water;
         uniform float time;
+        uniform vec2 tileUv;
         varying vec2 vUv;
         varying vec2 vWorld;
         varying vec2 vFlow;
+        float maskAt(vec2 o) { return texture2D(mask, vUv + o * tileUv).a; }
         void main() {
-          float m = texture2D(mask, vUv).a;
+          float m = maskAt(vec2(0.0));
+          if (m < 0.01) discard;
           vec2 p = vWorld;
-          // Glints everywhere (still water too).
+          float speed = length(vFlow);
+          float flowing = smoothstep(0.05, 0.4, speed);
+          vec2 d = speed > 0.05 ? vFlow / speed : vec2(0.707, 0.707);
+          vec2 q = vec2(dot(p, d), dot(p, vec2(-d.y, d.x))); // x downstream, y across
+
+          float nz = texture2D(water, p * 0.23 + vec2(time * 0.015, 0.0)).g;
+          // Ripple bands across the current, carried downstream and broken up by noise.
+          float bands = sin(q.x * 6.0 - time * (0.8 + 3.2 * flowing) + q.y * 1.7 + nz * 5.0);
+          float crest = smoothstep(0.72, 0.97, bands) * smoothstep(0.15, 0.5, nz);
+          float trough = smoothstep(-0.55, -0.95, bands);
+          // Soft foam streaks riding the current (two layers at different speeds).
+          float s1 = texture2D(water, vec2(q.x - time * 1.0, q.y * 1.3) / 6.0).r;
+          float s2 = texture2D(water, vec2(q.x - time * 0.65 + 0.37, q.y * 1.3 + 0.5) / 4.5).r;
+          float streak = max(s1, s2 * 0.7) * flowing;
+          // Sun glints.
           float w = sin(p.x * 4.1 + time * 1.3 + sin(p.y * 2.3 + time * 0.7) * 1.6)
                   + sin(p.y * 5.3 - time * 1.1 + sin(p.x * 1.9 - time * 0.5) * 1.4);
-          float glint = smoothstep(1.35, 1.85, w) * 0.4;
-          // Foam streaks, lined up with the flow and scrolling downstream (two layers at different speeds).
-          float speed = length(vFlow);
-          float foam = 0.0;
-          if (speed > 0.05) {
-            vec2 d = vFlow / speed;
-            vec2 q = vec2(dot(p, d), dot(p, vec2(-d.y, d.x)));
-            float a = texture2D(streaks, vec2(q.x - time * 1.1, q.y * 2.2) / 3.2).r;
-            float b = texture2D(streaks, vec2(q.x - time * 0.7 + 0.37, q.y * 2.2 + 0.5) / 2.3).r;
-            foam = max(a, b * 0.7) * smoothstep(0.05, 0.4, speed) * 0.6;
-          }
-          gl_FragColor = vec4(vec3(0.94, 0.98, 1.0), max(glint, foam) * m);
+          float glint = smoothstep(1.45, 1.9, w);
+          // Foam along the shore, lapping gently.
+          float r = 0.16;
+          float inner = min(min(maskAt(vec2(r, 0.0)), maskAt(vec2(-r, 0.0))), min(maskAt(vec2(0.0, r)), maskAt(vec2(0.0, -r))));
+          float shore = (1.0 - inner) * (0.55 + 0.45 * sin(time * 1.7 + (p.x + p.y) * 2.3));
+
+          float light = max(max(crest * 0.22, streak * 0.38), max(glint * 0.3, shore * 0.5));
+          float dark = trough * 0.1 * (1.0 - light);
+          vec3 color = mix(vec3(0.12, 0.3, 0.45), vec3(0.95, 0.98, 1.0), light / max(light + dark, 0.0001));
+          gl_FragColor = vec4(color, max(light, dark) * m);
         }`,
     });
     underlay(material); // drawn over the ground, under every sprite

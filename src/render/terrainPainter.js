@@ -226,10 +226,7 @@ function stampDetails(ctx, { grid, noise, border, pxPerTile, detail, sample }) {
     const z = rnd() * (H + 2 * border - 4) - border + 2;
     const edge = Math.max(-x, -z, x - W, z - H);
     if (edge > border - 4) continue;
-    if (sample(x + border, z + border) > 0.3) {
-      if (sample(x + border, z + border) > 0.7 && kindOf(rnd) < 0.25) glint(ctx, (x + border) * pxPerTile, (z + border) * pxPerTile, s, rnd);
-      continue;
-    }
+    if (sample(x + border, z + border) > 0.3) continue; // water (and its banks) is animated by the renderer
     const t = terrainAt(x, z);
     const px = (x + border) * pxPerTile;
     const py = (z + border) * pxPerTile;
@@ -247,19 +244,6 @@ function stampDetails(ctx, { grid, noise, border, pxPerTile, detail, sample }) {
     else if (kind < 0.8 + 0.08 * smooth(0.5, 0.7, meadow)) flowers(ctx, px, py, s, rnd);
     else if (kind < 0.9) pebbles(ctx, px, py, s, rnd, 1 + Math.floor(rnd() * 2));
   }
-}
-
-const kindOf = (rnd) => rnd();
-
-/** White glints on open water (the moving shimmer adds more on top). */
-function glint(ctx, x, y, s, rnd) {
-  ctx.strokeStyle = 'rgba(236,248,255,0.55)';
-  ctx.lineWidth = Math.max(1, 1.1 * s);
-  ctx.beginPath();
-  const len = (2 + rnd() * 4) * s;
-  ctx.moveTo(x - len, y);
-  ctx.lineTo(x + len, y - len * 0.5);
-  ctx.stroke();
 }
 
 function tuft(ctx, x, y, s, rnd) {
