@@ -133,8 +133,8 @@ selected building. (The reference's Upgrade button and spells arrive with those 
 
 Warm, storybook medieval: sandstone blocks, red clay roofs, half-timbered plaster, chunky crenellations,
 green goblins and orcs, grey trolls. Terrain follows the reference's environment sheet: blocky olive oaks and
-stepped pines, big flat-faced pale sandstone boulders, warm olive-yellow grass with dark grass strokes and few
-flowers, bright turquoise water sunk below the grass with a brown earth bank on the far side, and strong dark
+stepped pines, big flat-faced pale sandstone boulders, light straw-olive grass that's nearly flat colour with a fine painted grain, a faint tile grid over the
+map, ink lines where kinds of ground meet, sparse dark grass clumps gathered by woods, rocks and water, bright turquoise water sunk below the grass with a brown earth bank on the far side, and strong dark
 ground shadows. Sprites get a hand-drawn finish when baked: warm dark-brown ink outlines and inner lines, shading
 pulled into soft bands, and light hatching in the shadows. Cloud shadows drift across the battlefield, and streams flow, with foam streaks running downstream round their
 bends (lakes glint but stay still).

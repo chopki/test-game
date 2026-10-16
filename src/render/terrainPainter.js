@@ -19,14 +19,16 @@ import { T } from '../sim/terrain.js';
 const BASE_PX = 8;
 const BANK_DEPTH = 0.45; // how far (in tiles) the far bank's wall shows above the water
 export const PAINT_BORDER = 14;
-export const OUTER_GROUND = '#9c9a4c';
+export const OUTER_GROUND = '#aaa25a';
 
+// Warm straw-olive grass like the reference, with ink for the edges between kinds of ground.
 const C = {
-  lush: [134, 146, 58],
-  dry: [178, 168, 88],
-  forestFloor: [104, 108, 46],
-  earth: [168, 140, 88],
-  gravel: [176, 162, 128],
+  lush: [158, 154, 74],
+  dry: [184, 172, 96],
+  forestFloor: [118, 116, 54],
+  earth: [190, 154, 100],
+  gravel: [182, 170, 136],
+  ink: [72, 64, 34],
   shore: [164, 140, 90],
   bankWall: [122, 88, 54],
   bankTop: [150, 112, 68],
@@ -128,6 +130,8 @@ export function paintTerrain(grid, { pxPerTile = 16, detail = 1, seed = 1, borde
   const mctx = maskCanvas.getContext('2d');
   const mask = mctx.createImageData(bw, bh);
   const col = [0, 0, 0];
+  // Per-pixel field values (after their wobble), kept to find the edges to ink afterwards.
+  const fields = { forest: new Float32Array(bw * bh), rock: new Float32Array(bw * bh), earth: new Float32Array(bw * bh), shore: new Float32Array(bw * bh) };
   for (let py = 0; py < bh; py++) {
     const v = (py + 0.5) / BASE_PX;
     const z = v - border;
@@ -136,24 +140,24 @@ export function paintTerrain(grid, { pxPerTile = 16, detail = 1, seed = 1, borde
       const x = u - border;
       const o = (py * bw + px) * 4;
 
-      // Grass: lush to dry by a broad noise, then a little fine mottling.
-      const dryness = noise.fbm(x * 0.07, z * 0.07);
+      // Grass: gently varying between lush and dry over large areas (the reference is nearly flat colour).
+      const dryness = noise.fbm(x * 0.05, z * 0.05);
       col[0] = C.lush[0];
       col[1] = C.lush[1];
       col[2] = C.lush[2];
-      mix(col, C.dry, smooth(0.38, 0.72, dryness));
+      mix(col, C.dry, smooth(0.3, 0.8, dryness) * 0.8);
       const wobble = noise.value(x * 0.85 + 11, z * 0.85 + 5) - 0.5;
       const fine = noise.value(x * 2.3, z * 2.3) - 0.5;
 
-      // Bare earth here and there (worn ground, never in lines).
-      const earth = noise.fbm(x * 0.16 + 70, z * 0.16 + 20, 2);
-      mix(col, C.earth, smooth(0.66, 0.8, earth) * 0.7);
+      // Bare earth patches here and there (worn ground, never in lines), with crisp edges.
+      const earth = noise.fbm(x * 0.16 + 70, z * 0.16 + 20, 2) + wobble * 0.04;
+      mix(col, C.earth, smooth(0.7, 0.73, earth) * 0.85);
 
       const f = sample(forest, u, v) + wobble * 0.35;
-      mix(col, C.forestFloor, smooth(0.3, 0.62, f));
+      mix(col, C.forestFloor, smooth(0.42, 0.5, f));
 
       const r = sample(rock, u, v) + wobble * 0.4;
-      mix(col, C.gravel, smooth(0.32, 0.55, r) * 0.8);
+      mix(col, C.gravel, smooth(0.4, 0.47, r) * 0.85);
 
       const w = sample(water, u, v) + wobble * 0.3;
       let m = 0;
@@ -181,8 +185,14 @@ export function paintTerrain(grid, { pxPerTile = 16, detail = 1, seed = 1, borde
         }
       }
 
-      // Light and shade mottling, then fade the border into the flat outer ground.
-      const shade = 1 + fine * 0.1 + wobble * 0.06;
+      const pi = py * bw + px;
+      fields.forest[pi] = f;
+      fields.rock[pi] = r;
+      fields.earth[pi] = earth;
+      fields.shore[pi] = w;
+
+      // A touch of light and shade, then fade the border into the flat outer ground.
+      const shade = 1 + fine * 0.04 + wobble * 0.03;
       const edge = Math.max(-x, -z, x - W, z - H);
       const fade = smooth(border - 5, border - 0.5, edge);
       col[0] *= shade;
@@ -198,6 +208,7 @@ export function paintTerrain(grid, { pxPerTile = 16, detail = 1, seed = 1, borde
       mask.data[o + 3] = m * 255;
     }
   }
+  inkEdges(img.data, fields, bw, bh, border * BASE_PX, W * BASE_PX, H * BASE_PX);
   bctx.putImageData(img, 0, 0);
   mctx.putImageData(mask, 0, 0);
 
@@ -209,18 +220,106 @@ export function paintTerrain(grid, { pxPerTile = 16, detail = 1, seed = 1, borde
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
   ctx.drawImage(base, 0, 0, canvas.width, canvas.height);
-  if (detail > 0) stampDetails(ctx, { grid, noise, border, pxPerTile, detail, sample: (u, v) => sample(water, u, v) });
+  // Grain and the grid are drawn on the land only (the water is animated by the renderer).
+  landOverlay(ctx, maskCanvas, (c) => grain(c, canvas.width, canvas.height));
+  landOverlay(ctx, maskCanvas, (c) => tileGrid(c, { W, H, border, pxPerTile }));
+  if (detail > 0) {
+    const near = (u, v) => Math.max(sample(forest, u, v), sample(rock, u, v), sample(water, u, v));
+    stampDetails(ctx, { grid, noise, border, pxPerTile, detail, sample: (u, v) => sample(water, u, v), near });
+  }
 
   return { canvas, waterMask: maskCanvas, hasWater, tiles: { width: TW, height: TH }, border, noise };
 }
 
-/** Grass tufts, flowers, pebbles and leaves, stamped into the ground (they cost nothing to draw later). */
-function stampDetails(ctx, { grid, noise, border, pxPerTile, detail, sample }) {
+/**
+ * Ink where one kind of ground meets another (forest floor, gravel, bare earth, the shore): a thin dark line on
+ * the pixels where a field crosses its edge threshold, like the line work in the reference.
+ */
+function inkEdges(data, fields, bw, bh, b, mapW, mapH) {
+  const lines = [
+    [fields.forest, 0.46, 0.5],
+    [fields.rock, 0.435, 0.45],
+    [fields.earth, 0.715, 0.4],
+    [fields.shore, 0.4, 0.55],
+  ];
+  for (let y = 0; y < bh - 1; y++) {
+    for (let x = 0; x < bw - 1; x++) {
+      // No ink out in the faded border.
+      const out = Math.max(b - x, b - y, x - (b + mapW), y - (b + mapH));
+      if (out > b * 0.4) continue;
+      const i = y * bw + x;
+      let ink = 0;
+      for (const [f, t, strength] of lines) {
+        const a = f[i] > t;
+        if (a !== f[i + 1] > t || a !== f[i + bw] > t) ink = Math.max(ink, strength);
+      }
+      if (!ink) continue;
+      const o = i * 4;
+      data[o] += (C.ink[0] - data[o]) * ink;
+      data[o + 1] += (C.ink[1] - data[o + 1]) * ink;
+      data[o + 2] += (C.ink[2] - data[o + 2]) * ink;
+    }
+  }
+}
+
+/** Draw `paint` onto a layer, cut the water out of it (`waterMask`), and lay it over the ground. */
+function landOverlay(ctx, waterMask, paint) {
+  const layer = document.createElement('canvas');
+  layer.width = ctx.canvas.width;
+  layer.height = ctx.canvas.height;
+  const lc = layer.getContext('2d');
+  paint(lc);
+  lc.globalCompositeOperation = 'destination-out';
+  lc.drawImage(waterMask, 0, 0, layer.width, layer.height);
+  ctx.drawImage(layer, 0, 0);
+}
+
+/** Fine painterly grain: a small tiled speckle pattern, very faint. */
+function grain(ctx, w, h) {
+  const size = 64;
+  const tile = document.createElement('canvas');
+  tile.width = tile.height = size;
+  const t = tile.getContext('2d');
+  const rnd = createRng(0x9a1).next;
+  for (let i = 0; i < 700; i++) {
+    t.fillStyle = rnd() < 0.5 ? 'rgba(60,54,20,0.5)' : 'rgba(255,250,200,0.45)';
+    t.fillRect(Math.floor(rnd() * size), Math.floor(rnd() * size), 1, 1);
+  }
+  ctx.save();
+  ctx.globalAlpha = 0.35;
+  ctx.fillStyle = ctx.createPattern(tile, 'repeat');
+  ctx.fillRect(0, 0, w, h);
+  ctx.restore();
+}
+
+/** The faint tile grid over the map, as in the reference. */
+function tileGrid(gc, { W, H, border, pxPerTile }) {
+  gc.strokeStyle = 'rgba(80,72,30,0.16)';
+  gc.lineWidth = Math.max(1, pxPerTile / 24);
+  gc.beginPath();
+  for (let i = 0; i <= W; i++) {
+    const x = (border + i) * pxPerTile;
+    gc.moveTo(x, border * pxPerTile);
+    gc.lineTo(x, (border + H) * pxPerTile);
+  }
+  for (let i = 0; i <= H; i++) {
+    const y = (border + i) * pxPerTile;
+    gc.moveTo(border * pxPerTile, y);
+    gc.lineTo((border + W) * pxPerTile, y);
+  }
+  gc.stroke();
+}
+
+/**
+ * Grass clumps, pebbles, leaves and the odd flower, stamped into the ground (they cost nothing to draw later).
+ * Like the reference, detail is sparse and gathers by woods, rocks and water (`near`) rather than spreading evenly.
+ */
+function stampDetails(ctx, { grid, noise, border, pxPerTile, detail, sample, near }) {
   const rnd = createRng(0x7e57).next;
   const { width: W, height: H } = grid;
   const s = pxPerTile / 16; // stamp scale
   const terrainAt = (x, z) => (grid.inBounds(Math.floor(x), Math.floor(z)) ? grid.terrain[Math.floor(z) * W + Math.floor(x)] : -1);
-  const count = Math.round((W + border) * (H + border) * 3.2 * detail);
+  const count = Math.round((W + border) * (H + border) * 1.2 * detail);
   for (let i = 0; i < count; i++) {
     const x = rnd() * (W + 2 * border - 4) - border + 2;
     const z = rnd() * (H + 2 * border - 4) - border + 2;
@@ -239,27 +338,37 @@ function stampDetails(ctx, { grid, noise, border, pxPerTile, detail, sample }) {
       pebbles(ctx, px, py, s, rnd, 3);
       continue;
     }
-    const meadow = noise.fbm(x * 0.12 + 40, z * 0.12 + 90, 2);
-    if (kind < 0.8) tuft(ctx, px, py, s, rnd);
-    else if (kind < 0.8 + 0.08 * smooth(0.5, 0.7, meadow)) flowers(ctx, px, py, s, rnd);
-    else if (kind < 0.9) pebbles(ctx, px, py, s, rnd, 1 + Math.floor(rnd() * 2));
+    // Open grass: mostly bare; clumps gather near features.
+    const by = smooth(0.15, 0.45, near(x + border, z + border));
+    if (kind < 0.04 + 0.5 * by) clump(ctx, px, py, s, rnd);
+    else if (kind < 0.6 && kind > 0.585) flowers(ctx, px, py, s, rnd);
+    else if (kind > 0.95) pebbles(ctx, px, py, s, rnd, 1 + Math.floor(rnd() * 2));
   }
 }
 
-function tuft(ctx, x, y, s, rnd) {
-  const blades = 3 + Math.floor(rnd() * 3);
-  const dark = rnd() < 0.6;
-  ctx.strokeStyle = dark ? 'rgba(86,92,30,0.75)' : 'rgba(206,196,112,0.65)';
-  ctx.lineWidth = Math.max(1, 1.1 * s);
-  ctx.lineCap = 'round';
-  ctx.beginPath();
-  for (let b = 0; b < blades; b++) {
-    const a = -Math.PI / 2 + (b / (blades - 1) - 0.5) * 1.3 + (rnd() - 0.5) * 0.3;
-    const len = (2.5 + rnd() * 2.5) * s;
-    ctx.moveTo(x, y);
-    ctx.lineTo(x + Math.cos(a) * len, y + Math.sin(a) * len);
+/** A spiky clump of dark grass with a thin ink outline (2–3 tufts together). */
+function clump(ctx, x, y, s, rnd) {
+  const tufts = 2 + Math.floor(rnd() * 2);
+  for (let t = 0; t < tufts; t++) {
+    const cx = x + (rnd() - 0.5) * 7 * s;
+    const cy = y + (rnd() - 0.5) * 4 * s;
+    const blades = 4 + Math.floor(rnd() * 3);
+    const h = (4 + rnd() * 3) * s;
+    ctx.beginPath();
+    ctx.moveTo(cx - 2.6 * s, cy);
+    for (let b = 0; b < blades; b++) {
+      const bx = cx - 2.6 * s + ((b + 0.5) / blades) * 5.2 * s;
+      ctx.lineTo(bx + (rnd() - 0.5) * 1.6 * s, cy - h * (0.6 + rnd() * 0.4));
+      ctx.lineTo(bx + 0.5 * s, cy - h * 0.2);
+    }
+    ctx.lineTo(cx + 2.6 * s, cy);
+    ctx.closePath();
+    ctx.fillStyle = rnd() < 0.5 ? '#5e6a24' : '#6c7a2a';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(48,42,20,0.8)';
+    ctx.lineWidth = Math.max(0.8, 0.7 * s);
+    ctx.stroke();
   }
-  ctx.stroke();
 }
 
 function flowers(ctx, x, y, s, rnd) {
