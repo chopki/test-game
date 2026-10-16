@@ -3,7 +3,7 @@ import { MapControls } from 'three/addons/controls/MapControls.js';
 import { GRID } from '../sim/config.js';
 import { AUTO_RESOLUTION, SCENERY_COUNT, SHADOW_MAP_SIZE } from './graphicsSettings.js';
 import { dirtTexture, grassTexture } from './textures.js';
-import { createBuildingModel, createEnemyModel, createProjectileModel, createScenery } from './models.js';
+import { createBuildingModel, createEnemyModel, createProjectileModel, createScenery, materialForLighting } from './models.js';
 import { BlobShadowBatch, HealthBarBatch, KeyedBatches } from './batches.js';
 
 const SKY = 0xa9d3ee;
@@ -46,10 +46,12 @@ export class Renderer {
 
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(SKY);
-    this.scene.fog = new THREE.Fog(SKY, 70, 160);
+    this.scene.fog = new THREE.Fog(SKY, 60, 150);
 
-    this.camera = new THREE.PerspectiveCamera(45, 1, 0.1, 400);
-    this.camera.position.set(0, 26, 23);
+    // A steep, near top-down view like the art reference: it also keeps most of the sky and far-off
+    // scenery out of frame, which is less to draw.
+    this.camera = new THREE.PerspectiveCamera(42, 1, 0.5, 220);
+    this.camera.position.set(0, 31, 15);
 
     // Anti-aliasing can only be chosen when the WebGL context is created; other settings apply live.
     this.renderer = new THREE.WebGLRenderer({
@@ -82,8 +84,8 @@ export class Renderer {
     this.scene.add(this.entityLayer, this.overlayLayer);
 
     this.views = { buildings: new Map(), enemies: new Map(), projectiles: new Map() };
-    this.wallBatches = new KeyedBatches(this.entityLayer, (key) => createBuildingModel('wall', { connections: connectionsFromKey(key) }));
-    this.enemyBatches = new KeyedBatches(this.entityLayer, (type) => createEnemyModel(type), { castShadow: false });
+    this.wallBatches = new KeyedBatches(this.entityLayer, (key) => this._adopt(createBuildingModel('wall', { connections: connectionsFromKey(key) })));
+    this.enemyBatches = new KeyedBatches(this.entityLayer, (type) => this._adopt(createEnemyModel(type)), { castShadow: false });
     this.healthBars = new HealthBarBatch(this.overlayLayer);
     this.blobShadows = new BlobShadowBatch(this.entityLayer);
     this._wallSignature = '';
@@ -195,7 +197,7 @@ export class Renderer {
         variant: Math.floor(Math.random() * 3),
       });
     }
-    this.scenery = createScenery(spots);
+    this.scenery = this._adopt(createScenery(spots));
     this.scene.add(this.scenery);
     this._shadowsDirty = true;
   }
@@ -207,6 +209,8 @@ export class Renderer {
   applySettings(graphics) {
     const prev = this.graphics;
     this.graphics = { ...graphics };
+    // Lighting quality: swap every lit material in the scene (new objects are adopted as they're made).
+    if (!prev || prev.lighting !== graphics.lighting) this._adopt(this.scene);
     if (graphics.resolution !== 'auto') this.setRenderScale(graphics.resolution);
     else if (!prev || prev.resolution !== 'auto') this.setRenderScale(defaultAutoScale());
     this._shadowsDirty = true;
@@ -228,6 +232,15 @@ export class Renderer {
     }
 
     if (!prev || prev.scenery !== graphics.scenery) this._buildScenery(SCENERY_COUNT[graphics.scenery]);
+  }
+
+  /** Give `obj` (and everything in it) the materials for the current lighting quality. Returns `obj`. */
+  _adopt(obj) {
+    const lighting = this.graphics?.lighting ?? 'full';
+    obj.traverse((o) => {
+      if (o.material && !Array.isArray(o.material)) o.material = materialForLighting(o.material, lighting);
+    });
+    return obj;
   }
 
   /** Pixels drawn per CSS pixel, capped at the screen's real pixel ratio. */
@@ -398,7 +411,7 @@ export class Renderer {
   _createBuildingView(b) {
     this._shadowsDirty = true;
     if (b.type === 'wall') return { obj: null, static: true, wallKey: null }; // drawn by wallBatches
-    const obj = createBuildingModel(b.type);
+    const obj = this._adopt(createBuildingModel(b.type));
     this.toScene(b.cx, 0, b.cz, obj.position);
     // Animated parts would leave stale shadows (the shadow map isn't redrawn every frame).
     for (const key of ['turret', 'flag', 'crystal', 'arm']) obj.userData[key]?.traverse((o) => (o.castShadow = false));
@@ -413,6 +426,8 @@ export class Renderer {
     } else {
       this._animateBuilding(view, b);
     }
+    // Soft contact shading on the ground around the base (overlapping along wall runs).
+    this.blobShadows.add(this.toScene(b.cx, 0.02, b.cz, this._v), b.type === 'wall' ? 0.62 : b.size * 0.72);
     if (b.hp < b.maxHp || b.type === 'townHall') {
       this.healthBars.add(this.toScene(b.cx, b.def.height + 0.6, b.cz, this._v), Math.min(2.4, 0.8 * b.size + 0.2), b.hp / b.maxHp);
     }
@@ -455,7 +470,7 @@ export class Renderer {
     // Ordinary enemies are drawn by enemyBatches; rare elites get their own model (crown, scale).
     let obj = null;
     if (e.elite) {
-      obj = createEnemyModel(e.type, true);
+      obj = this._adopt(createEnemyModel(e.type, true));
       obj.traverse((o) => (o.castShadow = false));
       this.entityLayer.add(obj);
     }
@@ -497,7 +512,7 @@ export class Renderer {
   }
 
   _createProjectileView(p) {
-    const obj = createProjectileModel(p.kind);
+    const obj = this._adopt(createProjectileModel(p.kind));
     obj.traverse((o) => (o.castShadow = false));
     this.toScene(p.x, p.y, p.z, obj.position);
     this.entityLayer.add(obj);

@@ -29,7 +29,8 @@ export class InstancedModel {
 
   _grow(capacity) {
     for (const part of this.parts) {
-      const mesh = new THREE.InstancedMesh(part.geometry, part.material, capacity);
+      // Reuse the current mesh's material: the renderer may have swapped it (lighting quality).
+      const mesh = new THREE.InstancedMesh(part.geometry, part.mesh?.material ?? part.material, capacity);
       mesh.castShadow = this.castShadow;
       mesh.receiveShadow = this.receiveShadow;
       mesh.frustumCulled = false; // instances span the whole map; the bounding sphere would be stale

@@ -1,9 +1,9 @@
 // Graphics quality presets and the player's saved choice. No three.js here, so it can be unit-tested.
 
 export const PRESETS = {
-  low: { resolution: 'auto', antialias: false, shadows: 'low', fpsCap: 30, scenery: 'low', effects: true },
-  medium: { resolution: 'auto', antialias: false, shadows: 'low', fpsCap: 60, scenery: 'medium', effects: true },
-  high: { resolution: 1.5, antialias: true, shadows: 'high', fpsCap: 0, scenery: 'high', effects: true },
+  low: { resolution: 'auto', antialias: false, shadows: 'low', lighting: 'simple', fpsCap: 30, scenery: 'low', effects: true },
+  medium: { resolution: 'auto', antialias: false, shadows: 'low', lighting: 'simple', fpsCap: 60, scenery: 'medium', effects: true },
+  high: { resolution: 1.5, antialias: true, shadows: 'high', lighting: 'full', fpsCap: 0, scenery: 'high', effects: true },
 };
 
 export const PRESET_ORDER = ['low', 'medium', 'high'];
@@ -26,6 +26,10 @@ export const OPTIONS = {
     ['off', 'Off'],
     ['low', 'Low'],
     ['high', 'High'],
+  ],
+  lighting: [
+    ['simple', 'Simple'],
+    ['full', 'Detailed'],
   ],
   fpsCap: [
     [30, '30'],

@@ -88,6 +88,13 @@ Selling refunds 50% of the cost × remaining HP fraction.
 The reference sheet above ([`docs/reference/art-style.jpg`](reference/art-style.jpg)) is the target look, including
 the five-stage upgrade art for the Town Hall, towers and walls planned on the roadmap.
 
+![UI style reference](reference/ui-style.jpg)
+
+The UI follows [`docs/reference/ui-style.jpg`](reference/ui-style.jpg): bronze-framed plaques for Town Hall health
+and gold, a wooden wave sign, arch-topped parchment tower cards with portraits and cost tags, bronze cog buttons,
+a "Battle Chronicle" event scroll (desktop; toasts on small screens) and an "Engineer's Codex" panel for the
+selected building. (The reference's Upgrade button and spells arrive with those features.)
+
 Warm, storybook medieval: sandstone blocks, red clay roofs, half-timbered plaster, chunky crenellations,
 round leafy trees and pines, green goblins and orcs, grey trolls. Everything is built from code (procedural
 textures in `render/textures.js`, models in `render/models.js`), so there are no asset files to manage.

@@ -1,14 +1,28 @@
+/* Hold the Hall UI, styled after docs/reference/ui-style.jpg: dark bronze-framed plaques over the battlefield,
+   parchment panels and cards, carved display type (Cinzel) and bronze cog buttons. */
+
 :root {
-  --panel: rgba(24, 22, 18, 0.82);
-  --panel-border: rgba(255, 230, 170, 0.18);
-  --text: #f3ead7;
-  --muted: #b9ad94;
-  --accent: #e2b347;
-  --good: #6fd472;
-  --warn: #f0b04a;
-  --danger: #ef6656;
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  color: var(--text);
+  --wood-dark: #3a2414;
+  --wood: #5e3c22;
+  --wood-light: #84593a;
+  --wood-edge: #24150a;
+  --bronze: #8a6a3a;
+  --bronze-light: #c9a25a;
+  --parchment: #f2e4c4;
+  --parchment-dark: #dcc394;
+  --ink: #3a2717;
+  --ink-muted: #775f42;
+  --ink-red: #8a2c1c;
+  --gold: #c9962e;
+  --gold-text: #f3c652;
+  --cream: #f3ead7;
+  --good: #4f8f3a;
+  --warn: #c47a1c;
+  --danger: #a83224;
+  --display: 'Cinzel', 'Trajan Pro', Georgia, serif;
+  --body: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-family: var(--body);
+  color: var(--cream);
 }
 
 * {
@@ -36,6 +50,8 @@ body {
   position: fixed;
   inset: 0;
   pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 #hud button,
@@ -48,27 +64,33 @@ body {
   touch-action: manipulation;
 }
 
+/* ------------------------------------------------------------------ shared pieces */
+
 button {
   font: inherit;
-  color: var(--text);
-  background: rgba(60, 52, 40, 0.9);
-  border: 1px solid var(--panel-border);
+  color: var(--cream);
+  background: linear-gradient(180deg, var(--wood-light), var(--wood));
+  border: 1px solid var(--wood-edge);
   border-radius: 6px;
   padding: 6px 12px;
   cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255, 220, 170, 0.25), 0 2px 0 var(--wood-edge);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.45);
 }
 
 button:hover {
-  background: rgba(85, 74, 56, 0.95);
+  background: linear-gradient(180deg, #96683f, #6c4527);
 }
 
 button.primary {
-  background: #8a5a1c;
-  border-color: #e2b347;
+  background: linear-gradient(180deg, #e0b14a, #a0701f);
+  border-color: #5a3a12;
+  color: #2a1a0a;
+  text-shadow: 0 1px 0 rgba(255, 240, 200, 0.4);
 }
 
 button.primary:hover {
-  background: #a46c22;
+  background: linear-gradient(180deg, #ebbe58, #b07c25);
 }
 
 kbd {
@@ -76,8 +98,8 @@ kbd {
   font-size: 0.75em;
   padding: 1px 5px;
   border-radius: 3px;
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(90, 60, 30, 0.1);
+  border: 1px solid rgba(90, 60, 30, 0.35);
 }
 
 .coin {
@@ -88,173 +110,329 @@ kbd {
   border-radius: 50%;
   vertical-align: -0.1em;
   background: radial-gradient(circle at 35% 35%, #fff1a8, #e2b347 55%, #9c7420);
+  box-shadow: 0 0 0 1px rgba(90, 60, 10, 0.6);
 }
 
-.panel {
-  background: var(--panel);
-  border: 1px solid var(--panel-border);
-  border-radius: 8px;
-  backdrop-filter: blur(4px);
+.small {
+  font-size: 0.8em;
+  font-weight: 500;
+}
+
+.bar {
+  height: 10px;
+  border-radius: 5px;
+  background: rgba(20, 10, 4, 0.7);
+  border: 1px solid var(--wood-edge);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+}
+
+/* Dark bronze-framed plaque (top bar pieces). */
+.framed {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 7px;
+  background: linear-gradient(180deg, #4a2e18, var(--wood-edge));
+  border: 2px solid var(--bronze);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.6), 0 3px 8px rgba(0, 0, 0, 0.45);
+}
+
+/* Parchment surfaces: dialogs, codex, chronicle, toasts, banners, cards. */
+.panel,
+.toast,
+.next-wave,
+.confirm-label,
+.build-tag {
+  color: var(--ink);
+  background:
+    radial-gradient(ellipse at 50% 40%, rgba(255, 250, 235, 0.55), transparent 70%),
+    linear-gradient(180deg, var(--parchment), var(--parchment-dark));
+  border: 2px solid var(--wood);
+  border-radius: 6px;
+  box-shadow: inset 0 0 16px rgba(130, 90, 40, 0.35), 0 4px 12px rgba(0, 0, 0, 0.35);
+  text-shadow: none;
+}
+
+.panel h2,
+.panel h3 {
+  font-family: var(--display);
+  color: var(--ink-red);
+  letter-spacing: 0.04em;
+}
+
+/* Buttons on parchment are light, like pressed vellum tabs. */
+.panel button {
+  color: var(--ink);
+  background: linear-gradient(180deg, #fbf1da, #e4cfa4);
+  border-color: #8a6a44;
+  box-shadow: 0 1px 0 #a88a5c;
+  text-shadow: none;
+}
+
+.panel button:hover {
+  background: linear-gradient(180deg, #fff6e2, #ecd9b0);
+}
+
+.panel button.primary,
+.segmented button.active {
+  color: #fbeed2;
+  background: linear-gradient(180deg, #a0442c, var(--ink-red));
+  border-color: #4a160c;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
 }
 
 /* ------------------------------------------------------------------ top bar */
 
 .topbar {
+  position: absolute;
+  top: 10px;
+  left: 12px;
+  right: 12px;
   display: flex;
-  align-items: center;
-  gap: 18px;
-  padding: 8px 14px;
-  background: var(--panel);
-  border-bottom: 1px solid var(--panel-border);
-  pointer-events: auto;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
 }
 
-.stat {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-weight: 600;
-  white-space: nowrap;
+.hud-hall .heart {
+  width: 22px;
+  height: 20px;
+  flex-shrink: 0;
+  background: radial-gradient(circle at 35% 30%, #ff8a7a, #d23a2a 50%, #7a160c);
+  clip-path: path('M11 19 C 4 13, 0 9, 0 5.5 C 0 2.4, 2.4 0, 5.5 0 C 7.8 0, 9.8 1.4, 11 3.4 C 12.2 1.4, 14.2 0, 16.5 0 C 19.6 0, 22 2.4, 22 5.5 C 22 9, 18 13, 11 19 Z');
 }
 
-.stat .label {
-  color: var(--muted);
-  font-weight: 500;
-  font-size: 0.85em;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.stat.gold {
-  font-size: 1.15em;
-  color: var(--accent);
-}
-
-.small {
-  font-size: 0.8em;
-  color: var(--muted);
-  font-weight: 500;
-}
-
-.bar {
-  width: 140px;
-  height: 10px;
-  border-radius: 5px;
-  background: rgba(0, 0, 0, 0.5);
-  overflow: hidden;
+.hall-bar {
+  width: 210px;
+  height: 14px;
 }
 
 #hall-bar {
   height: 100%;
   width: 100%;
-  background: var(--good);
+  background: linear-gradient(180deg, #ef6a52, #b8281a 60%, #8a180c);
   transition: width 0.15s;
 }
 
-.spacer {
-  flex: 1;
+#hall-bar.low {
+  animation: pulse-low 0.8s ease-in-out infinite alternate;
 }
 
-.next-wave {
-  margin: 6px auto 0;
-  width: fit-content;
-  padding: 4px 12px;
+@keyframes pulse-low {
+  to {
+    filter: brightness(1.6);
+  }
+}
+
+#hall-hp {
+  color: #e8d3a8;
+  min-width: 78px;
+}
+
+.hud-gold {
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px 14px 7px;
+}
+
+.gold-amount {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 1.25em;
+  color: var(--gold-text);
+  text-shadow: 0 1px 0 #000;
+}
+
+.wave-bar {
+  width: 220px;
+  height: 8px;
+}
+
+#wave-progress {
+  height: 100%;
+  width: 0;
+  background: linear-gradient(180deg, #f3c652, #b07c25);
+  transition: width 0.3s;
+}
+
+#wave-progress.fighting {
+  background: linear-gradient(180deg, #ef6a52, #a8231a);
+}
+
+.hud-right {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+/* Wooden hanging sign with the wave number. */
+.wave-sign {
+  min-width: 128px;
+  padding: 5px 14px 6px;
+  text-align: center;
   border-radius: 6px;
-  font-size: 0.9em;
-  color: var(--muted);
-  background: rgba(24, 22, 18, 0.6);
+  background:
+    radial-gradient(circle at 8px 8px, #c9a25a 2px, transparent 3px),
+    radial-gradient(circle at calc(100% - 8px) 8px, #c9a25a 2px, transparent 3px),
+    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.07) 0 2px, transparent 2px 11px),
+    linear-gradient(180deg, #7a5232, var(--wood-dark));
+  border: 2px solid var(--wood-edge);
+  box-shadow: inset 0 1px 0 rgba(255, 220, 170, 0.25), 0 3px 8px rgba(0, 0, 0, 0.45);
+}
+
+.wave-title {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 1.05em;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gold-text);
+  text-shadow: 0 1px 0 #000;
+}
+
+.wave-sub {
+  font-size: 0.78em;
+  color: #e8d3a8;
+  white-space: nowrap;
+}
+
+.square-btn {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  font-size: 1.15em;
+  border: 2px solid var(--bronze);
+  border-radius: 7px;
+  background: linear-gradient(180deg, #4a2e18, var(--wood-edge));
+  color: var(--bronze-light);
+}
+
+.square-btn:hover {
+  background: linear-gradient(180deg, #5a3a20, #2e1c0e);
+}
+
+.fps {
+  align-self: center;
+  color: var(--cream);
+  text-shadow: 0 1px 2px #000;
+}
+
+/* Next-wave banner: a parchment ribbon under the top bar. */
+.next-wave {
+  position: absolute;
+  top: 66px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: calc(100% - 24px);
+  padding: 4px 18px;
+  font-size: 0.88em;
+  font-weight: 600;
 }
 
 .next-wave:empty {
   display: none;
 }
 
-/* ------------------------------------------------------------------ build bar */
+/* ------------------------------------------------------------------ battle chronicle (desktop) */
 
-.buildbar {
+.chronicle {
   position: absolute;
-  bottom: 14px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  gap: 8px;
-}
-
-.build-btn {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  min-width: 110px;
+  top: 70px;
+  right: 12px;
+  width: 250px;
   padding: 10px 12px 8px;
-  background: var(--panel);
+  border-radius: 4px;
 }
 
-.build-btn .hotkey {
+/* Wooden scroll rollers at the top and bottom. */
+.chronicle::before,
+.chronicle::after {
+  content: '';
   position: absolute;
-  top: 4px;
-  left: 6px;
-  font-size: 0.7em;
-  color: var(--muted);
+  left: -6px;
+  right: -6px;
+  height: 9px;
+  border-radius: 5px;
+  background: linear-gradient(180deg, #84593a, var(--wood-edge));
 }
 
-.build-btn .name {
-  font-weight: 600;
+.chronicle::before {
+  top: -6px;
 }
 
-.build-btn .cost {
+.chronicle::after {
+  bottom: -6px;
+}
+
+.chronicle h3 {
+  margin: 0 0 6px;
   font-size: 0.85em;
-  color: var(--accent);
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink);
 }
 
-.build-btn.active {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px rgba(226, 179, 71, 0.4);
-  background: rgba(90, 70, 30, 0.95);
+.chronicle ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
 }
 
-.build-btn.unaffordable .cost {
-  color: var(--danger);
+.chronicle li {
+  position: relative;
+  margin: 0 0 5px;
+  padding: 4px 6px 4px 26px;
+  font-size: 0.82em;
+  line-height: 1.25;
+  border-radius: 3px;
+  background: rgba(120, 80, 40, 0.1);
+  border: 1px solid rgba(120, 80, 40, 0.25);
 }
 
-/* ------------------------------------------------------------------ info panel */
-
-.info-panel {
+.chronicle li::before {
+  content: '•';
   position: absolute;
-  right: 14px;
-  bottom: 14px;
-  width: 260px;
-  padding: 12px 14px;
+  left: 5px;
+  top: 4px;
+  width: 15px;
+  height: 15px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 15px;
+  text-align: center;
+  color: #fff;
+  background: var(--ink-muted);
 }
 
-.info-panel h3 {
-  margin: 0 0 4px;
+.chronicle li.danger::before,
+.chronicle li.warn::before {
+  content: '!';
+  background: var(--danger);
 }
 
-.info-panel p {
-  margin: 4px 0;
-  font-size: 0.9em;
+.chronicle li.good::before {
+  content: '✓';
+  background: var(--good);
 }
 
-.info-panel .desc {
-  color: var(--muted);
+.chronicle li:nth-child(n + 4) {
+  opacity: 0.65;
 }
 
-.info-panel button {
-  margin-top: 8px;
-  width: 100%;
-}
-
-/* ------------------------------------------------------------------ toasts */
+/* ------------------------------------------------------------------ toasts (small screens) */
 
 #toasts {
   position: absolute;
-  top: 90px;
+  top: 100px;
   width: min(560px, 90vw);
   left: 50%;
   transform: translateX(-50%);
-  display: flex;
+  display: none;
   flex-direction: column;
   align-items: center;
   gap: 6px;
@@ -263,11 +441,9 @@ kbd {
 .toast {
   max-width: min(560px, 90vw);
   text-align: center;
-  padding: 8px 16px;
-  border-radius: 6px;
-  background: var(--panel);
-  border-left: 4px solid var(--muted);
-  font-weight: 500;
+  padding: 7px 14px;
+  border-left-width: 6px;
+  font-weight: 600;
   transition: opacity 0.6s;
 }
 
@@ -287,6 +463,308 @@ kbd {
   opacity: 0;
 }
 
+/* ------------------------------------------------------------------ bottom: tower cards and cogs */
+
+.bottom-hud {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 10px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 18px;
+}
+
+.towers {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.ribbon {
+  padding: 2px 22px;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 0.85em;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--gold-text);
+  text-shadow: 0 1px 0 #000;
+  border-radius: 4px;
+  background: linear-gradient(180deg, #5b3a22, var(--wood-dark));
+  border: 2px solid var(--bronze);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+.buildbar {
+  display: flex;
+  gap: 8px;
+}
+
+/* Arch-topped parchment card with a rendered portrait and a cost tag. */
+.build-btn {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 86px;
+  padding: 8px 4px 22px;
+  border-radius: 43px 43px 8px 8px;
+  color: var(--ink);
+  background:
+    radial-gradient(ellipse at 50% 35%, rgba(255, 250, 235, 0.7), transparent 70%),
+    linear-gradient(180deg, var(--parchment), var(--parchment-dark));
+  border: 3px solid var(--bronze);
+  box-shadow: inset 0 0 0 1px rgba(255, 240, 200, 0.6), inset 0 0 12px rgba(130, 90, 40, 0.35), 0 4px 10px rgba(0, 0, 0, 0.45);
+  text-shadow: none;
+  transition: transform 0.12s;
+}
+
+.build-btn:hover {
+  background:
+    radial-gradient(ellipse at 50% 35%, rgba(255, 252, 240, 0.9), transparent 70%),
+    linear-gradient(180deg, #f7ead0, #e3cca0);
+}
+
+.build-btn .card-art {
+  display: block;
+  width: 64px;
+  height: 64px;
+}
+
+.build-btn .card-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 2px rgba(60, 30, 10, 0.35));
+  pointer-events: none;
+}
+
+.build-btn .name {
+  margin-top: 2px;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 0.68em;
+  line-height: 1.1;
+  text-align: center;
+}
+
+.build-btn .cost {
+  position: absolute;
+  bottom: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 1px 9px;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 0.78em;
+  color: var(--gold-text);
+  text-shadow: 0 1px 0 #000;
+  white-space: nowrap;
+  border-radius: 9px;
+  background: linear-gradient(180deg, #5b3a22, var(--wood-edge));
+  border: 2px solid var(--bronze);
+}
+
+.build-btn .hotkey {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  width: 17px;
+  height: 17px;
+  font-size: 0.7em;
+  font-weight: 700;
+  line-height: 15px;
+  text-align: center;
+  color: var(--cream);
+  border-radius: 50%;
+  background: var(--wood-dark);
+  border: 1px solid var(--bronze);
+}
+
+.build-btn.active {
+  transform: translateY(-6px);
+  border-color: var(--gold-text);
+  box-shadow: 0 0 0 3px rgba(243, 198, 82, 0.55), 0 8px 16px rgba(0, 0, 0, 0.5);
+}
+
+.build-btn.unaffordable .card-art {
+  filter: grayscale(0.85) opacity(0.7);
+}
+
+.build-btn.unaffordable .cost {
+  color: #ff8a70;
+}
+
+/* Bronze cog buttons. */
+.cogs {
+  display: flex;
+  gap: 12px;
+  padding-bottom: 18px;
+}
+
+.cog {
+  position: relative;
+  width: 62px;
+  height: 62px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: repeating-conic-gradient(var(--wood-edge) 0deg 11deg, transparent 11deg 30deg);
+  box-shadow: none;
+  color: #3a2010;
+  text-shadow: 0 1px 0 rgba(255, 240, 200, 0.5);
+}
+
+.cog:hover {
+  background: repeating-conic-gradient(#3a2414 0deg 11deg, transparent 11deg 30deg);
+}
+
+.cog::before {
+  content: '';
+  position: absolute;
+  inset: 5px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #f0cf86, #b08040 55%, #6e4a1c);
+  border: 2px solid #4a2e10;
+  box-shadow: inset 0 0 0 3px rgba(255, 230, 170, 0.25), 0 2px 5px rgba(0, 0, 0, 0.5);
+}
+
+.cog-primary::before {
+  background: radial-gradient(circle at 35% 30%, #ffdc8a, #d89a32 55%, #8a5a14);
+}
+
+.cog[hidden] {
+  display: none;
+}
+
+.cog-icon {
+  position: relative;
+  font-size: 1.25em;
+  font-weight: 800;
+}
+
+.cog-label {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 0.66em;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--cream);
+  text-shadow: 0 1px 2px #000, 0 0 4px #000;
+}
+
+/* ------------------------------------------------------------------ engineer's codex (selection) */
+
+.codex {
+  position: absolute;
+  right: 12px;
+  bottom: 160px;
+  width: 270px;
+  padding: 0 12px 12px;
+  overflow: hidden;
+}
+
+.codex-head {
+  margin: 0 -12px 8px;
+  padding: 4px 8px;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 0.75em;
+  letter-spacing: 0.1em;
+  text-align: center;
+  text-transform: uppercase;
+  color: var(--gold-text);
+  background: linear-gradient(180deg, #5b3a22, var(--wood-dark));
+}
+
+.codex-body {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.codex-art {
+  width: 64px;
+  height: 64px;
+  flex-shrink: 0;
+  border-radius: 6px;
+  background: rgba(120, 80, 40, 0.12);
+  border: 1px solid rgba(120, 80, 40, 0.35);
+}
+
+.codex h3 {
+  margin: 0 0 2px;
+  font-size: 1em;
+}
+
+.codex .desc {
+  margin: 0 0 6px;
+  font-size: 0.8em;
+  color: var(--ink-muted);
+}
+
+.codex-stat {
+  display: grid;
+  grid-template-columns: 70px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  margin: 5px 0;
+  font-size: 0.82em;
+}
+
+.codex-stat > span:first-child {
+  font-family: var(--display);
+  font-weight: 700;
+}
+
+.codex-stat em {
+  font-style: normal;
+  font-size: 0.9em;
+  color: var(--ink-muted);
+  white-space: nowrap;
+}
+
+.segments {
+  display: flex;
+  gap: 3px;
+}
+
+.segments i {
+  flex: 1;
+  height: 9px;
+  border-radius: 2px;
+  background: rgba(90, 60, 30, 0.2);
+  border: 1px solid rgba(90, 60, 30, 0.35);
+}
+
+.segments i.on {
+  background: linear-gradient(180deg, #f3c652, #c47a1c);
+  border-color: #8a5a14;
+}
+
+.codex-hp {
+  height: 9px;
+}
+
+.codex-hp > span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(180deg, #ef6a52, #a8231a);
+}
+
+.codex button {
+  margin-top: 8px;
+  width: 100%;
+}
+
 /* ------------------------------------------------------------------ settings */
 
 .settings-dialog {
@@ -304,27 +782,33 @@ kbd {
   text-align: center;
 }
 
+.settings-dialog > .primary {
+  margin-top: 16px;
+}
+
 .setting {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   padding: 8px 0;
-  border-bottom: 1px solid var(--panel-border);
+  border-bottom: 1px solid rgba(90, 60, 30, 0.25);
 }
 
 .setting-label {
   flex: 1;
   min-width: 0;
-  font-weight: 600;
+  font-family: var(--display);
+  font-weight: 700;
   text-align: left;
 }
 
 .setting-label small {
   display: block;
+  font-family: var(--body);
   font-weight: 400;
   font-size: 0.8em;
-  color: var(--muted);
+  color: var(--ink-muted);
 }
 
 .segmented {
@@ -332,7 +816,8 @@ kbd {
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 4px;
-  flex-shrink: 0;
+  flex-shrink: 1;
+  max-width: 60%;
 }
 
 .segmented button {
@@ -340,17 +825,12 @@ kbd {
   font-size: 0.85em;
 }
 
-.segmented button.active {
-  background: #8a5a1c;
-  border-color: var(--accent);
-}
-
 .custom-tag {
   padding: 5px 9px;
   font-size: 0.85em;
   border-radius: 6px;
-  border: 1px dashed var(--accent);
-  color: var(--accent);
+  border: 1px dashed var(--ink-red);
+  color: var(--ink-red);
 }
 
 .custom-tag[hidden] {
@@ -360,7 +840,7 @@ kbd {
 .reload-note {
   margin: 12px 0 0;
   font-size: 0.85em;
-  color: var(--warn);
+  color: #9a4a10;
 }
 
 .reload-note[hidden] {
@@ -371,11 +851,7 @@ kbd {
   margin-left: 6px;
 }
 
-.settings-dialog > .primary {
-  margin-top: 16px;
-}
-
-/* ------------------------------------------------------------------ touch placement ✓ / ✕ */
+/* ------------------------------------------------------------------ touch placement ✓ / ✕, wall cost tag */
 
 .confirm {
   position: absolute;
@@ -393,9 +869,6 @@ kbd {
 .confirm-label,
 .build-tag {
   padding: 3px 8px;
-  border-radius: 5px;
-  background: var(--panel);
-  border: 1px solid var(--panel-border);
   font-size: 0.85em;
   font-weight: 600;
   white-space: nowrap;
@@ -410,7 +883,7 @@ kbd {
 
 .confirm-label.bad,
 .build-tag.bad {
-  color: var(--danger);
+  color: var(--ink-red);
 }
 
 .build-tag {
@@ -452,110 +925,6 @@ kbd {
   border-color: #f0958f;
 }
 
-/* ------------------------------------------------------------------ small / touch screens */
-
-.touch-only {
-  display: none;
-}
-
-@media (pointer: coarse) {
-  kbd,
-  .build-btn .hotkey,
-  .desktop-only {
-    display: none;
-  }
-
-  .touch-only {
-    display: revert;
-  }
-}
-
-@media (max-width: 720px) {
-  :root {
-    font-size: 14px;
-  }
-
-  .topbar {
-    flex-wrap: wrap;
-    gap: 6px 12px;
-    padding: 6px 10px;
-  }
-
-  .stat .label {
-    font-size: 0.75em;
-  }
-
-  .bar {
-    width: 70px;
-  }
-
-  #hall-hp {
-    display: none;
-  }
-
-  .stat.phase {
-    order: 10;
-    flex-basis: 100%;
-    font-size: 0.9em;
-  }
-
-  .spacer {
-    display: none;
-  }
-
-  .topbar button {
-    padding: 5px 9px;
-  }
-
-  .next-wave {
-    font-size: 0.8em;
-    margin: 4px 8px 0;
-    width: auto;
-    text-align: center;
-  }
-
-  #toasts {
-    top: 120px;
-  }
-
-  .setting {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .segmented {
-    max-width: none;
-    justify-content: flex-start;
-  }
-
-  .buildbar {
-    left: 6px;
-    right: 6px;
-    bottom: 8px;
-    transform: none;
-    gap: 5px;
-  }
-
-  .build-btn {
-    flex: 1;
-    min-width: 0;
-    padding: 8px 4px 6px;
-    font-size: 0.9em;
-  }
-
-  .info-panel {
-    left: 6px;
-    right: 6px;
-    bottom: 76px;
-    width: auto;
-  }
-
-  .dialog {
-    margin: 0 10px;
-    padding: 16px;
-  }
-}
-
 /* ------------------------------------------------------------------ overlays */
 
 .overlay {
@@ -580,7 +949,6 @@ kbd {
 
 .dialog h2 {
   margin-top: 0;
-  color: var(--accent);
 }
 
 .dialog table {
@@ -595,6 +963,197 @@ kbd {
 }
 
 .dialog td:first-child {
-  color: var(--muted);
+  color: var(--ink-muted);
   white-space: nowrap;
+}
+
+/* ------------------------------------------------------------------ touch and small screens */
+
+.touch-only {
+  display: none;
+}
+
+@media (pointer: coarse) {
+  kbd,
+  .build-btn .hotkey,
+  .desktop-only {
+    display: none;
+  }
+
+  .touch-only {
+    display: revert;
+  }
+}
+
+/* Medium screens: the chronicle would crowd the map, so events show as toasts instead. */
+@media (max-width: 900px) {
+  .chronicle {
+    display: none;
+  }
+
+  #toasts {
+    display: flex;
+  }
+}
+
+@media (max-width: 720px) {
+  :root {
+    font-size: 14px;
+  }
+
+  .topbar {
+    top: 6px;
+    left: 6px;
+    right: 6px;
+    gap: 6px;
+  }
+
+  .hud-hall {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 6px 8px;
+  }
+
+  .hall-bar {
+    width: 100%;
+    min-width: 40px;
+  }
+
+  #hall-hp {
+    display: none;
+  }
+
+  .hud-gold {
+    padding: 3px 8px 6px;
+  }
+
+  .wave-bar {
+    width: 72px;
+  }
+
+  .hud-right {
+    gap: 5px;
+  }
+
+  .wave-sign {
+    min-width: 0;
+    padding: 4px 8px 5px;
+  }
+
+  .wave-title {
+    font-size: 0.9em;
+    letter-spacing: 0.04em;
+  }
+
+  .wave-sub {
+    font-size: 0.72em;
+  }
+
+  .square-btn {
+    width: 34px;
+    height: 34px;
+  }
+
+  .next-wave {
+    top: 56px;
+    font-size: 0.8em;
+    text-align: center;
+    width: auto;
+    max-width: none;
+    left: 8px;
+    right: 8px;
+    transform: none;
+  }
+
+  .setting {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .segmented {
+    max-width: none;
+    justify-content: flex-start;
+  }
+
+  .bottom-hud {
+    left: 6px;
+    right: 6px;
+    bottom: 14px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+  }
+
+  .cogs {
+    align-self: flex-end;
+    gap: 8px;
+    padding-bottom: 14px;
+  }
+
+  .cog {
+    width: 48px;
+    height: 48px;
+  }
+
+  .cog-icon {
+    font-size: 1em;
+  }
+
+  .cog-label {
+    font-size: 0.6em;
+  }
+
+  .buildbar {
+    gap: 4px;
+  }
+
+  .build-btn {
+    flex: 1;
+    min-width: 0;
+    width: auto;
+    padding: 6px 2px 16px;
+    border-width: 2px;
+    border-radius: 30px 30px 6px 6px;
+  }
+
+  .build-btn .card-art {
+    width: 44px;
+    height: 44px;
+  }
+
+  .build-btn .name {
+    display: none;
+  }
+
+  .build-btn .cost {
+    padding: 0 5px;
+    font-size: 0.72em;
+    bottom: -9px;
+  }
+
+  .codex {
+    left: 6px;
+    right: 6px;
+    bottom: 190px;
+    width: auto;
+    padding-bottom: 8px;
+  }
+
+  .codex .desc {
+    display: none;
+  }
+
+  .codex-art {
+    width: 40px;
+    height: 40px;
+  }
+
+  .codex-stat {
+    margin: 3px 0;
+  }
+
+  .dialog {
+    margin: 0 10px;
+    padding: 16px;
+  }
 }

@@ -111,7 +111,8 @@ test('starting a wave spawns enemies', async ({ page }) => {
   await page.getByRole('button', { name: /Start wave/ }).click();
   await expect(page.locator('#wave')).toHaveText('1');
   await expect.poll(() => page.evaluate(() => window.game.world.enemies.length)).toBeGreaterThan(0);
-  await expect(page.locator('#phase')).toContainText('Enemies remaining');
+  await expect(page.locator('#phase')).toContainText('enemies left');
+  await expect(page.locator('#chronicle-list')).toContainText('Wave 1 incoming');
 });
 
 test('a GPU context loss pauses the game and it recovers', async ({ page }) => {
@@ -266,7 +267,21 @@ test('walls reshape to join their neighbours and towers', async ({ page }) => {
 
 test('draw calls stay flat as walls and enemies are added (instancing)', async ({ page }) => {
   await openGame(page);
-  const calls = () => page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(window.game.renderer.renderer.info.render.calls)))));
+  // Lowest draw-call count over a few frames: the frame that redraws the (static) shadow map after a change
+  // also counts its shadow pass, so it isn't representative.
+  const calls = () =>
+    page.evaluate(
+      () =>
+        new Promise((resolve) => {
+          const seen = [];
+          const tick = () => {
+            seen.push(window.game.renderer.renderer.info.render.calls);
+            if (seen.length < 6) requestAnimationFrame(tick);
+            else resolve(Math.min(...seen.slice(2)));
+          };
+          requestAnimationFrame(tick);
+        }),
+    );
   const addWalls = (z) =>
     page.evaluate((z) => {
       const w = window.game.world;
@@ -296,4 +311,30 @@ test('draw calls stay flat as walls and enemies are added (instancing)', async (
   });
   // Each enemy type is ~5 instanced draw calls; bars and blob shadows are 3 more in total.
   expect(await calls()).toBeLessThanOrEqual(withSomeWalls + 30);
+});
+
+test('the Lighting setting swaps to cheaper materials and back, live', async ({ page }) => {
+  await openGame(page);
+  const materialTypes = () =>
+    page.evaluate(() => {
+      const counts = { standard: 0, lambert: 0 };
+      window.game.renderer.scene.traverse((o) => {
+        if (o.material?.isMeshStandardMaterial) counts.standard++;
+        if (o.material?.isMeshLambertMaterial) counts.lambert++;
+      });
+      return counts;
+    });
+  await page.evaluate(() => window.game.world.place('archerTower', 12, 12));
+  // Low starts with Simple lighting: nothing uses the physically based material.
+  await expect.poll(async () => (await materialTypes()).standard).toBe(0);
+  expect((await materialTypes()).lambert).toBeGreaterThan(5);
+
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await settingButton(page, 'Lighting', 'Detailed').click();
+  expect((await materialTypes()).lambert).toBe(0);
+  await settingButton(page, 'Lighting', 'Simple').click();
+  await page.getByRole('button', { name: 'Done' }).click();
+  // Objects created later get the current lighting too.
+  await page.evaluate(() => window.game.world.place('cannonTower', 26, 12));
+  await expect.poll(async () => (await materialTypes()).standard).toBe(0);
 });

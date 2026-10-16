@@ -1,13 +1,48 @@
-import { BUILDINGS } from '../sim/config.js';
+import { BUILDINGS, TIMING } from '../sim/config.js';
 import { onPress } from './press.js';
 import { summarizeWave } from '../sim/WaveManager.js';
+import { renderBuildingIcons } from '../render/icons.js';
 
 const $ = (id) => document.getElementById(id);
 
 const SIDE_NAMES = { north: 'North', east: 'East', south: 'South', west: 'West' };
 const joinSides = (sides) => sides.map((s) => SIDE_NAMES[s]).join(' & ');
 
-/** DOM overlay: resource bar, build menu, selection panel, toasts, overlays. */
+// Best value of each tower stat across all buildings, for the Codex's segmented stat bars.
+const attacks = Object.values(BUILDINGS).map((d) => d.attack).filter(Boolean);
+const STAT_MAX = {
+  damage: Math.max(...attacks.map((a) => a.damage)),
+  range: Math.max(...attacks.map((a) => a.range)),
+  rate: Math.max(...attacks.map((a) => 1 / a.cooldown)),
+};
+const CHRONICLE_LENGTH = 6;
+
+/** A small drawn icon for the Sell card: a stack of coins. */
+function sellIcon() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 96;
+  const ctx = c.getContext('2d');
+  for (const [x, y] of [[30, 66], [56, 70], [44, 50], [62, 44], [40, 30]]) {
+    const g = ctx.createRadialGradient(x - 6, y - 6, 2, x, y, 18);
+    g.addColorStop(0, '#fff1a8');
+    g.addColorStop(0.55, '#e2b347');
+    g.addColorStop(1, '#8a6418');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.ellipse(x, y, 17, 15, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#6b4a10';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+  return c.toDataURL('image/png');
+}
+
+/**
+ * DOM overlay, styled after docs/reference/ui-style.jpg: framed Town Hall health and gold plaques, a wave
+ * sign, tower cards with rendered portraits, cog buttons, the Battle Chronicle log, the Engineer's Codex
+ * selection panel, toasts and dialogs.
+ */
 export class HUD {
   constructor(game) {
     this.game = game;
@@ -32,8 +67,15 @@ export class HUD {
       confirmLabel: $('confirm-label'),
       buildTag: $('build-tag'),
       confirmYes: $('confirm-yes'),
+      waveProgress: $('wave-progress'),
+      chronicle: $('chronicle-list'),
+      pauseIcon: $('pause-icon'),
+      pauseLabel: $('pause-label'),
+      speedIcon: $('speed-icon'),
     };
     this._last = {};
+    this.icons = renderBuildingIcons(Object.keys(BUILDINGS));
+    this.icons.sell = sellIcon();
 
     this.buttons = new Map();
     for (const [type, def] of Object.entries(BUILDINGS)) {
@@ -56,10 +98,13 @@ export class HUD {
     const btn = document.createElement('button');
     btn.className = 'build-btn';
     btn.title = description;
+    btn.setAttribute('aria-label', cost === null ? name : `${name}, ${cost} gold`);
+    const icon = this.icons[mode];
     btn.innerHTML = `
       <span class="hotkey">${hotkey}</span>
+      <span class="card-art">${icon ? `<img src="${icon}" alt="" draggable="false" />` : ''}</span>
       <span class="name">${name}</span>
-      ${cost === null ? '' : `<span class="cost"><i class="coin"></i>${cost}</span>`}`;
+      <span class="cost">${cost === null ? 'Refund' : `${cost}g`}</span>`;
     onPress(btn, () => {
       const build = this.game.build;
       build.setMode(build.mode === mode ? null : mode);
@@ -73,6 +118,7 @@ export class HUD {
     this.el.gameover.hidden = true;
     this._last = {};
     this.el.toasts.replaceChildren();
+    this.el.chronicle.replaceChildren();
     const ev = world.events;
     ev.on('waveStarted', ({ wave, sides }) => this.toast(`Wave ${wave} incoming from the ${joinSides(sides)}!`, 'danger'));
     ev.on('waveCleared', ({ wave, bonus }) => this.toast(`Wave ${wave} survived! +${bonus} gold`, 'good'));
@@ -94,15 +140,31 @@ export class HUD {
     if (this._last.hallRatio !== ratio) {
       this._last.hallRatio = ratio;
       this.el.hallBar.style.width = `${ratio * 100}%`;
-      this.el.hallBar.style.background = `hsl(${ratio * 120}, 70%, 45%)`;
+      this.el.hallBar.classList.toggle('low', ratio < 0.3);
     }
 
     let phase = '';
-    if (w.phase === 'build') phase = `Next wave in ${Math.ceil(w.phaseTimer)}s`;
-    else if (w.phase === 'wave') phase = `Enemies remaining: ${w.enemies.length + w.waves.queue.length}`;
-    else phase = 'The Town Hall has fallen';
-    if (this.game.paused) phase = `PAUSED — ${phase}`;
+    let progress = 0;
+    if (w.phase === 'build') {
+      phase = `Next in ${Math.ceil(w.phaseTimer)}s`;
+      const total = w.waves.wave === 0 ? TIMING.firstBuildPhase : TIMING.buildPhase;
+      progress = 1 - w.phaseTimer / total;
+    } else if (w.phase === 'wave') {
+      const remaining = w.enemies.length + w.waves.queue.length;
+      phase = `${remaining} enemies left`;
+      const total = w.waves.current?.entries.length || 1;
+      progress = 1 - remaining / total;
+    } else {
+      phase = 'Fallen';
+    }
+    if (this.game.paused) phase = `Paused · ${phase}`;
     this._set('phase', phase);
+    const pct = `${Math.round(Math.max(0, Math.min(1, progress)) * 100)}%`;
+    if (this._last.progress !== pct) {
+      this._last.progress = pct;
+      this.el.waveProgress.style.width = pct;
+      this.el.waveProgress.classList.toggle('fighting', w.phase === 'wave');
+    }
 
     this.el.startWave.hidden = w.phase !== 'build';
     if (w.phase === 'build') {
@@ -166,6 +228,7 @@ export class HUD {
     this.el[key].textContent = value;
   }
 
+  // The Engineer's Codex: details of the selected building.
   _updateInfo() {
     const b = this.game.build.selected;
     const key = b ? `${b.id}:${Math.ceil(b.hp)}` : '';
@@ -177,13 +240,32 @@ export class HUD {
     }
     const a = b.def.attack;
     const isHall = b === this.world.townHall;
+    const segments = (value, max) => {
+      const filled = Math.max(1, Math.round((value / max) * 5));
+      return `<span class="segments">${Array.from({ length: 5 }, (_, i) => `<i class="${i < filled ? 'on' : ''}"></i>`).join('')}</span>`;
+    };
+    const stat = (label, value, max, note) => `<div class="codex-stat"><span>${label}</span>${segments(value, max)}<em>${note}</em></div>`;
+    const icon = this.icons[b.type];
+    const hpRatio = b.hp / b.maxHp;
     this.el.info.hidden = false;
     this.el.info.innerHTML = `
-      <h3>${b.def.name}</h3>
-      <p class="desc">${b.def.description}</p>
-      <p>HP: ${Math.ceil(b.hp)} / ${b.maxHp}</p>
-      ${a ? `<p>Damage ${a.damage}${a.splash ? ' (splash)' : ''} · Range ${a.range} · ${(1 / a.cooldown).toFixed(1)} shots/s</p>` : ''}
-      ${isHall ? '' : `<button id="sell-selected">Sell for <i class="coin"></i>${this.world.sellValue(b)}</button>`}`;
+      <div class="codex-head">Engineer's Codex</div>
+      <div class="codex-body">
+        ${icon ? `<img class="codex-art" src="${icon}" alt="" />` : ''}
+        <div>
+          <h3>${b.def.name}</h3>
+          <p class="desc">${b.def.description}</p>
+        </div>
+      </div>
+      <div class="codex-stat"><span>Health</span><span class="bar codex-hp"><span style="width:${hpRatio * 100}%"></span></span><em>${Math.ceil(b.hp)}/${b.maxHp}</em></div>
+      ${
+        a
+          ? stat('Damage', a.damage, STAT_MAX.damage, a.kind === 'pulse' ? `${a.damage} all` : a.splash ? `${a.damage} area` : `${a.damage}`) +
+            stat('Range', a.range, STAT_MAX.range, `${a.range}`) +
+            stat('Fire rate', 1 / a.cooldown, STAT_MAX.rate, `${(1 / a.cooldown).toFixed(1)}/s`)
+          : ''
+      }
+      ${isHall ? '' : `<button id="sell-selected" class="primary">Sell for <i class="coin"></i>${this.world.sellValue(b)}</button>`}`;
     if (!isHall) {
       onPress($('sell-selected'), () => {
         this.world.sell(b.id);
@@ -202,7 +284,9 @@ export class HUD {
     this._last.info = null;
   }
 
+  /** Report an event: a short toast (shown on small screens) and an entry in the Battle Chronicle. */
   toast(message, kind = 'info') {
+    this._chronicle(message, kind);
     const el = document.createElement('div');
     el.className = `toast ${kind}`;
     el.textContent = message;
@@ -212,12 +296,22 @@ export class HUD {
     setTimeout(() => el.remove(), 3200);
   }
 
+  _chronicle(message, kind) {
+    const li = document.createElement('li');
+    li.className = kind;
+    li.textContent = message;
+    this.el.chronicle.prepend(li);
+    while (this.el.chronicle.children.length > CHRONICLE_LENGTH) this.el.chronicle.lastChild.remove();
+  }
+
   setSpeed(speed) {
-    this.el.speed.textContent = `${speed}×`;
+    this.el.speedIcon.textContent = `${speed}×`;
   }
 
   setPaused(paused) {
-    this.el.pause.textContent = paused ? '▶' : '❚❚';
+    this.el.pauseIcon.textContent = paused ? '▶' : '❚❚';
+    this.el.pauseLabel.textContent = paused ? 'Resume' : 'Pause';
+    this.el.pause.setAttribute('aria-label', paused ? 'Resume' : 'Pause');
   }
 
   toggleHelp(force) {

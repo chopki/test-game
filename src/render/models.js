@@ -115,10 +115,61 @@ const tmpMatrix = new THREE.Matrix4();
 const tmpQuat = new THREE.Quaternion();
 const tmpEuler = new THREE.Euler();
 
-/** Collects transformed primitives and merges them into one mesh per material. */
+// ------------------------------------------------------------------ material variants
+
+const shadedVariants = new Map();
+/** The same material with vertex colours on (for the baked height shading below). */
+function shaded(material) {
+  if (!shadedVariants.has(material)) {
+    const m = material.clone();
+    m.vertexColors = true;
+    shadedVariants.set(material, m);
+  }
+  return shadedVariants.get(material);
+}
+
+const toSimple = new Map();
+const toFull = new Map();
+/**
+ * The material to use for a lighting quality: 'simple' swaps MeshStandardMaterial (physically based, costly per
+ * pixel) for an equivalent MeshLambertMaterial; 'full' swaps back. Other material types are returned unchanged.
+ */
+export function materialForLighting(material, lighting) {
+  if (lighting === 'simple') {
+    if (!material.isMeshStandardMaterial) return material;
+    if (!toSimple.has(material)) {
+      const m = new THREE.MeshLambertMaterial({
+        map: material.map,
+        color: material.color,
+        emissive: material.emissive,
+        emissiveIntensity: material.emissiveIntensity,
+        side: material.side,
+        transparent: material.transparent,
+        opacity: material.opacity,
+        vertexColors: material.vertexColors,
+      });
+      toSimple.set(material, m);
+      toFull.set(m, material);
+    }
+    return toSimple.get(material);
+  }
+  return toFull.get(material) ?? material;
+}
+
+// ------------------------------------------------------------------ merging
+
+/**
+ * Collects transformed primitives and merges them into one mesh per material.
+ *
+ * Baked shading: each vertex gets a colour that darkens towards the ground (a cheap stand-in for ambient
+ * occlusion), so buildings and creatures look grounded and modelled at no per-frame cost. `yOffset` is how
+ * high the finished group will sit above the ground, so parts mounted higher up (turrets, arms) shade correctly.
+ */
 class Parts {
-  constructor() {
+  constructor({ yOffset = 0, shade = true } = {}) {
     this.byMaterial = new Map();
+    this.yOffset = yOffset;
+    this.shade = shade;
   }
 
   add(geometry, material, { x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0, sx = 1, sy = 1, sz = 1 } = {}) {
@@ -127,6 +178,15 @@ class Parts {
     if (!g.attributes.uv) g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2));
     tmpQuat.setFromEuler(tmpEuler.set(rx, ry, rz));
     g.applyMatrix4(tmpMatrix.compose(new THREE.Vector3(x, y, z), tmpQuat, new THREE.Vector3(sx, sy, sz)));
+    if (this.shade) {
+      const pos = g.attributes.position;
+      const colors = new Float32Array(pos.count * 3);
+      for (let i = 0; i < pos.count; i++) {
+        const k = 0.58 + 0.42 * THREE.MathUtils.smoothstep(pos.getY(i) + this.yOffset, 0, 1.1);
+        colors[i * 3] = colors[i * 3 + 1] = colors[i * 3 + 2] = k;
+      }
+      g.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+    }
     if (!this.byMaterial.has(material)) this.byMaterial.set(material, []);
     this.byMaterial.get(material).push(g);
     return this;
@@ -135,7 +195,7 @@ class Parts {
   /** Merge into `group` (or a new Group). */
   build(group = new THREE.Group()) {
     for (const [material, geometries] of this.byMaterial) {
-      const mesh = new THREE.Mesh(mergeGeometries(geometries), material);
+      const mesh = new THREE.Mesh(mergeGeometries(geometries), this.shade ? shaded(material) : material);
       mesh.castShadow = true;
       mesh.receiveShadow = true;
       group.add(mesh);
@@ -302,7 +362,7 @@ function cannonTower() {
   const g = p.build();
 
   // Turret: wooden carriage with a big iron cannon; rotates to aim (+z is forward).
-  const t = new Parts();
+  const t = new Parts({ yOffset: 1.44 });
   t.add(box(0.62, 0.22, 0.82), M.wood, { y: 0.11 });
   for (const sx of [-0.36, 0.36]) {
     for (const sz of [-0.25, 0.25]) t.add(cyl(0.15, 0.15, 0.08, 10), M.woodDark, { x: sx, y: 0.1, z: sz, rz: Math.PI / 2 });
@@ -348,7 +408,7 @@ function catapult() {
   const g = p.build();
 
   // Turret: the catapult frame (rotates to aim, +z forward) with the throwing arm.
-  const t = new Parts();
+  const t = new Parts({ yOffset: 0.37 });
   for (const sx of [-0.42, 0.42]) {
     t.add(box(0.12, 0.12, 1.3), M.wood, { x: sx, y: 0.1 }); // base rails
     t.add(box(0.1, 0.85, 0.1), M.wood, { x: sx, y: 0.5, z: -0.12, rx: 0.32 });
@@ -363,7 +423,7 @@ function catapult() {
   turret.position.y = 0.37;
 
   // Throwing arm: pivots at the axle; the bucket end points to -z when loaded.
-  const a = new Parts();
+  const a = new Parts({ yOffset: 1.25 });
   a.add(box(0.1, 0.1, 1.45), M.woodDark, { z: -0.42 });
   a.add(cyl(0.16, 0.12, 0.14, 8), M.wood, { y: 0.06, z: -1.1 }); // bucket
   a.add(box(0.36, 0.3, 0.3), M.stoneGrey, { y: -0.1, z: 0.38 }); // counterweight
@@ -464,7 +524,7 @@ export function createEnemyModel(type, elite = false) {
   const g = ENEMY_MODELS[type]();
   if (elite) {
     g.scale.setScalar(1.3);
-    const crown = new Parts().add(cyl(0.12, 0.14, 0.1, 6), MATERIALS.gold).build();
+    const crown = new Parts({ shade: false }).add(cyl(0.12, 0.14, 0.1, 6), MATERIALS.gold).build();
     crown.position.set(0, type === 'brute' ? 1.42 : 1.15, type === 'brute' ? 0.26 : 0);
     g.userData.body.add(crown);
   }
@@ -474,10 +534,11 @@ export function createEnemyModel(type, elite = false) {
 // ------------------------------------------------------------------ projectiles
 
 export function createProjectileModel(kind) {
-  if (kind === 'cannonball') return new Parts().add(sphere(0.15), MATERIALS.cannonball).build();
-  if (kind === 'boulder') return new Parts().add(dodeca(0.22), MATERIALS.boulder).build();
+  const p = new Parts({ shade: false }); // in the air: no ground shading
+  if (kind === 'cannonball') return p.add(sphere(0.15), MATERIALS.cannonball).build();
+  if (kind === 'boulder') return p.add(dodeca(0.22), MATERIALS.boulder).build();
   // Arrow points along +z so Object3D.lookAt() aims it at its destination.
-  return new Parts()
+  return p
     .add(box(0.035, 0.035, 0.5), MATERIALS.woodDark)
     .add(cone(0.05, 0.1, 4), MATERIALS.iron, { z: 0.29, rx: Math.PI / 2 })
     .add(box(0.1, 0.02, 0.1), MATERIALS.bannerRed, { z: -0.22 })

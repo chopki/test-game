@@ -4,30 +4,40 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Hold the Hall</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&display=swap" rel="stylesheet" />
   </head>
   <body>
     <div id="app"></div>
 
     <div id="hud">
       <div class="topbar">
-        <div class="stat gold"><i class="coin"></i><span id="gold">0</span></div>
-        <div class="stat"><span class="label">Wave</span><span id="wave">0</span></div>
-        <div class="stat hall">
-          <span class="label">Town Hall</span>
-          <div class="bar"><div id="hall-bar"></div></div>
+        <div class="hud-hall framed" title="Town Hall health">
+          <span class="heart" aria-hidden="true"></span>
+          <div class="bar hall-bar"><div id="hall-bar"></div></div>
           <span id="hall-hp" class="small"></span>
         </div>
-        <div class="stat phase"><span id="phase"></span></div>
-        <div class="spacer"></div>
-        <button id="start-wave" class="primary">Start wave <kbd>Space</kbd></button>
-        <button id="pause" title="Pause (P)">❚❚</button>
-        <button id="speed" title="Game speed (F)">1×</button>
-        <span id="fps" class="small" hidden></span>
-        <button id="settings-btn" title="Graphics settings" aria-label="Settings">⚙</button>
-        <button id="help-btn" title="Help (H)">?</button>
+        <div class="hud-gold framed">
+          <div class="gold-amount"><i class="coin"></i><span id="gold">0</span></div>
+          <div class="bar wave-bar" title="Wave progress"><div id="wave-progress"></div></div>
+        </div>
+        <div class="hud-right">
+          <div class="wave-sign">
+            <div class="wave-title">Wave <span id="wave">0</span></div>
+            <div id="phase" class="wave-sub"></div>
+          </div>
+          <span id="fps" class="small fps" hidden></span>
+          <button id="settings-btn" class="square-btn" title="Graphics settings" aria-label="Settings">⚙</button>
+          <button id="help-btn" class="square-btn" title="Help (H)" aria-label="Help">?</button>
+        </div>
       </div>
       <div id="next-wave" class="next-wave"></div>
 
+      <aside id="chronicle" class="panel chronicle" aria-label="Battle chronicle">
+        <h3>Battle Chronicle</h3>
+        <ul id="chronicle-list"></ul>
+      </aside>
       <div id="toasts"></div>
       <div id="build-tag" class="build-tag" hidden></div>
       <div id="confirm" class="confirm" hidden>
@@ -35,8 +45,25 @@
         <button id="confirm-no" class="confirm-no" aria-label="Don't place">✕</button>
         <button id="confirm-yes" class="confirm-yes" aria-label="Place">✓</button>
       </div>
-      <div id="info" class="panel info-panel" hidden></div>
-      <div id="buildbar" class="buildbar"></div>
+      <div id="info" class="panel info-panel codex" hidden></div>
+
+      <div class="bottom-hud">
+        <div class="cogs">
+          <button id="start-wave" class="cog cog-primary" title="Start the next wave now (Space)" aria-label="Start wave">
+            <span class="cog-icon">⚔</span><span class="cog-label">Start wave</span>
+          </button>
+          <button id="pause" class="cog" title="Pause (P)" aria-label="Pause">
+            <span class="cog-icon" id="pause-icon">❚❚</span><span class="cog-label" id="pause-label">Pause</span>
+          </button>
+          <button id="speed" class="cog" title="Game speed (F)" aria-label="Speed">
+            <span class="cog-icon" id="speed-icon">1×</span><span class="cog-label">Speed</span>
+          </button>
+        </div>
+        <div class="towers">
+          <div class="ribbon">Towers</div>
+          <div id="buildbar" class="buildbar"></div>
+        </div>
+      </div>
 
       <div id="help" class="overlay" hidden>
         <div class="panel dialog">

@@ -86,6 +86,11 @@ including the Town Hall.
   turrets, the catapult arm, flags, the spire crystal) don't cast shadow-map shadows.
 - `dynamicResolution.js`: the 'auto' render-scale controller (no three.js, unit-tested). `Game` feeds it the time
   between rendered frames and applies its result with `renderer.setRenderScale()`.
+- Lighting quality: `materialForLighting()` (models.js) maps each MeshStandardMaterial to a cheaper
+  MeshLambertMaterial and back; `Renderer._adopt()` applies the current setting to the scene and to every object
+  it creates. `Parts` also bakes a height-based vertex-colour shade into every model (darker near the ground).
+- `icons.js`: renders building portraits for the UI from the real models, once at startup, in a throwaway
+  WebGL context that's released straight away.
 - `textures.js`: procedural canvas textures (sandstone, roof tiles, wood, half-timbering, grass, dirt). Each texture
   tiles once per world unit, and the geometry helpers in `models.js` scale UVs to each primitive's real size. Geometries and materials are cached and shared.
 
@@ -100,7 +105,9 @@ the maths by hand.
   ✓/✕ with draggable ends), touch placement and edge scroll, sell mode, selection.
 - `ui/press.js`: `onPress()` for HUD buttons. Touch presses fire on release instead of waiting for the browser's
   click, which Chrome can drop when a tap follows a canvas drag.
-- `HUD.js`: top bar, next-wave preview, build buttons (generated from `BUILDINGS`), info panel, toasts, overlays.
+- `HUD.js`: the HUD (styled after `docs/reference/ui-style.jpg`): Town Hall health and gold plaques with a wave
+  progress bar, the wave sign, tower cards generated from `BUILDINGS` with rendered portraits, cog buttons,
+  the Battle Chronicle (event log; toasts on small screens), the Engineer's Codex (selection panel), overlays.
 
 `window.game` is exposed in the browser for debugging, e.g. `game.world.economy.earn(1000)`.
 

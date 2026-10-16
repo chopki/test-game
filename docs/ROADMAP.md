@@ -23,12 +23,13 @@ Rough order, with each milestone playable on its own. Checkboxes track progress.
 - [x] Mobile art/performance pass 1: static shadow map + blob shadows (shadows on Low), automatic render scale,
       instanced walls/enemies/health bars
 
-## Mobile look, pass 2 (planned)
+## Mobile look, pass 2 (done)
 
-- [ ] Cheaper Lambert/toon materials on Low (a painted look that also suits the art reference)
-- [ ] Baked depth: darker bases and lighter top edges in textures/vertex colours, contact shading at the ground
-- [ ] Steeper, near-isometric default camera like the reference (also less sky and distant scenery to draw)
-- [ ] Parchment/wood UI reskin with a medieval display font
+- [x] "Simple" lighting (Lambert materials) on Low and Medium, switchable live
+- [x] Baked depth: vertex-colour shading darkening towards the ground, contact shading under buildings
+- [x] Steeper, near top-down default camera like the reference (less sky and distant scenery to draw)
+- [x] UI redesign after `docs/reference/ui-style.jpg`: framed health/gold plaques, wave sign, tower cards with
+      rendered portraits, cog buttons, Battle Chronicle log, Engineer's Codex selection panel
 
 ## v0.2: Defence depth
 

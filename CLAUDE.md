@@ -14,4 +14,5 @@
   (`place`, `sell`, `startWave`).
 - Keep `docs/GAME_DESIGN.md` (stats tables) and `docs/ROADMAP.md` (checkboxes) in sync with gameplay changes.
 - See `docs/ARCHITECTURE.md` for extension points (troops, heroes, economy).
-- Art style target: `docs/reference/art-style.jpg` (see the "Art direction" section in `docs/GAME_DESIGN.md`).
+- Art style target: `docs/reference/art-style.jpg`; UI style target: `docs/reference/ui-style.jpg` (see the
+  "Art direction" section in `docs/GAME_DESIGN.md`).
