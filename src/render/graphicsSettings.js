@@ -49,8 +49,14 @@ export const OPTIONS = {
  */
 export const AUTO_RESOLUTION = { min: 0.5, max: 1.5, startTouch: 0.75, startDesktop: 1 };
 
-/** Number of trees/rocks placed around the map for each scenery setting. */
-export const SCENERY_COUNT = { off: 0, low: 60, medium: 120, high: 220 };
+/**
+ * Decorative trees placed in the woods outside the map, for each scenery setting. (Terrain on the map itself,
+ * which blocks movement, is always drawn.)
+ */
+export const SCENERY_COUNT = { off: 0, low: 140, medium: 200, high: 300 };
+/** Painted ground resolution (pixels per tile) and how many small details are stamped into it. */
+export const GROUND_PX = { off: 12, low: 16, medium: 24, high: 32 };
+export const GROUND_DETAIL = { off: 0, low: 0.6, medium: 1, high: 1.4 };
 
 /** Settings that only take effect when the WebGL context is created (i.e. after a reload). */
 export const RELOAD_REQUIRED = ['antialias'];

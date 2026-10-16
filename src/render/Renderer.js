@@ -1,9 +1,11 @@
 import * as THREE from 'three';
 import { MapControls } from 'three/addons/controls/MapControls.js';
 import { GRID } from '../sim/config.js';
-import { AUTO_RESOLUTION, SCENERY_COUNT } from './graphicsSettings.js';
-import { dirtTexture, grassTexture } from './textures.js';
-import { createProjectileModel, SCENERY_TYPES, SCENERY_VARIANTS } from './models.js';
+import { T } from '../sim/terrain.js';
+import { createRng } from '../sim/rng.js';
+import { AUTO_RESOLUTION, GROUND_DETAIL, GROUND_PX, SCENERY_COUNT } from './graphicsSettings.js';
+import { OUTER_GROUND, outsideForest, paintTerrain } from './terrainPainter.js';
+import { createProjectileModel, SCENERY_VARIANTS } from './models.js';
 import { BlobShadowBatch, HealthBarBatch } from './batches.js';
 import { ISO_QUATERNION, isoDirection } from './iso.js';
 import { SpriteLayer } from './spriteLayer.js';
@@ -100,6 +102,7 @@ export class Renderer {
     this._time = 0;
     this._v = new THREE.Vector3();
     this.scenerySpots = [];
+    this.terrainSpots = [];
 
     this.applySettings(graphics);
     window.addEventListener('resize', () => this._resize());
@@ -124,52 +127,183 @@ export class Renderer {
     const W = GRID.width;
     const H = GRID.height;
     const m = GRID.spawnMargin;
+    // Flat ground to the horizon; each map's painted ground (see _buildTerrain) fades into it.
+    const outer = new THREE.Mesh(new THREE.PlaneGeometry(600, 600), new THREE.MeshBasicMaterial({ color: OUTER_GROUND, depthWrite: false }));
+    outer.rotation.x = -Math.PI / 2;
+    outer.position.y = -0.03;
+    outer.renderOrder = -2;
+    this.scene.add(outer);
 
-    const tiled = (tex, repeat) => {
-      const t = tex.clone();
-      t.repeat.set(repeat, repeat);
-      t.needsUpdate = true;
-      return t;
-    };
-    // The ground never writes depth, so sprites standing on it are never clipped by it.
-    const ground = (geometry, material, y) => {
-      material.depthWrite = false;
-      const mesh = new THREE.Mesh(geometry, material);
-      mesh.rotation.x = -Math.PI / 2;
-      mesh.position.y = y;
-      mesh.renderOrder = -1;
-      this.scene.add(mesh);
-      return mesh;
-    };
-    ground(new THREE.PlaneGeometry(400, 400), new THREE.MeshBasicMaterial({ map: tiled(grassTexture(), 400 / 6), color: 0xd8e4c0 }), -0.03);
-    ground(new THREE.PlaneGeometry(W, H), new THREE.MeshBasicMaterial({ map: tiled(dirtTexture(), W / 2), color: 0xf2eadc }), -0.01);
-    ground(new THREE.PlaneGeometry(W - 2 * m, H - 2 * m), new THREE.MeshBasicMaterial({ map: tiled(grassTexture(), (W - 2 * m) / 6), color: 0xf4f8ec }), 0);
-
-    // Tile grid, shown only while building (BuildController toggles it).
-    const grid = new THREE.GridHelper(W - 2 * m, W - 2 * m, 0x2b4a1c, 0x2b4a1c);
-    underlay(grid.material, 0.25);
-    grid.position.y = 0.01;
-    grid.renderOrder = 1;
-    grid.visible = false;
-    this.scene.add(grid);
-    this.grid = grid;
+    // Shown only while building (BuildController toggles it): the tile grid, plus a tint on tiles whose
+    // terrain can't be built on (added per map).
+    this.grid = new THREE.Group();
+    this.grid.visible = false;
+    const lines = new THREE.GridHelper(W - 2 * m, W - 2 * m, 0x2b4a1c, 0x2b4a1c);
+    underlay(lines.material, 0.25);
+    lines.position.y = 0.01;
+    lines.renderOrder = 1;
+    this.grid.add(lines);
+    this.scene.add(this.grid);
   }
 
-  /** Scatter trees, bushes and rocks around the play area. */
+  /**
+   * Paint this map's ground and place its terrain sprites (trees on forest tiles, outcrops on rock tiles),
+   * the water shimmer and the build-mode tint. Runs when a world is attached or the scenery setting changes.
+   */
+  _buildTerrain() {
+    const world = this.world;
+    for (const obj of [this._ground, this._shimmer, this._blockedTint]) {
+      if (!obj) continue;
+      obj.removeFromParent();
+      obj.geometry.dispose();
+      obj.material.map?.dispose();
+      obj.material.uniforms?.mask.value.dispose();
+      obj.material.dispose();
+    }
+    this._ground = this._shimmer = this._blockedTint = null;
+    if (!world) return;
+
+    const grid = world.grid;
+    const scenery = this.graphics.scenery;
+    const started = performance.now();
+    const painted = paintTerrain(grid, { pxPerTile: GROUND_PX[scenery], detail: GROUND_DETAIL[scenery], seed: world.seed });
+    this.terrainPaintMs = Math.round(performance.now() - started);
+    this._terrainNoise = painted.noise;
+
+    const texture = new THREE.CanvasTexture(painted.canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.anisotropy = 4;
+    const { width: TW, height: TH } = painted.tiles;
+    this._ground = new THREE.Mesh(new THREE.PlaneGeometry(TW, TH), new THREE.MeshBasicMaterial({ map: texture, depthWrite: false }));
+    this._ground.rotation.x = -Math.PI / 2;
+    this._ground.renderOrder = -1;
+    this.scene.add(this._ground);
+
+    if (painted.hasWater) this._shimmer = this._createShimmer(painted);
+    this._blockedTint = this._createBlockedTint(grid);
+    this.grid.add(this._blockedTint);
+
+    // Terrain sprites: one tree per forest tile (oak or pine woods by region), an outcrop per rock tile.
+    this.terrainSpots = [];
+    const rnd = createRng(world.seed ^ 0x7ee5);
+    for (let z = 0; z < grid.height; z++) {
+      for (let x = 0; x < grid.width; x++) {
+        const t = grid.terrain[z * grid.width + x];
+        if (t !== T.forest && t !== T.rock) continue;
+        const jitter = t === T.forest ? 0.18 : 0.06;
+        const pos = this.toScene(x + 0.5 + rnd.range(-jitter, jitter), 0, z + 0.5 + rnd.range(-jitter, jitter));
+        const variant = rnd.int(0, SCENERY_VARIANTS - 1);
+        if (t === T.rock) {
+          this.terrainSpots.push({ key: spriteKeys.scenery('outcrop', variant), pos, scale: rnd.range(0.95, 1.1) });
+          continue;
+        }
+        const pines = painted.noise.fbm(x * 0.1 + 500, z * 0.1) > 0.52;
+        this.terrainSpots.push({ key: spriteKeys.scenery(pines ? 'pine' : 'oak', variant), pos, scale: rnd.range(0.9, 1.15) });
+      }
+    }
+    this._buildScenery(SCENERY_COUNT[scenery]);
+  }
+
+  /** Moving glints on water and fords: one quad per wet tile, masked to the painted shoreline. */
+  _createShimmer(painted) {
+    const grid = this.world.grid;
+    const { width: TW, height: TH } = painted.tiles;
+    const b = painted.border;
+    const positions = [];
+    const uvs = [];
+    for (let z = 0; z < grid.height; z++) {
+      for (let x = 0; x < grid.width; x++) {
+        const t = grid.terrain[z * grid.width + x];
+        if (t !== T.water && t !== T.ford) continue;
+        const quad = [
+          [x, z],
+          [x + 1, z],
+          [x + 1, z + 1],
+          [x, z],
+          [x + 1, z + 1],
+          [x, z + 1],
+        ];
+        for (const [qx, qz] of quad) {
+          positions.push(qx - this.offsetX, 0.005, qz - this.offsetZ);
+          uvs.push((qx + b) / TW, 1 - (qz + b) / TH);
+        }
+      }
+    }
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+    const mask = new THREE.CanvasTexture(painted.waterMask);
+    const material = new THREE.ShaderMaterial({
+      uniforms: { mask: { value: mask }, time: { value: 0 } },
+      vertexShader: /* glsl */ `
+        varying vec2 vUv;
+        varying vec2 vWorld;
+        void main() {
+          vUv = uv;
+          vWorld = position.xz;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }`,
+      fragmentShader: /* glsl */ `
+        uniform sampler2D mask;
+        uniform float time;
+        varying vec2 vUv;
+        varying vec2 vWorld;
+        void main() {
+          float m = texture2D(mask, vUv).a;
+          vec2 p = vWorld;
+          float w = sin(p.x * 4.1 + time * 1.3 + sin(p.y * 2.3 + time * 0.7) * 1.6)
+                  + sin(p.y * 5.3 - time * 1.1 + sin(p.x * 1.9 - time * 0.5) * 1.4);
+          float glint = smoothstep(1.35, 1.85, w);
+          gl_FragColor = vec4(vec3(0.92, 0.97, 1.0), glint * m * 0.45);
+        }`,
+    });
+    underlay(material); // drawn over the ground, under every sprite
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.renderOrder = 0;
+    this.scene.add(mesh);
+    return mesh;
+  }
+
+  /** Build-mode tint over tiles whose terrain can't be built on. */
+  _createBlockedTint(grid) {
+    const m = grid.spawnMargin;
+    const positions = [];
+    for (let z = m; z < grid.height - m; z++) {
+      for (let x = m; x < grid.width - m; x++) {
+        if (grid.isBuildable(x, z)) continue;
+        const [x0, z0, x1, z1] = [x - this.offsetX, z - this.offsetZ, x + 1 - this.offsetX, z + 1 - this.offsetZ];
+        positions.push(x0, 0.012, z0, x1, 0.012, z1, x1, 0.012, z0, x0, 0.012, z0, x0, 0.012, z1, x1, 0.012, z1);
+      }
+    }
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    const material = new THREE.MeshBasicMaterial({ color: 0xc0392b, side: THREE.DoubleSide });
+    underlay(material, 0.22);
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.renderOrder = 1;
+    return mesh;
+  }
+
+  /** Scatter decorative trees, bushes and rocks in the woods outside the map. */
   _buildScenery(count) {
     this.scenerySpots = [];
-    const half = Math.max(GRID.width, GRID.height) / 2;
-    for (let i = 0; i < count; i++) {
-      const a = Math.random() * Math.PI * 2;
-      const r = half + 2 + Math.random() * 30;
-      const x = Math.cos(a) * r;
-      const z = Math.sin(a) * r;
-      if (Math.abs(x) < half + 1.2 && Math.abs(z) < half + 1.2) continue;
-      const kind = SCENERY_TYPES[Math.floor(Math.random() * SCENERY_TYPES.length)];
+    const noise = this._terrainNoise;
+    if (!noise || !count) return;
+    const W = GRID.width;
+    const H = GRID.height;
+    const rnd = createRng(0x5ce7e);
+    for (let tries = 0; this.scenerySpots.length < count && tries < count * 30; tries++) {
+      const x = rnd.range(-16, W + 16);
+      const z = rnd.range(-16, H + 16);
+      const wood = outsideForest(noise, x, z, W, H);
+      if (wood <= 0.05) continue;
+      const dense = wood > 0.5;
+      if (!dense && rnd.next() > 0.12) continue;
+      const kind = dense ? (noise.fbm(x * 0.1 + 500, z * 0.1) > 0.52 ? 'pine' : 'oak') : rnd.pick(['bush', 'rock', 'oak']);
       this.scenerySpots.push({
-        key: spriteKeys.scenery(kind, Math.floor(Math.random() * SCENERY_VARIANTS)),
-        pos: new THREE.Vector3(x, 0, z),
-        scale: 0.8 + Math.random() * 0.6,
+        key: spriteKeys.scenery(kind, rnd.int(0, SCENERY_VARIANTS - 1)),
+        pos: this.toScene(x, 0, z),
+        scale: rnd.range(0.85, 1.25),
       });
     }
   }
@@ -180,7 +314,7 @@ export class Renderer {
     this.graphics = { ...graphics };
     if (graphics.resolution !== 'auto') this.setRenderScale(graphics.resolution);
     else if (!prev || prev.resolution !== 'auto') this.setRenderScale(defaultAutoScale());
-    if (!prev || prev.scenery !== graphics.scenery) this._buildScenery(SCENERY_COUNT[graphics.scenery]);
+    if (prev && prev.scenery !== graphics.scenery) this._buildTerrain();
   }
 
   /** Pixels drawn per CSS pixel, capped at the screen's real pixel ratio. */
@@ -217,6 +351,7 @@ export class Renderer {
     this.effects = [];
 
     this.world = world;
+    this._buildTerrain();
     const ev = world.events;
     this._unsubscribe = [
       ev.on('projectileImpact', (p) => {
@@ -280,10 +415,13 @@ export class Renderer {
     this.shadowSprites.begin();
     this.healthBars.begin(this.camera.quaternion);
     this.blobShadows.begin();
-    for (const s of this.scenerySpots) {
-      this.sprites.add(s.key, s.pos, s.scale);
-      this.shadowSprites.add(s.key, s.pos, s.scale);
+    for (const spots of [this.terrainSpots, this.scenerySpots]) {
+      for (const s of spots) {
+        this.sprites.add(s.key, s.pos, s.scale);
+        this.shadowSprites.add(s.key, s.pos, s.scale);
+      }
     }
+    if (this._shimmer) this._shimmer.material.uniforms.time.value = this._time;
     if (world) {
       this._sync(this.views.buildings, world.buildings.values(), (b) => this._createBuildingView(b), (v, b) => this._updateBuildingView(v, b));
       this._sync(this.views.enemies, world.enemies, () => ({ phase: Math.random() * Math.PI * 2 }), (v, e) => this._updateEnemyView(v, e));
@@ -336,12 +474,13 @@ export class Renderer {
     if (view.obj) this.entityLayer.remove(view.obj);
   }
 
-  /** Which orthogonal neighbours of a wall hold a building, as { n, e, s, w } plus a key. */
+  /** Which orthogonal neighbours of a wall hold a building or rock (walls butt up against outcrops). */
   _wallConnections(b) {
     const c = {};
     let key = '';
+    const grid = this.world.grid;
     for (const [dir, dx, dz] of NEIGHBOURS) {
-      c[dir] = this.world.grid.get(b.x + dx, b.z + dz) !== null;
+      c[dir] = grid.get(b.x + dx, b.z + dz) !== null || grid.terrainAt(b.x + dx, b.z + dz) === T.rock;
       key += c[dir] ? dir : '-';
     }
     return { connections: c, key };

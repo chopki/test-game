@@ -1,14 +1,19 @@
 import { expect } from '@playwright/test';
 
+/** A fixed map for tests that use terrain: it has woods, rock, a stream and fords. */
+export const TERRAIN_SEED = 8;
+
 /**
  * Open the game, wait until it's running, and pause the simulation so the wave timer
  * can't fire mid-test. Returns an array that collects page errors; tests assert it's empty.
+ * `map: 'open'` (the default) starts without terrain so tests can build anywhere; `map: 'terrain'` loads the
+ * generated map for TERRAIN_SEED, as players see it.
  */
-export async function openGame(page, { paused = true } = {}) {
+export async function openGame(page, { paused = true, map = 'open' } = {}) {
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
-  await page.goto('/');
+  await page.goto(map === 'open' ? `/?map=open&seed=${TERRAIN_SEED}` : `/?seed=${TERRAIN_SEED}`);
   await page.waitForFunction(() => window.game?.world && window.game.renderer.renderer.info.render.frame > 2);
   if (paused) await page.evaluate(() => window.game.togglePause());
   return errors;
@@ -18,6 +23,22 @@ export async function openGame(page, { paused = true } = {}) {
 export function tileToScreen(page, x, z) {
   return page.evaluate(([x, z]) => window.game.renderer.toScreen(x + 0.5, 0, z + 0.5), [x, z]);
 }
+
+/** The buildable-area tile of a terrain type ('water', 'rock', 'forest', 'ford') nearest the Town Hall. */
+export const nearestTerrainTile = (page, name) =>
+  page.evaluate((name) => {
+    const g = window.game.world.grid;
+    const want = ['open', 'water', 'ford', 'rock', 'forest'].indexOf(name);
+    let best = null;
+    for (let z = g.spawnMargin; z < g.height - g.spawnMargin; z++) {
+      for (let x = g.spawnMargin; x < g.width - g.spawnMargin; x++) {
+        if (g.terrainAt(x, z) !== want) continue;
+        const d = Math.hypot(x - 19.5, z - 19.5);
+        if (!best || d < best.d) best = { x, z, d };
+      }
+    }
+    return best;
+  }, name);
 
 export const gold = (page) => page.evaluate(() => window.game.world.economy.gold);
 
@@ -38,6 +59,8 @@ export const graphicsState = (page) =>
       ...window.game.graphics,
       pixelRatio: r.renderer.getPixelRatio(),
       scenerySprites: r.scenerySpots.length,
+      terrainSprites: r.terrainSpots.length,
+      terrainPaintMs: r.terrainPaintMs,
     };
   });
 

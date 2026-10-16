@@ -1,4 +1,6 @@
 import { MinHeap } from './MinHeap.js';
+import { TERRAIN } from './config.js';
+import { T } from './terrain.js';
 
 // [dx, dz, step length]
 export const DIRECTIONS = [
@@ -20,6 +22,8 @@ export const DIRECTIONS = [
  * rule produces the core survival behaviour — enemies walk around walls when
  * the detour is short, and smash through them when it's long or when the
  * Town Hall is fully enclosed. An enemy whose next step is a building attacks it.
+ *
+ * Terrain is different: water, rock and forest can never be entered (or broken), and fords cost extra.
  */
 export class FlowField {
   constructor(grid) {
@@ -54,7 +58,7 @@ export class FlowField {
       for (const [dx, dz, step] of DIRECTIONS) {
         const nx = cx + dx;
         const nz = cz + dz;
-        if (!grid.inBounds(nx, nz) || !this.canStep(nx, nz, cx, cz)) continue;
+        if (!grid.inBounds(nx, nz) || grid.isBlocked(nx, nz) || !this.canStep(nx, nz, cx, cz)) continue;
         const ni = grid.index(nx, nz);
         const nd = d + step + enter;
         if (nd < dist[ni]) {
@@ -67,21 +71,19 @@ export class FlowField {
 
   enterCost(x, z) {
     const i = this.grid.index(x, z);
-    if (this.goal[i] || this.grid.cells[i] === null) return 0;
-    return this.penalty(x, z);
+    if (this.goal[i]) return 0;
+    const wade = this.grid.terrain[i] === T.ford ? TERRAIN.fordCost : 0;
+    return this.grid.cells[i] === null ? wade : wade + this.penalty(x, z);
   }
 
-  // Diagonal moves are only allowed through fully open corners, so enemies
-  // never squeeze between two diagonal walls or attack buildings diagonally.
+  // Never onto blocking terrain. Diagonal moves are only allowed through fully open corners, so enemies
+  // never squeeze between two diagonal walls (or rocks) or attack buildings diagonally.
   canStep(fromX, fromZ, toX, toZ) {
-    if (fromX === toX || fromZ === toZ) return true;
     const g = this.grid;
-    return (
-      g.get(fromX, fromZ) === null &&
-      g.get(toX, toZ) === null &&
-      g.get(fromX, toZ) === null &&
-      g.get(toX, fromZ) === null
-    );
+    if (g.isBlocked(toX, toZ) || g.isBlocked(fromX, fromZ)) return false;
+    if (fromX === toX || fromZ === toZ) return true;
+    const clear = (x, z) => g.get(x, z) === null && !g.isBlocked(x, z);
+    return clear(fromX, fromZ) && clear(toX, toZ) && clear(fromX, toZ) && clear(toX, fromZ);
   }
 
   distanceAt(x, z) {

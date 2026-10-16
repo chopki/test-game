@@ -58,14 +58,20 @@ export class Game {
     requestAnimationFrame((t) => this._frame(t));
   }
 
+  /**
+   * Start a game on a newly generated map. URL options: `?seed=N` replays a map (and its waves); `?map=open`
+   * starts without terrain (the browser tests use it to place buildings anywhere).
+   */
   newGame() {
-    this.world = new World();
+    const params = new URLSearchParams(location.search);
+    const seed = params.has('seed') ? Number(params.get('seed')) : Math.floor(Math.random() * 1e6);
+    this.world = new World({ seed, terrain: params.get('map') === 'open' ? 'open' : 'generate' });
     this.renderer.attach(this.world);
     this.hud.attach(this.world);
     this.build.reset();
     this.paused = false;
     this.hud.setPaused(false);
-    this.hud.toast('Protect the Town Hall! Build walls and towers, then start the wave.', 'info');
+    this.hud.toast(`Protect the Town Hall! Use the woods, rocks and water: enemies can't pass them. (Map ${this.world.seed})`, 'info');
   }
 
   cycleSpeed() {

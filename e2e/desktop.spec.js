@@ -1,10 +1,10 @@
 import { test } from '@playwright/test';
-import { buildingAt, countBuildings, expect, gold, graphicsState, openGame, settingButton, tileToScreen, buildShowcase } from './helpers.js';
+import { buildingAt, buildShowcase, countBuildings, expect, gold, graphicsState, nearestTerrainTile, openGame, settingButton, tileToScreen } from './helpers.js';
 
 // The Town Hall covers tiles 18–20 on both axes; tiles inside 2..37 are buildable.
 
 test('loads with the HUD and no errors', { tag: '@smoke' }, async ({ page }) => {
-  const errors = await openGame(page);
+  const errors = await openGame(page, { map: 'terrain' });
   await expect(page.locator('#gold')).toHaveText('300');
   await expect(page.locator('#wave')).toHaveText('0');
   await expect(page.locator('#buildbar .build-btn')).toHaveCount(6);
@@ -73,6 +73,23 @@ test('right-click during a wall drag cancels it', async ({ page }) => {
   await page.mouse.up({ button: 'right' });
   await page.mouse.up();
   expect(await countBuildings(page, 'wall')).toBe(0);
+});
+
+test('terrain blocks building: a tower on rock, water or forest is refused with a reason', { tag: '@smoke' }, async ({ page }) => {
+  const errors = await openGame(page, { map: 'terrain' });
+  const state = await graphicsState(page);
+  expect(state.terrainSprites).toBeGreaterThan(50); // trees and outcrops standing on blocking tiles
+  for (const name of ['forest', 'rock', 'water']) {
+    const tile = await nearestTerrainTile(page, name);
+    expect(tile, name).not.toBeNull();
+    await page.keyboard.press('2');
+    const p = await tileToScreen(page, tile.x, tile.z);
+    await page.mouse.click(p.x, p.y);
+    await expect(page.locator('#toasts')).toContainText('Blocked by terrain');
+    expect(await countBuildings(page, 'archerTower')).toBe(0);
+    await page.keyboard.press('Escape');
+  }
+  expect(errors).toEqual([]);
 });
 
 test('invalid placement explains why', async ({ page }) => {
@@ -312,7 +329,7 @@ test('draw calls stay flat as walls and enemies are added (instancing)', { tag: 
 });
 
 test('showcase: a walled base with every tower and enemy renders without errors (screenshot attached)', async ({ page }, testInfo) => {
-  const errors = await openGame(page);
+  const errors = await openGame(page, { map: 'terrain' });
   await buildShowcase(page, testInfo, 'showcase-desktop');
   expect(errors).toEqual([]);
 });

@@ -23,6 +23,21 @@ export const TIMING = {
   flowRefreshInterval: 0.5, // how often enemy pathing re-reads building HP
 };
 
+/**
+ * Terrain (see sim/terrain.js). Water, rock and forest block both enemies and building; fords can be waded
+ * (slowly) but not built on. Enemies can't break terrain, so it shapes routes and chokepoints.
+ */
+export const TERRAIN = {
+  clearingRadius: 6, // open tiles around the Town Hall (from its edge)
+  minOpenFraction: 0.65, // of the buildable area; maps below this are regenerated with less cover
+  minSpawnTilesPerSide: 8, // reachable edge tiles each spawn side must keep
+  fordSpeed: 0.6, // enemy speed multiplier while wading
+  fordCost: 1.5, // extra pathing cost for entering a ford tile
+  forest: { scale: 0.12, threshold: 0.62, edgeBoost: 0.3 },
+  rock: { scale: 0.21, threshold: 0.75, ridges: [1, 3], ridgeLength: [3, 7] },
+  water: { streamChance: 0.55, lakeChance: 0.5, fords: [1, 2], fordWidth: 3 },
+};
+
 export const PATHING = {
   // Each HP point on a blocking building costs this many "tiles" of detour.
   // A full-HP wall (400hp) is worth a 10-tile detour: enemies will walk around

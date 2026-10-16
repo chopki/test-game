@@ -163,7 +163,7 @@ test('the settings menu fits the phone screen and can be scrolled to Done', asyn
 });
 
 test('frame rate: Low caps at 30 fps and uses automatic render scale', { tag: '@smoke' }, async ({ page }) => {
-  await openGame(page, { paused: false });
+  await openGame(page, { paused: false, map: 'terrain' });
   const r = await page.evaluate(
     () =>
       new Promise((resolve) => {
@@ -181,10 +181,14 @@ test('frame rate: Low caps at 30 fps and uses automatic render scale', { tag: '@
   expect(r.fps).toBeGreaterThan(0);
   expect(r.auto).toBe(true);
   expect(r.scale).toBeGreaterThanOrEqual(0.5);
+  // The painted ground, terrain sprites and water shimmer stay inside the draw-call budget.
+  expect(await page.evaluate(() => window.game.renderer.renderer.info.render.calls)).toBeLessThanOrEqual(25);
+  // Painting the ground happens once per map; keep it quick on a phone.
+  expect(await page.evaluate(() => window.game.renderer.terrainPaintMs)).toBeLessThan(1500);
 });
 
 test('showcase: a walled base with every tower and enemy renders without errors (screenshot attached)', async ({ page }, testInfo) => {
-  const errors = await openGame(page);
+  const errors = await openGame(page, { map: 'terrain' });
   await buildShowcase(page, testInfo, 'showcase-phone');
   expect(errors).toEqual([]);
 });

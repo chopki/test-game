@@ -1,4 +1,4 @@
-import { BUILDINGS, ECONOMY, ENEMIES, GRID, PATHING, TIMING } from './config.js';
+import { BUILDINGS, ECONOMY, ENEMIES, GRID, PATHING, TERRAIN, TIMING } from './config.js';
 import { createRng } from './rng.js';
 import { EventBus } from './EventBus.js';
 import { Grid } from './Grid.js';
@@ -6,12 +6,16 @@ import { FlowField } from './FlowField.js';
 import { Economy } from './Economy.js';
 import { WaveManager } from './WaveManager.js';
 import { planWall } from './wallPlanner.js';
+import { generateTerrain, spawnTilesBySide, T } from './terrain.js';
 
 /**
  * The whole game state and rules, with no rendering or DOM dependencies.
  * The renderer and UI read from it each frame and listen to `world.events`.
  *
  * Coordinates are in tile units: tile (x, z) spans [x, x+1) × [z, z+1).
+ *
+ * `terrain`: 'open' (no terrain, the default, used by most tests), 'generate' (a map generated from the seed,
+ * as the game uses), or a Uint8Array of terrain types (see terrain.js).
  *
  * Phases: 'build' (countdown to next wave) → 'wave' (enemies spawning/alive)
  * → back to 'build' when the wave is cleared, or 'gameover' when the Town Hall falls.
@@ -21,7 +25,8 @@ import { planWall } from './wallPlanner.js';
  * waveCleared, gameOver.
  */
 export class World {
-  constructor({ seed = Date.now() } = {}) {
+  constructor({ seed = Date.now(), terrain = 'open' } = {}) {
+    this.seed = seed >>> 0;
     this.rng = createRng(seed);
     this.events = new EventBus();
     this.grid = new Grid(GRID.width, GRID.height, GRID.spawnMargin);
@@ -43,7 +48,16 @@ export class World {
     this._flowTimer = 0;
 
     const s = BUILDINGS.townHall.size;
-    this.townHall = this._addBuilding('townHall', Math.floor((GRID.width - s) / 2), Math.floor((GRID.height - s) / 2));
+    const hall = { x: Math.floor((GRID.width - s) / 2), z: Math.floor((GRID.height - s) / 2), size: s };
+    const mapInfo = { width: GRID.width, height: GRID.height, spawnMargin: GRID.spawnMargin, hall };
+    if (terrain === 'generate') {
+      // Its own random stream, so the map doesn't change the waves that follow.
+      this.grid.terrain = generateTerrain({ ...mapInfo, rng: createRng(this.seed ^ 0x9e3779b9) });
+    } else if (terrain instanceof Uint8Array) {
+      this.grid.terrain = Uint8Array.from(terrain);
+    }
+    this.spawnTiles = spawnTilesBySide(this.grid.terrain, mapInfo);
+    this.townHall = this._addBuilding('townHall', hall.x, hall.z);
     this._refreshFlow();
   }
 
@@ -68,6 +82,9 @@ export class World {
     for (const [tx, tz] of this.grid.footprint(x, z, def.size)) {
       if (!this.grid.inBounds(tx, tz)) return { ok: false, reason: 'Out of bounds' };
       if (this.grid.isInSpawnZone(tx, tz)) return { ok: false, reason: 'Too close to the edge' };
+    }
+    for (const [tx, tz] of this.grid.footprint(x, z, def.size)) {
+      if (!this.grid.isBuildable(tx, tz)) return { ok: false, reason: 'Blocked by terrain' };
     }
     if (!this.grid.isAreaFree(x, z, def.size)) return { ok: false, reason: 'Space is occupied' };
     if (this._enemyInArea(x, z, def.size)) return { ok: false, reason: 'Enemies in the way' };
@@ -319,6 +336,9 @@ export class World {
   // ---------------------------------------------------------------- enemies
 
   _spawnTile(side) {
+    // Walkable edge tiles that can reach the hall (the whole edge, minus the corners, on an open map).
+    const tiles = this.spawnTiles[side];
+    if (tiles?.length) return this.rng.pick(tiles);
     const { width: w, height: h, spawnMargin: m } = this.grid;
     const along = (len) => this.rng.int(m, len - m - 1);
     switch (side) {
@@ -403,7 +423,8 @@ export class World {
     const dz = gz - e.z;
     const dist = Math.hypot(dx, dz);
     if (e.slowUntil <= this.time) e.slowFactor = 1;
-    const step = e.def.speed * e.slowFactor * dt;
+    const wading = this.grid.terrainAt(e.target.x, e.target.z) === T.ford;
+    const step = e.def.speed * e.slowFactor * (wading ? TERRAIN.fordSpeed : 1) * dt;
     e.moving = true;
     if (dist > 1e-6) e.heading = Math.atan2(dx, dz);
     if (dist <= step) {

@@ -38,7 +38,13 @@ Pre-rendered sprites on a fixed isometric camera (see ARCHITECTURE.md), working 
 
 - [x] Step 1: fixed iso camera, sprite baker + atlas, instanced sprite renderer, build-time `npm run bake`
 - [x] Step 2: detailed models built from the reference drawings (Town Hall, towers, walls, scenery, enemies), assembled from the shared kit in `src/render/modelKit.js`
-- [ ] Step 3: painted terrain and ground detail (grass tufts, stones, bushes)
+- [x] Step 3a: terrain rules in the sim: water, rock and forest block enemies and building, fords slow them,
+      spawns only on reachable edge tiles, walls butt up against rock
+- [x] Step 3b: seeded map generator (woods, outcrops and ridges, a stream with fords or a lake) with repair passes
+      that guarantee connectivity, 2-tile-wide passages, a clear hall area and enough open land
+- [x] Step 3c: painted ground per map (grass, forest floor, gravel, water and banks, no roads), terrain sprites,
+      build-mode tint on unbuildable tiles, decorative woods outside the map
+- [x] Step 3d: stamped ground detail (tufts, flowers, pebbles, leaves) and a water shimmer
 - [ ] Step 4: animated units (8-direction walk/attack frames)
 
 ## v0.2: Defence depth
@@ -81,7 +87,7 @@ Pre-rendered sprites on a fixed isometric camera (see ARCHITECTURE.md), working 
 ## Later / ideas
 
 - Save/load and continue run
-- Map variety: terrain (rivers, cliffs, chokepoints), seeded maps
+- Map variety: more terrain (cliffs and raised ground, bridges), map size options, a seed picker in the menu
 - Day/night cycle tied to the build/wave phases
 - Sound and music
 - Performance: instanced meshes for walls and enemies once counts get large

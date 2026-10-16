@@ -38,8 +38,10 @@ to a fixed-timestep server, replays or AI opponents later.
 | ---------------- | -------------- |
 | `config.js`      | **All balance data**: grid, economy, timings, building and enemy tables, wave tuning |
 | `World.js`       | Game state and rules: phases, placement, combat, enemy AI, projectiles, events |
-| `Grid.js`        | Tile occupancy (building id per cell), footprints, spawn zone |
-| `FlowField.js`   | Dijkstra distance-to-Town-Hall map with building "breach cost"; `nextStep()` for enemies |
+| `Grid.js`        | Tile occupancy (building id per cell), terrain per cell (`isBlocked`, `isBuildable`), footprints, spawn zone |
+| `terrain.js`     | Terrain types and the seeded map generator (`generateTerrain`): features, then repair passes; `analyzeTerrain` checks the map rules |
+| `noise.js`       | Seeded value noise and fBm for the generator (and the ground painter) |
+| `FlowField.js`   | Dijkstra distance-to-Town-Hall map with building "breach cost"; terrain can't be entered, fords cost extra; `nextStep()` for enemies |
 | `WaveManager.js` | Procedural wave generation (`generateWave`) and the spawn queue |
 | `Economy.js`     | Gold: `canAfford`, `spend`, `earn` |
 | `wallPlanner.js` | Wall-line planning for the drag tool: straight/L path, snapping onto towers, per-tile validity, cost (`world.planWall` / `world.buildWall`) |
@@ -98,6 +100,11 @@ so the whole battlefield is ~15 draw calls and a few hundred triangles however d
   adds height-based ambient occlusion. The builders lay real masonry (`stoneBlocks`, `stoneRing`, with mortar gaps),
   `merlonsRect`/`merlonsRing`, shingled roofs (`shingleGable`, `shingleCone`), half-timbering (`timberFace`),
   windows, doors, wheels, barrels, banners and ground dressing. Stone, roof and other palettes are shared materials.
+- `terrainPainter.js`: paints each map's ground into one canvas texture (`paintTerrain`). A low-res colour pass
+  blends the terrain with noise for natural edges (forest floor, gravel, banks, water), then it's scaled up and
+  small details are stamped in. Resolution and detail follow the Scenery setting (`GROUND_PX`, `GROUND_DETAIL`).
+  The renderer adds a tree sprite per forest tile, an outcrop per rock tile, a water shimmer (one shader mesh
+  over wet tiles) and the build-mode tint, all built in `Renderer._buildTerrain()` when a world is attached.
 - `batches.js`: `HealthBarBatch` (all health bars in two draw calls) and `BlobShadowBatch` (unit shadows).
 - `dynamicResolution.js`: the 'auto' render-scale controller (no three.js, unit-tested). `Game` feeds it the time
   between rendered frames and applies its result with `renderer.setRenderScale()`.

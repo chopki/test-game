@@ -42,8 +42,30 @@ When an enemy's cheapest next step is into a building, it stops and attacks that
 - Damaged walls get cheaper, so attackers converge on the breach.
 - Enemies re-check their route after every hit: if another breach opens nearby, they switch to it.
 - Diagonal movement only works through fully open corners, so diagonal wall lines are solid.
+- Terrain (water, rock, forest) can never be entered or broken. Fords cost extra and slow enemies down.
 
 The flow field is recomputed whenever buildings change and every 0.5s during waves, to pick up HP changes.
+
+## Terrain
+
+There are no roads: the map's terrain shapes the routes. Every game generates a new map from its seed (shown in
+the Battle Chronicle; `?seed=N` in the URL replays it). Values live in `TERRAIN` in `config.js`.
+
+| Terrain | Enemies | Building | Notes |
+| ------- | ------- | -------- | ----- |
+| Open ground | walk | yes | |
+| Water (stream or lake) | blocked | no | |
+| Ford | wade at 60% speed (+1.5 path cost) | no | shallow crossings of a stream |
+| Rock | blocked | no | outcrops and ridges; walls join onto them |
+| Forest | blocked | no | denser towards the map edge |
+
+Enemies can't break terrain, so a full enclosure always includes some wall. Every generated map guarantees:
+
+- an open area of 6 tiles around the Town Hall;
+- every walkable tile can reach the hall;
+- each spawn side keeps at least 8 reachable edge tiles (enemies only spawn on those);
+- passages are at least 2 tiles wide, so one wall piece can't seal a gap;
+- at least 65% of the buildable area is open.
 
 ## Buildings
 

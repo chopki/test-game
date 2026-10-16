@@ -600,7 +600,32 @@ function rock(p, rnd) {
   for (let i = 0; i < 4; i++) p.add(cone(0.04, 0.16, 4), MATERIALS.grass, { x: rnd.range(-0.45, 0.45), y: 0.07, z: rnd.range(0.1, 0.45), rz: rnd.range(-0.4, 0.4) });
 }
 
-const SCENERY_BUILDERS = { oak, pine, bush, rock };
+/** A rock outcrop that fills a whole tile (terrain that blocks movement): big angular boulders, stacked. */
+function outcrop(p, rnd, v) {
+  const stones = [...SANDSTONE, GREYSTONE[0], GREYSTONE[2]];
+  const big = [
+    [0, 0, 0.46, 1.25],
+    [rnd.range(0.22, 0.32), rnd.range(-0.3, -0.18), 0.34, 0.95],
+    [rnd.range(-0.34, -0.22), rnd.range(0.12, 0.28), 0.36, 0.85],
+    [rnd.range(0.12, 0.3), rnd.range(0.2, 0.34), 0.28, 0.8],
+  ];
+  if (v === 2) big.push([rnd.range(-0.3, -0.18), rnd.range(-0.32, -0.2), 0.3, 1.05]);
+  for (const [x, z, r, tall] of big) {
+    const rr = r * rnd.range(0.9, 1.1);
+    p.add(dodeca(rr), rnd.pick(stones), { x, y: rr * 0.62 * tall, z, sy: tall * 0.85, ry: rnd.range(0, 3), rx: rnd.range(-0.25, 0.25), rz: rnd.range(-0.2, 0.2) });
+  }
+  // A boulder balanced on top, and rubble round the foot.
+  const top = 0.24 * rnd.range(0.85, 1.1);
+  p.add(dodeca(top), rnd.pick(stones), { x: rnd.range(-0.08, 0.08), y: 0.95 + top * 0.4, z: rnd.range(-0.08, 0.08), sy: 0.8, ry: rnd.range(0, 3) });
+  for (let i = 0; i < 6; i++) {
+    const a = rnd.range(0, Math.PI * 2);
+    const r = rnd.range(0.06, 0.12);
+    p.add(dodeca(r), rnd.pick(stones), { x: Math.cos(a) * 0.48, y: r * 0.4, z: Math.sin(a) * 0.48, sy: 0.7, ry: a });
+  }
+  for (let i = 0; i < 5; i++) p.add(cone(0.04, 0.18, 4), MATERIALS.grass, { x: rnd.range(-0.5, 0.5), y: 0.08, z: rnd.range(0.2, 0.5), rz: rnd.range(-0.4, 0.4) });
+}
+
+const SCENERY_BUILDERS = { oak, pine, bush, rock, outcrop };
 export const SCENERY_TYPES = Object.keys(SCENERY_BUILDERS);
 export const SCENERY_VARIANTS = 3;
 
