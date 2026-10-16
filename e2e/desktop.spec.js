@@ -1,5 +1,5 @@
 import { test } from '@playwright/test';
-import { buildingAt, buildShowcase, countBuildings, expect, gold, graphicsState, nearestTerrainTile, openGame, settingButton, tileToScreen } from './helpers.js';
+import { buildingAt, buildShowcase, countBuildings, expect, gold, graphicsState, minCanvasAlpha, nearestTerrainTile, openGame, settingButton, tileToScreen } from './helpers.js';
 
 // The Town Hall covers tiles 18–20 on both axes; tiles inside 2..37 are buildable.
 
@@ -9,6 +9,8 @@ test('loads with the HUD and no errors', { tag: '@smoke' }, async ({ page }) => 
   await expect(page.locator('#wave')).toHaveText('0');
   await expect(page.locator('#buildbar .build-btn')).toHaveCount(6);
   await expect(page.locator('#next-wave')).toContainText('Wave 1');
+  // Shadows and other ground decals must leave the canvas opaque (else they show the page colour through).
+  expect(await minCanvasAlpha(page)).toBe(255);
   expect(errors).toEqual([]);
 });
 

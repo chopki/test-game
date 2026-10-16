@@ -169,6 +169,8 @@ export class BlobShadowBatch {
       blending: THREE.CustomBlending,
       blendSrc: THREE.SrcAlphaFactor,
       blendDst: THREE.OneMinusSrcAlphaFactor,
+      blendSrcAlpha: THREE.ZeroFactor, // keep the canvas opaque (see underlay() in Renderer.js)
+      blendDstAlpha: THREE.OneFactor,
     });
     const geo = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
     this.batch = new InstancedModel(new THREE.Mesh(geo, mat), parent, { castShadow: false, receiveShadow: false, renderOrder: 1 });

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { plasterTexture, roofTexture, speckleTexture, woodTexture } from './textures.js';
 
 // The modelling kit used by models.js: materials, geometry helpers, the Parts merger, and builders for the
@@ -56,6 +57,14 @@ export const SANDSTONE = ['#d2b688', '#c5a878', '#dbc398', '#bb9e6e', '#cdb07e']
 export const GREYSTONE = ['#8d8f99', '#7f818c', '#9a9ca6', '#74767f'].map((c) => speckled(c, 0.08));
 export const ROOF_TILES = ['#b8452e', '#a83c28', '#c25236'].map((c) => std({ map: roofTexture(c) }));
 export const SLATE = ['#5a5e72', '#4e5266', '#666a7e'].map((c) => std({ map: roofTexture(c) }));
+/** Pale sandstone for boulders and outcrops (the reference's big blocky rocks). */
+export const BOULDER = ['#dcc7a0', '#cfb98e', '#e4d3ad', '#c6ae84'].map((c) => speckled(c, 0.14));
+/** Speckled foliage (cached per colour). */
+const foliageCache = new Map();
+export function foliage(color) {
+  if (!foliageCache.has(color)) foliageCache.set(color, speckled(color, 0.16));
+  return foliageCache.get(color);
+}
 
 // ------------------------------------------------------------------ randomness
 
@@ -114,6 +123,9 @@ export function cone(r, h, seg = 10) {
   );
 }
 
+/** A box with rounded edges (chunky foliage and boulders). */
+export const rbox = (w, h, d, radius = 0.08, seg = 2) =>
+  cached(`rbox:${r2(w)}:${r2(h)}:${r2(d)}:${radius}:${seg}`, () => new RoundedBoxGeometry(r2(w), r2(h), r2(d), seg, Math.min(radius, Math.min(w, h, d) / 2 - 0.001)));
 export const sphere = (r, w = 12, h = 9) => cached(`sphere:${r}:${w}:${h}`, () => new THREE.SphereGeometry(r, w, h));
 export const ico = (r, detail = 1) => cached(`ico:${r}:${detail}`, () => new THREE.IcosahedronGeometry(r, detail));
 export const dodeca = (r) => cached(`dodeca:${r}`, () => new THREE.DodecahedronGeometry(r, 0));

@@ -32,6 +32,8 @@ export class SpriteLayer {
       blending: shadow ? THREE.CustomBlending : THREE.NormalBlending,
       blendSrc: THREE.SrcAlphaFactor,
       blendDst: THREE.OneMinusSrcAlphaFactor,
+      blendSrcAlpha: THREE.ZeroFactor, // keep the canvas opaque (see underlay() in Renderer.js)
+      blendDstAlpha: THREE.OneFactor,
       fog: false,
     });
     material.onBeforeCompile = (shader) => {

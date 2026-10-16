@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import {
+  BOULDER,
   GREYSTONE,
   MATERIALS,
   Parts,
@@ -13,6 +14,7 @@ import {
   crate,
   cyl,
   dodeca,
+  foliage,
   door,
   groundDressing,
   ico,
@@ -21,6 +23,7 @@ import {
   octa,
   pennant,
   place,
+  rbox,
   rng,
   shingleCone,
   shingleGable,
@@ -532,95 +535,89 @@ export function createProjectileModel(kind) {
 
 // ------------------------------------------------------------------ scenery
 
+// Scenery after the reference's "Environmental" sheet: chunky, blocky olive trees and big pale sandstone
+// boulders with flat faces.
 const LEAF_COLORS = {
   oak: [
-    ['#4f8a34', '#6aa844', '#3e7029'],
-    ['#5a9638', '#78b24c', '#467a2c'],
-    ['#6e9a36', '#8ab64a', '#557a2a'],
+    ['#76882e', '#8c9c3a', '#5e6e24'],
+    ['#6c8230', '#82963c', '#566a26'],
+    ['#808c30', '#96a03e', '#666e26'],
   ],
   pine: [
-    ['#2f6b3a', '#3d7f45'],
-    ['#285c32', '#356d3c'],
-    ['#3a7340', '#4a8a4c'],
+    ['#6e8632', '#86a03e'],
+    ['#627a2e', '#7a9439'],
+    ['#78903a', '#90a848'],
   ],
 };
-const leafCache = new Map();
-const leaf = (color) => {
-  if (!leafCache.has(color)) leafCache.set(color, std({ color, roughness: 0.95 }));
-  return leafCache.get(color);
-};
+const TRUNK = std({ color: 0x6b3f22 });
 
 function oak(p, rnd, v) {
   const [mid, light, dark] = LEAF_COLORS.oak[v];
-  p.add(cyl(0.1, 0.16, 0.9, 8), MATERIALS.woodDark, { y: 0.45 });
-  for (let i = 0; i < 3; i++) p.add(box(0.06, 0.22, 0.06), MATERIALS.woodDark, { x: Math.cos(i * 2.1) * 0.12, y: 0.06, z: Math.sin(i * 2.1) * 0.12, rx: 0.6, ry: i * 2.1 });
-  const blobs = [
-    [0, 1.25, 0, 0.5, mid],
-    [0.32, 1.05, 0.15, 0.36, dark],
-    [-0.3, 1.1, 0.1, 0.38, dark],
-    [0.05, 1.1, -0.32, 0.36, dark],
-    [0.12, 1.55, 0.12, 0.34, light],
-    [-0.18, 1.45, -0.12, 0.3, mid],
-    [0.25, 1.35, -0.15, 0.3, light],
-  ];
-  for (const [x, y, z, r, color] of blobs) p.add(ico(r * rnd.range(0.9, 1.1), 1), leaf(color), { x, y, z });
+  p.add(box(0.2, 0.95, 0.2), TRUNK, { y: 0.47, ry: rnd.range(0, 1) });
+  p.add(box(0.1, 0.3, 0.1), TRUNK, { x: 0.1, y: 0.75, rz: -0.6 });
+  // A blocky canopy: a big rounded block, a smaller one on top, and lumps on the sides.
+  const ry = rnd.range(0, Math.PI / 2);
+  p.add(rbox(0.95, 0.72, 0.92, 0.14), foliage(mid), { y: 1.3, ry });
+  p.add(rbox(0.62, 0.48, 0.6, 0.12), foliage(light), { x: rnd.range(-0.08, 0.08), y: 1.78, z: rnd.range(-0.08, 0.08), ry: ry + 0.3 });
+  const lumps = 2 + Math.floor(rnd.next() * 2);
+  for (let i = 0; i < lumps; i++) {
+    const a = ry + (i / lumps) * Math.PI * 2 + rnd.range(-0.3, 0.3);
+    p.add(rbox(0.46, 0.42, 0.44, 0.1), foliage(i % 2 ? dark : mid), { x: Math.cos(a) * 0.42, y: rnd.range(1.08, 1.4), z: Math.sin(a) * 0.42, ry: a });
+  }
 }
 
 function pine(p, rnd, v) {
   const [dark, light] = LEAF_COLORS.pine[v];
-  p.add(cyl(0.08, 0.12, 0.6, 7), MATERIALS.woodDark, { y: 0.3 });
+  p.add(box(0.16, 0.6, 0.16), TRUNK, { y: 0.3 });
+  // Stepped tiers, square-ish like the reference (6-sided cones read as faceted from the iso view).
   const tiers = 4;
+  const ry = rnd.range(0, 1);
   for (let i = 0; i < tiers; i++) {
-    const r = 0.62 - i * 0.13;
-    p.add(cone(r, 0.62, 9), leaf(i % 2 ? light : dark), { y: 0.62 + i * 0.36, rx: rnd.range(-0.06, 0.06), rz: rnd.range(-0.06, 0.06) });
+    const r = 0.6 - i * 0.12;
+    p.add(cone(r, 0.66, 6), foliage(i % 2 ? light : dark), { y: 0.62 + i * 0.38, ry: ry + i * 0.5 });
   }
 }
 
 function bush(p, rnd, v) {
   const [mid, light, dark] = LEAF_COLORS.oak[v];
-  p.add(ico(0.3, 1), leaf(mid), { y: 0.22, sy: 0.75 });
-  p.add(ico(0.22, 1), leaf(dark), { x: 0.24, y: 0.16, z: 0.08, sy: 0.75 });
-  p.add(ico(0.2, 1), leaf(light), { x: -0.18, y: 0.18, z: 0.16, sy: 0.8 });
-  if (v === 1) for (let i = 0; i < 5; i++) p.add(sphere(0.03, 6, 4), MATERIALS.bannerRed, { x: rnd.range(-0.25, 0.25), y: rnd.range(0.2, 0.36), z: rnd.range(0, 0.3) });
+  p.add(rbox(0.5, 0.36, 0.46, 0.1), foliage(mid), { y: 0.18, ry: rnd.range(0, 1) });
+  p.add(rbox(0.34, 0.3, 0.32, 0.09), foliage(dark), { x: 0.26, y: 0.14, z: 0.1, ry: 0.4 });
+  p.add(rbox(0.3, 0.26, 0.3, 0.08), foliage(light), { x: -0.16, y: 0.3, z: 0.12, ry: 0.8 });
+  if (v === 1) for (let i = 0; i < 5; i++) p.add(sphere(0.035, 6, 4), MATERIALS.bannerRed, { x: rnd.range(-0.25, 0.25), y: rnd.range(0.3, 0.4), z: rnd.range(0, 0.3) });
 }
 
+/** A loose boulder or two (decoration). */
 function rock(p, rnd) {
-  const count = 3 + Math.floor(rnd.next() * 3);
-  for (let i = 0; i < count; i++) {
-    const r = i === 0 ? 0.36 : rnd.range(0.12, 0.26);
-    p.add(dodeca(r), rnd.pick(SANDSTONE), {
-      x: i === 0 ? 0 : rnd.range(-0.4, 0.4),
-      y: r * 0.45,
-      z: i === 0 ? 0 : rnd.range(-0.3, 0.4),
-      sy: 0.7,
-      ry: rnd.range(0, 3),
-      rx: rnd.range(-0.2, 0.2),
-    });
-  }
-  for (let i = 0; i < 4; i++) p.add(cone(0.04, 0.16, 4), MATERIALS.grass, { x: rnd.range(-0.45, 0.45), y: 0.07, z: rnd.range(0.1, 0.45), rz: rnd.range(-0.4, 0.4) });
+  const s = rnd.range(0.9, 1.15);
+  p.add(rbox(0.6 * s, 0.42 * s, 0.5 * s, 0.1), rnd.pick(BOULDER), { y: 0.21 * s, ry: rnd.range(0, 3) });
+  p.add(rbox(0.34, 0.28, 0.32, 0.08), rnd.pick(BOULDER), { x: rnd.range(0.3, 0.4), y: 0.14, z: rnd.range(0.05, 0.2), ry: rnd.range(0, 3) });
+  if (rnd.next() < 0.6) p.add(rbox(0.36, 0.28, 0.32, 0.08), rnd.pick(BOULDER), { x: rnd.range(-0.1, 0.1), y: 0.42 * s + 0.12, z: rnd.range(-0.06, 0.06), ry: rnd.range(0, 3) });
+  for (let i = 0; i < 3; i++) p.add(cone(0.04, 0.16, 4), MATERIALS.grass, { x: rnd.range(-0.4, 0.4), y: 0.07, z: rnd.range(0.2, 0.4), rz: rnd.range(-0.4, 0.4) });
 }
 
-/** A rock outcrop that fills a whole tile (terrain that blocks movement): big angular boulders, stacked. */
+/** A rock outcrop that fills a whole tile (terrain that blocks movement): big flat-faced blocks, stacked. */
 function outcrop(p, rnd, v) {
-  const stones = [...SANDSTONE, GREYSTONE[0], GREYSTONE[2]];
-  const big = [
-    [0, 0, 0.46, 1.25],
-    [rnd.range(0.22, 0.32), rnd.range(-0.3, -0.18), 0.34, 0.95],
-    [rnd.range(-0.34, -0.22), rnd.range(0.12, 0.28), 0.36, 0.85],
-    [rnd.range(0.12, 0.3), rnd.range(0.2, 0.34), 0.28, 0.8],
+  const ry = rnd.range(0, Math.PI / 2);
+  const at = (lx, lz) => place(0, 0, ry, lx, lz);
+  // Base blocks covering the tile.
+  const base = [
+    [-0.2, -0.16, 0.62, 0.6, 0.56],
+    [0.24, 0.12, 0.54, 0.5, 0.6],
+    [-0.14, 0.28, 0.48, 0.42, 0.42],
   ];
-  if (v === 2) big.push([rnd.range(-0.3, -0.18), rnd.range(-0.32, -0.2), 0.3, 1.05]);
-  for (const [x, z, r, tall] of big) {
-    const rr = r * rnd.range(0.9, 1.1);
-    p.add(dodeca(rr), rnd.pick(stones), { x, y: rr * 0.62 * tall, z, sy: tall * 0.85, ry: rnd.range(0, 3), rx: rnd.range(-0.25, 0.25), rz: rnd.range(-0.2, 0.2) });
+  if (v !== 0) base.push([0.26, -0.28, 0.42, 0.38, 0.38]);
+  for (const [lx, lz, w, h, d] of base) {
+    const k = rnd.range(0.9, 1.1);
+    p.add(rbox(w * k, h * k, d * k, 0.09), rnd.pick(BOULDER), { ...at(lx, lz), y: (h * k) / 2, ry: ry + rnd.range(-0.25, 0.25) });
   }
-  // A boulder balanced on top, and rubble round the foot.
-  const top = 0.24 * rnd.range(0.85, 1.1);
-  p.add(dodeca(top), rnd.pick(stones), { x: rnd.range(-0.08, 0.08), y: 0.95 + top * 0.4, z: rnd.range(-0.08, 0.08), sy: 0.8, ry: rnd.range(0, 3) });
-  for (let i = 0; i < 6; i++) {
+  // Stacked blocks on top, so it stands taller than a wall.
+  const top = rnd.range(0.5, 0.6);
+  p.add(rbox(top, top * 0.85, top * 0.9, 0.09), rnd.pick(BOULDER), { ...at(-0.06, -0.02), y: 0.55 + top * 0.42, ry: ry + rnd.range(-0.3, 0.3) });
+  if (v === 2) p.add(rbox(0.34, 0.3, 0.32, 0.07), rnd.pick(BOULDER), { ...at(-0.05, 0), y: 0.55 + top * 0.85 + 0.15, ry: ry + 0.6 });
+  // Pebbles and grass round the foot.
+  for (let i = 0; i < 4; i++) {
     const a = rnd.range(0, Math.PI * 2);
-    const r = rnd.range(0.06, 0.12);
-    p.add(dodeca(r), rnd.pick(stones), { x: Math.cos(a) * 0.48, y: r * 0.4, z: Math.sin(a) * 0.48, sy: 0.7, ry: a });
+    p.add(rbox(0.14, 0.11, 0.13, 0.04), rnd.pick(BOULDER), { x: Math.cos(a) * 0.5, y: 0.055, z: Math.sin(a) * 0.5, ry: a });
   }
   for (let i = 0; i < 5; i++) p.add(cone(0.04, 0.18, 4), MATERIALS.grass, { x: rnd.range(-0.5, 0.5), y: 0.08, z: rnd.range(0.2, 0.5), rz: rnd.range(-0.4, 0.4) });
 }

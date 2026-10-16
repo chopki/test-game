@@ -118,7 +118,10 @@ a "Battle Chronicle" event scroll (desktop; toasts on small screens) and an "Eng
 selected building. (The reference's Upgrade button and spells arrive with those features.)
 
 Warm, storybook medieval: sandstone blocks, red clay roofs, half-timbered plaster, chunky crenellations,
-round leafy trees and pines, green goblins and orcs, grey trolls. Everything is built from code (procedural
+green goblins and orcs, grey trolls. Terrain follows the reference's environment sheet: blocky olive oaks and
+stepped pines, big flat-faced pale sandstone boulders, warm olive-yellow grass with dark grass strokes and few
+flowers, bright turquoise water sunk below the grass with a brown earth bank on the far side, and strong dark
+ground shadows. Everything is built from code (procedural
 textures in `render/textures.js`, models in `render/models.js`), so there are no asset files to manage.
 
 ## Economy (v0.1)

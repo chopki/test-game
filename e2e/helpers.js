@@ -40,6 +40,28 @@ export const nearestTerrainTile = (page, name) =>
     return best;
   }, name);
 
+/**
+ * Lowest canvas alpha over a grid of sample points, read straight after a render. Anything under 255 means
+ * the page background shows through the game (blended decals must not write alpha).
+ */
+export const minCanvasAlpha = (page) =>
+  page.evaluate(() => {
+    const r = window.game.renderer;
+    r.renderer.render(r.scene, r.camera);
+    const gl = r.renderer.getContext();
+    const w = gl.drawingBufferWidth;
+    const h = gl.drawingBufferHeight;
+    const px = new Uint8Array(4);
+    let min = 255;
+    for (let y = 0.05; y < 1; y += 0.05) {
+      for (let x = 0.05; x < 1; x += 0.05) {
+        gl.readPixels(Math.floor(x * w), Math.floor(y * h), 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
+        min = Math.min(min, px[3]);
+      }
+    }
+    return min;
+  });
+
 export const gold = (page) => page.evaluate(() => window.game.world.economy.gold);
 
 export const buildingAt = (page, x, z) =>

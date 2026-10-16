@@ -17,20 +17,22 @@ import { T } from '../sim/terrain.js';
  */
 
 const BASE_PX = 8;
+const BANK_DEPTH = 0.45; // how far (in tiles) the far bank's wall shows above the water
 export const PAINT_BORDER = 14;
-export const OUTER_GROUND = '#93974f';
+export const OUTER_GROUND = '#9c9a4c';
 
 const C = {
-  lush: [118, 152, 66],
-  dry: [170, 160, 92],
-  forestFloor: [74, 96, 46],
-  earth: [150, 128, 86],
-  gravel: [146, 136, 112],
-  shore: [120, 112, 70],
-  bank: [92, 86, 56],
-  shallow: [92, 150, 168],
-  deep: [50, 102, 140],
-  ford: [128, 160, 148],
+  lush: [134, 146, 58],
+  dry: [178, 168, 88],
+  forestFloor: [104, 108, 46],
+  earth: [168, 140, 88],
+  gravel: [176, 162, 128],
+  shore: [164, 140, 90],
+  bankWall: [122, 88, 54],
+  bankTop: [150, 112, 68],
+  shallow: [120, 190, 206],
+  deep: [74, 146, 186],
+  ford: [156, 184, 168],
   outer: hexRgb(OUTER_GROUND),
 };
 
@@ -155,19 +157,27 @@ export function paintTerrain(grid, { pxPerTile = 16, detail = 1, seed = 1, borde
 
       const w = sample(water, u, v) + wobble * 0.3;
       let m = 0;
-      if (w > 0.36) {
-        // Damp bank, then the water itself.
-        mix(col, C.shore, smooth(0.36, 0.44, w));
-        mix(col, C.bank, smooth(0.44, 0.48, w) * 0.8);
+      if (w > 0.4) {
+        // Sandy shore, then the water, which sits below the grass: where the land is on the far side (away
+        // from the camera), the earth bank's wall shows above the water line, as in the reference.
+        mix(col, C.shore, smooth(0.4, 0.47, w));
         if (w > 0.48) {
           const isFord = sample(ford, u, v) > 0.5;
-          const deep = C.deep;
           col[0] = C.shallow[0];
           col[1] = C.shallow[1];
           col[2] = C.shallow[2];
           if (isFord) mix(col, C.ford, 0.85);
-          else mix(col, deep, smooth(0.6, 1.05, w + fine * 0.3));
-          m = isFord ? 0.55 : 1;
+          else mix(col, C.deep, smooth(0.62, 1.05, w + fine * 0.3));
+          const far = sample(water, u - BANK_DEPTH, v - BANK_DEPTH) + wobble * 0.3;
+          if (far <= 0.48 && !isFord) {
+            const depth = smooth(0.48, 0.3, far);
+            col[0] = C.bankWall[0];
+            col[1] = C.bankWall[1];
+            col[2] = C.bankWall[2];
+            mix(col, C.bankTop, 1 - depth);
+          } else {
+            m = isFord ? 0.55 : 1;
+          }
         }
       }
 
@@ -210,13 +220,16 @@ function stampDetails(ctx, { grid, noise, border, pxPerTile, detail, sample }) {
   const { width: W, height: H } = grid;
   const s = pxPerTile / 16; // stamp scale
   const terrainAt = (x, z) => (grid.inBounds(Math.floor(x), Math.floor(z)) ? grid.terrain[Math.floor(z) * W + Math.floor(x)] : -1);
-  const count = Math.round((W + border) * (H + border) * 2.2 * detail);
+  const count = Math.round((W + border) * (H + border) * 3.2 * detail);
   for (let i = 0; i < count; i++) {
     const x = rnd() * (W + 2 * border - 4) - border + 2;
     const z = rnd() * (H + 2 * border - 4) - border + 2;
     const edge = Math.max(-x, -z, x - W, z - H);
     if (edge > border - 4) continue;
-    if (sample(x + border, z + border) > 0.3) continue; // not in or right by water
+    if (sample(x + border, z + border) > 0.3) {
+      if (sample(x + border, z + border) > 0.7 && kindOf(rnd) < 0.25) glint(ctx, (x + border) * pxPerTile, (z + border) * pxPerTile, s, rnd);
+      continue;
+    }
     const t = terrainAt(x, z);
     const px = (x + border) * pxPerTile;
     const py = (z + border) * pxPerTile;
@@ -230,16 +243,29 @@ function stampDetails(ctx, { grid, noise, border, pxPerTile, detail, sample }) {
       continue;
     }
     const meadow = noise.fbm(x * 0.12 + 40, z * 0.12 + 90, 2);
-    if (kind < 0.62) tuft(ctx, px, py, s, rnd);
-    else if (kind < 0.62 + 0.25 * meadow) flowers(ctx, px, py, s, rnd);
-    else if (kind < 0.93) pebbles(ctx, px, py, s, rnd, 1 + Math.floor(rnd() * 2));
+    if (kind < 0.8) tuft(ctx, px, py, s, rnd);
+    else if (kind < 0.8 + 0.08 * smooth(0.5, 0.7, meadow)) flowers(ctx, px, py, s, rnd);
+    else if (kind < 0.9) pebbles(ctx, px, py, s, rnd, 1 + Math.floor(rnd() * 2));
   }
+}
+
+const kindOf = (rnd) => rnd();
+
+/** White glints on open water (the moving shimmer adds more on top). */
+function glint(ctx, x, y, s, rnd) {
+  ctx.strokeStyle = 'rgba(236,248,255,0.55)';
+  ctx.lineWidth = Math.max(1, 1.1 * s);
+  ctx.beginPath();
+  const len = (2 + rnd() * 4) * s;
+  ctx.moveTo(x - len, y);
+  ctx.lineTo(x + len, y - len * 0.5);
+  ctx.stroke();
 }
 
 function tuft(ctx, x, y, s, rnd) {
   const blades = 3 + Math.floor(rnd() * 3);
-  const dark = rnd() < 0.5;
-  ctx.strokeStyle = dark ? 'rgba(62,90,34,0.75)' : 'rgba(176,190,96,0.7)';
+  const dark = rnd() < 0.6;
+  ctx.strokeStyle = dark ? 'rgba(86,92,30,0.75)' : 'rgba(206,196,112,0.65)';
   ctx.lineWidth = Math.max(1, 1.1 * s);
   ctx.lineCap = 'round';
   ctx.beginPath();
@@ -253,7 +279,7 @@ function tuft(ctx, x, y, s, rnd) {
 }
 
 function flowers(ctx, x, y, s, rnd) {
-  const colours = ['#f4f0e0', '#f3d34a', '#e98fb0', '#c9a6f0'];
+  const colours = ['#f4f0e0', '#f3d34a', '#f0e6b0'];
   const c = colours[Math.floor(rnd() * colours.length)];
   const n = 3 + Math.floor(rnd() * 4);
   for (let i = 0; i < n; i++) {

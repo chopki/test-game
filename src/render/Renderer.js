@@ -596,6 +596,10 @@ export function underlay(material, opacity = 1) {
   material.blending = THREE.CustomBlending;
   material.blendSrc = THREE.SrcAlphaFactor;
   material.blendDst = THREE.OneMinusSrcAlphaFactor;
+  // Leave the canvas alpha alone: otherwise blended decals make the canvas see-through there and the page
+  // background shows through (it tinted every shadow sky-blue).
+  material.blendSrcAlpha = THREE.ZeroFactor;
+  material.blendDstAlpha = THREE.OneFactor;
   return material;
 }
 
