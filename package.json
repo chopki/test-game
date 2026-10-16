@@ -9,6 +9,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
+    "bake": "node scripts/bake-sprites.mjs",
     "test:watch": "vitest",
     "test:e2e": "playwright test --grep @smoke",
     "test:e2e:full": "playwright test",

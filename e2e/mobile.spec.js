@@ -10,14 +10,12 @@ test('defaults to the Low graphics preset and the HUD fits the screen', { tag: '
   const r = await page.evaluate(() => ({
     pixelRatio: window.game.renderer.renderer.getPixelRatio(),
     preset: window.game.graphics.preset,
-    shadows: window.game.renderer.renderer.shadowMap.enabled,
     overflowX: document.documentElement.scrollWidth > window.innerWidth,
     topbarBottom: document.querySelector('.topbar').getBoundingClientRect().bottom,
     buttons: [...document.querySelectorAll('.build-btn')].map((b) => b.getBoundingClientRect().toJSON()),
   }));
   expect(r.preset).toBe('low');
   expect(r.pixelRatio).toBeLessThanOrEqual(0.75); // 'auto' starts at 75% on touch screens and adapts
-  expect(r.shadows).toBe(true); // static shadows are cheap enough for Low
   expect(r.overflowX).toBe(false);
   expect(r.topbarBottom).toBeLessThan(915 * 0.3);
   const vp = page.viewportSize();

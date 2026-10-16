@@ -5,8 +5,6 @@ const $ = (id) => document.getElementById(id);
 
 const ROWS = [
   ['resolution', 'Render scale', 'Pixels drawn per screen pixel. Auto adjusts it to hold the frame rate; lower is blurrier but much lighter on the GPU.'],
-  ['shadows', 'Shadows', 'Shadow quality. Off saves the most GPU work.'],
-  ['lighting', 'Lighting', 'Simple uses much cheaper materials, with a painted look. Detailed adds physically based shine.'],
   ['fpsCap', 'Frame rate cap', 'Fewer frames per second means less heat and battery use, and fewer crashes.'],
   ['antialias', 'Anti-aliasing', 'Smooths jagged edges. Costly on phones. Takes effect after a reload.'],
   ['scenery', 'Scenery', 'Trees and rocks around the map.'],

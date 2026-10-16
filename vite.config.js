@@ -8,6 +8,8 @@ export default defineConfig({
     include: ['test/**/*.test.js'],
   },
   build: {
+    // Top-level await in main.js (the sprite atlas loads before the game starts); every WebGL2 browser has it.
+    target: 'es2022',
     // three.js alone is ~550 kB; that's expected for a 3D game.
     chunkSizeWarningLimit: 800,
   },

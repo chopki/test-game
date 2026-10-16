@@ -9,7 +9,7 @@ import * as THREE from 'three';
  * the prototype root) each become an InstancedMesh that grows as needed.
  */
 export class InstancedModel {
-  constructor(prototype, parent, { castShadow = true, receiveShadow = true } = {}) {
+  constructor(prototype, parent, { castShadow = true, receiveShadow = true, renderOrder = 0 } = {}) {
     this.parent = parent;
     this.count = 0;
     this.capacity = 0;
@@ -23,17 +23,19 @@ export class InstancedModel {
     });
     this.castShadow = castShadow;
     this.receiveShadow = receiveShadow;
+    this.renderOrder = renderOrder;
     this._matrix = new THREE.Matrix4();
     this._grow(16);
   }
 
   _grow(capacity) {
     for (const part of this.parts) {
-      // Reuse the current mesh's material: the renderer may have swapped it (lighting quality).
+      // Reuse the current mesh's material in case it was replaced after creation.
       const mesh = new THREE.InstancedMesh(part.geometry, part.mesh?.material ?? part.material, capacity);
       mesh.castShadow = this.castShadow;
       mesh.receiveShadow = this.receiveShadow;
       mesh.frustumCulled = false; // instances span the whole map; the bounding sphere would be stale
+      mesh.renderOrder = this.renderOrder;
       if (part.mesh) {
         for (let i = 0; i < this.count; i++) {
           part.mesh.getMatrixAt(i, this._matrix);
@@ -78,38 +80,6 @@ export class InstancedModel {
   }
 }
 
-/** One InstancedModel per key (e.g. wall connection shape, enemy type), created on demand. */
-export class KeyedBatches {
-  constructor(parent, makePrototype, options) {
-    this.parent = parent;
-    this.makePrototype = makePrototype;
-    this.options = options;
-    this.batches = new Map();
-  }
-
-  begin() {
-    for (const b of this.batches.values()) b.begin();
-  }
-
-  push(key, matrix) {
-    let batch = this.batches.get(key);
-    if (!batch) {
-      batch = new InstancedModel(this.makePrototype(key), this.parent, this.options);
-      this.batches.set(key, batch);
-    }
-    batch.push(matrix);
-  }
-
-  end() {
-    for (const b of this.batches.values()) b.end();
-  }
-
-  clear() {
-    for (const b of this.batches.values()) b.dispose();
-    this.batches.clear();
-  }
-}
-
 // ------------------------------------------------------------------ health bars
 
 const BAR_HEIGHT = 0.12;
@@ -125,6 +95,8 @@ export class HealthBarBatch {
     const fgMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, depthTest: false });
     this.bg = new InstancedModel(new THREE.Mesh(geo, bgMat), parent, { castShadow: false, receiveShadow: false });
     this.fg = new InstancedModel(new THREE.Mesh(fillGeo, fgMat), parent, { castShadow: false, receiveShadow: false });
+    this.bg.renderOrder = 998;
+    this.fg.renderOrder = 999;
     for (const p of this.bg.parts) p.mesh.renderOrder = 998;
     this._m = new THREE.Matrix4();
     this._pos = new THREE.Vector3();
@@ -161,7 +133,6 @@ export class HealthBarBatch {
     const mesh = this.fg.parts[0].mesh;
     this._ratios.forEach((r, i) => mesh.setColorAt(i, this._color.setHSL(r * 0.33, 0.75, 0.5)));
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-    mesh.renderOrder = 999;
   }
 
   get count() {
@@ -187,13 +158,20 @@ function blobTexture() {
 
 /**
  * Soft round shadows under moving units: one draw call for all of them, and no shadow-map work.
- * (Real shadow maps are only redrawn when buildings change, so moving things use these instead.)
  */
 export class BlobShadowBatch {
   constructor(parent) {
-    const mat = new THREE.MeshBasicMaterial({ map: blobTexture(), transparent: true, depthWrite: false });
+    // Drawn like the baked ground shadows: blended in the opaque pass, under every sprite (see Renderer).
+    const mat = new THREE.MeshBasicMaterial({
+      map: blobTexture(),
+      depthTest: false,
+      depthWrite: false,
+      blending: THREE.CustomBlending,
+      blendSrc: THREE.SrcAlphaFactor,
+      blendDst: THREE.OneMinusSrcAlphaFactor,
+    });
     const geo = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
-    this.batch = new InstancedModel(new THREE.Mesh(geo, mat), parent, { castShadow: false, receiveShadow: false });
+    this.batch = new InstancedModel(new THREE.Mesh(geo, mat), parent, { castShadow: false, receiveShadow: false, renderOrder: 1 });
     this._m = new THREE.Matrix4();
     this._q = new THREE.Quaternion();
     this._s = new THREE.Vector3();

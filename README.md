@@ -21,7 +21,8 @@ npm run dev      # http://localhost:5173
 | `npm run dev`     | Dev server with hot reload                       |
 | `npm run build`   | Production build into `dist/` (static, relative paths) |
 | `npm run preview` | Serve the production build locally               |
-| `npm test`        | Run the headless simulation tests (Vitest)       |
+| `npm test`        | Run the headless simulation tests (Vitest), incl. a check that the pre-baked sprites are current |
+| `npm run bake`    | Re-bake the battlefield sprites into `public/sprites/` (run after changing models or textures) |
 | `npm run test:e2e` | Vital browser tests (`@smoke`, ~1.5 min, desktop + phone) |
 | `npm run test:e2e:full` | Full browser regression suite (~4 min)      |
 | `npm run test:all` | Unit tests + vital browser tests                |
@@ -61,7 +62,7 @@ Vercel or Cloudflare Pages.
 | Left drag (wall mode)    | Plan a wall line (straight or L), shows cost; release to build. Drag onto a tower to join it |
 | `X`                      | Sell mode                                  |
 | Right click / `Esc`      | Cancel build mode / deselect               |
-| Right drag               | Rotate camera                              |
+| Right drag               | Pan camera (the iso view is fixed, like the art reference) |
 | Middle drag / `WASD` / arrows | Pan camera                            |
 | Mouse wheel              | Zoom                                       |
 | `Space`                  | Start next wave now                        |
@@ -72,7 +73,7 @@ Vercel or Cloudflare Pages.
 still while you do; drag to the edge of the screen to scroll it. Lift your finger and tap **✓** to build or **✕** to
 cancel. You can drag the building again before confirming. Walls work the same way: drag out a line, adjust either
 end, then ✓. Dragging a wall end over a tower snaps it onto the tower's side. With no build mode
-selected, one finger pans; two fingers zoom and rotate. Graphics settings are automatically lighter on touch
+selected, one finger pans; pinch with two fingers to zoom. Graphics settings are automatically lighter on touch
 devices.
 
 ## Graphics settings

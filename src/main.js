@@ -1,5 +1,6 @@
 import './style.css';
 import { Game } from './game/Game.js';
+import { loadSprites } from './render/spriteAssets.js';
 
 // Show failures on screen rather than leaving a blank page.
 function showFatal(title, err) {
@@ -13,9 +14,12 @@ window.addEventListener('error', (e) => showFatal('The game hit an error', e.err
 window.addEventListener('unhandledrejection', (e) => showFatal('The game hit an error', e.reason));
 
 try {
+  const atlas = await loadSprites();
   // Handy for poking at the simulation from the browser console.
-  window.game = new Game(document.getElementById('app'));
+  window.game = new Game(document.getElementById('app'), atlas);
+  document.getElementById('loading').hidden = true;
 } catch (err) {
+  document.getElementById('loading').hidden = true;
   showFatal(
     'Could not start 3D graphics',
     'Your browser refused to start WebGL. This often happens right after a graphics reset: close this tab ' +

@@ -63,8 +63,26 @@ including the Town Hall.
 
 ### `src/render/`, presentation
 
-- `Renderer.js`: scene, lights, terrain, `MapControls` camera, entity view sync, health bars, burst effects,
-  ground picking (`pickGround` → sim coords).
+The battlefield is drawn like a classic isometric game: a **fixed iso camera** (`iso.js`) and **pre-rendered
+sprites**. Every building, wall shape, turret direction, enemy direction and scenery piece is a 3D model
+(`models.js`) rendered once, with soft shadows and studio lighting, into a sprite atlas (`spriteBaker.js`,
+list of sprites in `spriteCatalog.js`). In game, `SpriteLayer` draws them all as instanced camera-facing quads,
+so the whole battlefield is ~15 draw calls and a few hundred triangles however detailed the models are.
+
+- **Baking is done ahead of time**: `npm run bake` (scripts/bake-sprites.mjs) renders the atlas in headless
+  Chromium and writes `public/sprites/atlas.json` + page PNGs, which production builds load (`spriteAssets.js`).
+  The dev server bakes live, so model edits show immediately. `test/sprites.test.js` fails when the atlas is
+  stale (hash of the model/texture sources), so a deploy can't ship out-of-date sprites. A missing sprite at
+  runtime falls back to a live bake.
+- Sprite depth: each quad faces the camera, so it shares the depth of its ground anchor, which gives correct
+  back-to-front occlusion without sorting. The ground doesn't write depth (so sprite bases aren't clipped);
+  baked shadows, blob shadows, the grid and selection marks are drawn as underlays (`underlay()` in
+  Renderer.js: blended in the opaque pass, renderOrder 1); sprites are renderOrder 2; live 3D projectiles,
+  effects and the build ghost renderOrder 3.
+- Moving parts get their own sprites: 16 turret aim directions (cannon, catapult × 4 arm reload frames), the
+  spire crystal (bobbed by offset), 8 facing directions per enemy (walk bob and attack lunge are offsets).
+- `Renderer.js`: scene, terrain, the iso `MapControls` camera (pan and zoom only), entity view sync into the
+  sprite layers, health bars, burst effects, ground picking (`pickGround` → sim coords).
 - `graphicsSettings.js`: graphics presets (Low/Medium/High), per-setting options, `startupSettings()` and
   `stepDown()` for after a GPU crash. Every launch starts on Low and nothing is remembered between visits; the
   menu's "Reload now" carries the current settings through that one reload via `sessionStorage`. It has no
@@ -77,20 +95,9 @@ including the Town Hall.
   (`userData.turret`, `flag`, `arm`/`ammo` on the catapult, `crystal` on the spire) stay separate. Walls take
   `{ connections: { n, e, s, w } }` and are rebuilt by the renderer whenever a neighbouring tile changes.
   Scenery uses `InstancedMesh` (one draw call per part type for every tree, bush and rock).
-- `batches.js`: instanced drawing. `KeyedBatches` draws every wall of the same connection shape and every
-  ordinary enemy of the same type as one `InstancedMesh` per material. `HealthBarBatch` draws all health bars in
-  two draw calls, and `BlobShadowBatch` draws all unit shadows in one. Elite enemies, towers and projectiles are
-  still individual objects. Draw calls stay roughly flat however many walls or enemies there are (e2e-tested).
-- Shadows: `shadowMap.autoUpdate` is off. The renderer sets `_shadowsDirty` when buildings, walls, scenery or
-  settings change, and the shadow map is redrawn only then. Moving or animated things (enemies, projectiles,
-  turrets, the catapult arm, flags, the spire crystal) don't cast shadow-map shadows.
+- `batches.js`: `HealthBarBatch` (all health bars in two draw calls) and `BlobShadowBatch` (unit shadows).
 - `dynamicResolution.js`: the 'auto' render-scale controller (no three.js, unit-tested). `Game` feeds it the time
   between rendered frames and applies its result with `renderer.setRenderScale()`.
-- Lighting quality: `materialForLighting()` (models.js) maps each MeshStandardMaterial to a cheaper
-  MeshLambertMaterial and back; `Renderer._adopt()` applies the current setting to the scene and to every object
-  it creates. `Parts` also bakes a height-based vertex-colour shade into every model (darker near the ground).
-- `icons.js`: renders building portraits for the UI from the real models, once at startup, in a throwaway
-  WebGL context that's released straight away.
 - `textures.js`: procedural canvas textures (sandstone, roof tiles, wood, half-timbering, grass, dirt). Each texture
   tiles once per world unit, and the geometry helpers in `models.js` scale UVs to each primitive's real size. Geometries and materials are cached and shared.
 

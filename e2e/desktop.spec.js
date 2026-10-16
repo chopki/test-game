@@ -151,18 +151,18 @@ test('runtime errors are shown on screen instead of a blank page', async ({ page
 
 test('graphics start on Low, presets apply live, and the game pauses while the menu is open', async ({ page }) => {
   await openGame(page, { paused: false });
-  expect(await graphicsState(page)).toMatchObject({ preset: 'low', shadowsOn: true, shadowSize: 1024 });
+  expect(await graphicsState(page)).toMatchObject({ preset: 'low', scenery: 'low' });
 
   await page.getByRole('button', { name: 'Settings' }).click();
   await expect(page.locator('#settings')).toBeVisible();
   expect(await page.evaluate(() => window.game.paused)).toBe(true);
 
   await settingButton(page, 'Preset', 'High').click();
-  expect(await graphicsState(page)).toMatchObject({ preset: 'high', resolution: 1.5, shadowsOn: true, shadowSize: 2048 });
+  expect(await graphicsState(page)).toMatchObject({ preset: 'high', resolution: 1.5, scenery: 'high' });
   await settingButton(page, 'Preset', 'Low').click();
-  expect(await graphicsState(page)).toMatchObject({ preset: 'low', fpsCap: 30, resolution: 'auto', shadowsOn: true, shadowSize: 1024 });
+  expect(await graphicsState(page)).toMatchObject({ preset: 'low', fpsCap: 30, resolution: 'auto' });
   await expect(settingButton(page, 'Preset', 'Low')).toHaveClass(/active/);
-  await expect(settingButton(page, 'Shadows', 'Low')).toHaveClass(/active/);
+  await expect(settingButton(page, 'Scenery', 'Low')).toHaveClass(/active/);
   await expect(settingButton(page, 'Render scale', 'Auto')).toHaveClass(/active/);
   // A fixed render scale is applied directly.
   await settingButton(page, 'Render scale', '50%').click();
@@ -188,16 +188,14 @@ test('settings are not remembered: a fresh load always starts on Low', async ({ 
 test('overriding one setting marks the preset Custom; FPS counter and frame cap work', { tag: '@smoke' }, async ({ page }) => {
   await openGame(page);
   await page.getByRole('button', { name: 'Settings' }).click();
-  await settingButton(page, 'Shadows', 'High').click();
+  await settingButton(page, 'Effects', 'Off').click();
   await expect(page.locator('.custom-tag')).toBeVisible();
-  expect(await graphicsState(page)).toMatchObject({ preset: 'custom', shadowsOn: true, shadowSize: 2048 });
-  await settingButton(page, 'Shadows', 'Off').click();
-  expect(await graphicsState(page)).toMatchObject({ preset: 'custom', shadowsOn: false });
+  expect(await graphicsState(page)).toMatchObject({ preset: 'custom', effects: false });
 
   await settingButton(page, 'Scenery', 'Off').click();
-  expect((await graphicsState(page)).sceneryParts).toBe(0);
+  expect((await graphicsState(page)).scenerySprites).toBe(0);
   await settingButton(page, 'Scenery', 'High').click();
-  expect((await graphicsState(page)).sceneryParts).toBeGreaterThan(0);
+  expect((await graphicsState(page)).scenerySprites).toBeGreaterThan(0);
 
   await settingButton(page, 'Show FPS', 'On').click();
   await settingButton(page, 'Frame rate cap', '30').click();
@@ -267,8 +265,7 @@ test('walls reshape to join their neighbours and towers', async ({ page }) => {
 
 test('draw calls stay flat as walls and enemies are added (instancing)', { tag: '@smoke' }, async ({ page }) => {
   await openGame(page);
-  // Lowest draw-call count over a few frames: the frame that redraws the (static) shadow map after a change
-  // also counts its shadow pass, so it isn't representative.
+  // Lowest draw-call count over a few frames, to ignore any one-off frame.
   const calls = () =>
     page.evaluate(
       () =>
@@ -309,32 +306,7 @@ test('draw calls stay flat as walls and enemies are added (instancing)', { tag: 
       }
     });
   });
-  // Each enemy type is ~5 instanced draw calls; bars and blob shadows are 3 more in total.
-  expect(await calls()).toBeLessThanOrEqual(withSomeWalls + 30);
-});
-
-test('the Lighting setting swaps to cheaper materials and back, live', async ({ page }) => {
-  await openGame(page);
-  const materialTypes = () =>
-    page.evaluate(() => {
-      const counts = { standard: 0, lambert: 0 };
-      window.game.renderer.scene.traverse((o) => {
-        if (o.material?.isMeshStandardMaterial) counts.standard++;
-        if (o.material?.isMeshLambertMaterial) counts.lambert++;
-      });
-      return counts;
-    });
-  await page.evaluate(() => window.game.world.place('archerTower', 12, 12));
-  // Low starts with Simple lighting: nothing uses the physically based material.
-  await expect.poll(async () => (await materialTypes()).standard).toBe(0);
-  expect((await materialTypes()).lambert).toBeGreaterThan(5);
-
-  await page.getByRole('button', { name: 'Settings' }).click();
-  await settingButton(page, 'Lighting', 'Detailed').click();
-  expect((await materialTypes()).lambert).toBe(0);
-  await settingButton(page, 'Lighting', 'Simple').click();
-  await page.getByRole('button', { name: 'Done' }).click();
-  // Objects created later get the current lighting too.
-  await page.evaluate(() => window.game.world.place('cannonTower', 26, 12));
-  await expect.poll(async () => (await materialTypes()).standard).toBe(0);
+  // Enemies are sprites on the same atlas pages as walls; health bars and blob shadows add 3 batches.
+  expect(await calls()).toBeLessThanOrEqual(withSomeWalls + 6);
+  expect(await calls()).toBeLessThanOrEqual(25); // the whole battlefield in a couple of dozen draw calls
 });

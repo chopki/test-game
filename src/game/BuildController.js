@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { BUILDINGS } from '../sim/config.js';
 import { createBuildingModel } from '../render/models.js';
+import { underlay } from '../render/Renderer.js';
 
 const OK_COLOR = 0x5fe36a;
 const BAD_COLOR = 0xe35f5f;
@@ -57,6 +58,8 @@ export class BuildController {
       new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2),
       new THREE.MeshBasicMaterial({ color: OK_COLOR, transparent: true, opacity: 0.35, depthWrite: false }),
     );
+    underlay(this.footprint.material, 0.35);
+    this.footprint.renderOrder = 1;
     this.footprint.position.y = 0.03;
     this.footprint.visible = false;
     scene.add(this.footprint);
@@ -65,6 +68,8 @@ export class BuildController {
       new THREE.RingGeometry(0.96, 1, 96).rotateX(-Math.PI / 2),
       new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.6, depthWrite: false }),
     );
+    underlay(this.rangeRing.material, 0.6);
+    this.rangeRing.renderOrder = 1;
     this.rangeRing.position.y = 0.04;
     this.rangeRing.visible = false;
     scene.add(this.rangeRing);
@@ -112,6 +117,7 @@ export class BuildController {
         if (o.isMesh) {
           o.material = this.ghostMaterial;
           o.castShadow = false;
+          o.renderOrder = 3;
         }
       });
       this.game.renderer.scene.add(this.ghost);
@@ -415,7 +421,9 @@ export class BuildController {
   _showWallPlan(plan) {
     const tiles = plan.tiles.filter((t) => !t.existing);
     while (this.wallGhosts.children.length < tiles.length) {
-      this.wallGhosts.add(new THREE.Mesh(this.wallGhostGeometry, this.wallGhostOk));
+      const m = new THREE.Mesh(this.wallGhostGeometry, this.wallGhostOk);
+      m.renderOrder = 3;
+      this.wallGhosts.add(m);
     }
     this.wallGhosts.children.forEach((m, i) => {
       const t = tiles[i];

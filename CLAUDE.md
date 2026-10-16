@@ -17,5 +17,7 @@
   (`place`, `sell`, `startWave`).
 - Keep `docs/GAME_DESIGN.md` (stats tables) and `docs/ROADMAP.md` (checkboxes) in sync with gameplay changes.
 - See `docs/ARCHITECTURE.md` for extension points (troops, heroes, economy).
+- The battlefield is pre-baked sprites. **After changing `models.js`, `textures.js` or the sprite catalogue, run
+  `npm run bake`** and commit `public/sprites/` (the unit tests fail on a stale atlas). See ARCHITECTURE.md.
 - Art style target: `docs/reference/art-style.jpg`; UI style target: `docs/reference/ui-style.jpg` (see the
   "Art direction" section in `docs/GAME_DESIGN.md`).

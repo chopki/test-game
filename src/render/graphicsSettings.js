@@ -1,9 +1,9 @@
 // Graphics quality presets and the player's saved choice. No three.js here, so it can be unit-tested.
 
 export const PRESETS = {
-  low: { resolution: 'auto', antialias: false, shadows: 'low', lighting: 'simple', fpsCap: 30, scenery: 'low', effects: true },
-  medium: { resolution: 'auto', antialias: false, shadows: 'low', lighting: 'simple', fpsCap: 60, scenery: 'medium', effects: true },
-  high: { resolution: 1.5, antialias: true, shadows: 'high', lighting: 'full', fpsCap: 0, scenery: 'high', effects: true },
+  low: { resolution: 'auto', antialias: false, fpsCap: 30, scenery: 'low', effects: true },
+  medium: { resolution: 'auto', antialias: false, fpsCap: 60, scenery: 'medium', effects: true },
+  high: { resolution: 1.5, antialias: true, fpsCap: 0, scenery: 'high', effects: true },
 };
 
 export const PRESET_ORDER = ['low', 'medium', 'high'];
@@ -21,15 +21,6 @@ export const OPTIONS = {
   antialias: [
     [false, 'Off'],
     [true, 'On'],
-  ],
-  shadows: [
-    ['off', 'Off'],
-    ['low', 'Low'],
-    ['high', 'High'],
-  ],
-  lighting: [
-    ['simple', 'Simple'],
-    ['full', 'Detailed'],
   ],
   fpsCap: [
     [30, '30'],
@@ -57,9 +48,6 @@ export const OPTIONS = {
  * screen's real pixel ratio. Touch devices start lower and work up.
  */
 export const AUTO_RESOLUTION = { min: 0.5, max: 1.5, startTouch: 0.75, startDesktop: 1 };
-
-/** Shadow-map resolution for each shadow setting (0 = shadows disabled). */
-export const SHADOW_MAP_SIZE = { off: 0, low: 1024, high: 2048 };
 
 /** Number of trees/rocks placed around the map for each scenery setting. */
 export const SCENERY_COUNT = { off: 0, low: 60, medium: 120, high: 220 };

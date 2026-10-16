@@ -1,0 +1,134 @@
+import { BUILDINGS, ENEMIES } from '../sim/config.js';
+import { createBuildingModel, createEnemyModel, createSceneryObject, SCENERY_TYPES, SCENERY_VARIANTS } from './models.js';
+
+// Which sprites to bake, and how the renderer names them. Everything the battlefield shows (except
+// projectiles and effects) is drawn from these.
+
+export const TURRET_DIRECTIONS = 16;
+export const ENEMY_DIRECTIONS = 8;
+export const CATAPULT_ARM_FRAMES = 4; // 0 = just thrown … 3 = wound back and loaded
+
+const WALL_DIRS = ['n', 'e', 's', 'w'];
+/** All 16 wall connection keys, in the renderer's 'nesw' / '-' format. */
+export const WALL_KEYS = Array.from({ length: 16 }, (_, mask) => WALL_DIRS.map((d, i) => (mask & (1 << i) ? d : '-')).join(''));
+
+const angleIndex = (angle, steps) => ((Math.round((angle / (Math.PI * 2)) * steps) % steps) + steps) % steps;
+
+export const spriteKeys = {
+  building: (type) => `b:${type}`,
+  icon: (type) => `icon:${type}`,
+  wall: (connectionKey) => `wall:${connectionKey}`,
+  turret: (type, aim, frame = 0) => `t:${type}:${angleIndex(aim, TURRET_DIRECTIONS)}:${frame}`,
+  crystal: () => 'crystal',
+  enemy: (type, heading, elite = false) => `e:${type}:${elite ? 'elite:' : ''}${angleIndex(heading, ENEMY_DIRECTIONS)}`,
+  scenery: (kind, variant) => `s:${kind}:${variant}`,
+};
+
+/** Height of a building's turret pivot above the ground (sprites are lifted by this much). */
+export const turretHeight = (type) => createBuildingModel(type).userData.turret?.position.y ?? 0;
+export const CRYSTAL_HEIGHT = 3.35;
+
+/** Which buildings have separately animated parts (and so extra sprites). */
+const BUILDING_PARTS = {
+  cannonTower: { turret: true },
+  catapult: { turret: true, arm: true },
+  magicSpire: { crystal: true },
+};
+
+/** Options every bake uses (runtime and scripts/bake-sprites.mjs). */
+export const BAKE_OPTIONS = { pxPerUnit: 72, supersample: 2 };
+
+/** Pose the catapult arm for a reload frame. */
+function poseArm(userData, frame) {
+  const t = frame / (CATAPULT_ARM_FRAMES - 1); // 0 thrown → 1 loaded
+  userData.arm.rotation.x = 1.9 + (-0.35 - 1.9) * t;
+  userData.ammo.visible = frame === CATAPULT_ARM_FRAMES - 1;
+}
+
+/**
+ * The full list of { key, make, shadow } to bake. `make()` builds the posed model; it's only called when
+ * baking, so listing the keys (e.g. to check a pre-baked atlas is complete) is cheap.
+ */
+export function spriteSpecs() {
+  const specs = [];
+  const buildingTypes = Object.keys(BUILDINGS);
+
+  for (const type of buildingTypes) {
+    // UI portrait: the complete model.
+    specs.push({ key: spriteKeys.icon(type), make: () => createBuildingModel(type), shadow: false });
+    if (type === 'wall') continue;
+    // Battlefield base: everything except the parts that move, which get sprites of their own.
+    specs.push({
+      key: spriteKeys.building(type),
+      make: () => {
+        const base = createBuildingModel(type);
+        base.userData.turret?.removeFromParent();
+        base.userData.crystal?.removeFromParent();
+        return base;
+      },
+    });
+
+    const parts = BUILDING_PARTS[type] ?? {};
+    if (parts.turret) {
+      const frames = parts.arm ? CATAPULT_ARM_FRAMES : 1;
+      for (let d = 0; d < TURRET_DIRECTIONS; d++) {
+        const angle = (d / TURRET_DIRECTIONS) * Math.PI * 2;
+        for (let f = 0; f < frames; f++) {
+          specs.push({
+            key: spriteKeys.turret(type, angle, f),
+            shadow: false,
+            make: () => {
+              const m = createBuildingModel(type);
+              const turret = m.userData.turret;
+              turret.removeFromParent();
+              turret.position.set(0, 0, 0);
+              turret.rotation.y = angle;
+              if (m.userData.arm) poseArm(m.userData, f);
+              return turret;
+            },
+          });
+        }
+      }
+    }
+    if (parts.crystal) {
+      specs.push({
+        key: spriteKeys.crystal(),
+        shadow: false,
+        make: () => {
+          const crystal = createBuildingModel(type).userData.crystal;
+          crystal.removeFromParent();
+          crystal.position.set(0, 0, 0);
+          return crystal;
+        },
+      });
+    }
+  }
+
+  for (const key of WALL_KEYS) {
+    const connections = Object.fromEntries(WALL_DIRS.map((d, i) => [d, key[i] === d]));
+    specs.push({ key: spriteKeys.wall(key), make: () => createBuildingModel('wall', { connections }) });
+  }
+
+  for (const type of Object.keys(ENEMIES)) {
+    const variants = type === 'brute' ? [false, true] : [false];
+    for (const elite of variants) {
+      for (let d = 0; d < ENEMY_DIRECTIONS; d++) {
+        const heading = (d / ENEMY_DIRECTIONS) * Math.PI * 2;
+        specs.push({
+          key: spriteKeys.enemy(type, heading, elite),
+          shadow: false,
+          make: () => {
+            const m = createEnemyModel(type, elite);
+            m.rotation.y = heading;
+            return m;
+          },
+        });
+      }
+    }
+  }
+
+  for (const kind of SCENERY_TYPES) {
+    for (let v = 0; v < SCENERY_VARIANTS; v++) specs.push({ key: spriteKeys.scenery(kind, v), make: () => createSceneryObject(kind, v) });
+  }
+  return specs;
+}

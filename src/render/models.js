@@ -128,34 +128,6 @@ function shaded(material) {
   return shadedVariants.get(material);
 }
 
-const toSimple = new Map();
-const toFull = new Map();
-/**
- * The material to use for a lighting quality: 'simple' swaps MeshStandardMaterial (physically based, costly per
- * pixel) for an equivalent MeshLambertMaterial; 'full' swaps back. Other material types are returned unchanged.
- */
-export function materialForLighting(material, lighting) {
-  if (lighting === 'simple') {
-    if (!material.isMeshStandardMaterial) return material;
-    if (!toSimple.has(material)) {
-      const m = new THREE.MeshLambertMaterial({
-        map: material.map,
-        color: material.color,
-        emissive: material.emissive,
-        emissiveIntensity: material.emissiveIntensity,
-        side: material.side,
-        transparent: material.transparent,
-        opacity: material.opacity,
-        vertexColors: material.vertexColors,
-      });
-      toSimple.set(material, m);
-      toFull.set(m, material);
-    }
-    return toSimple.get(material);
-  }
-  return toFull.get(material) ?? material;
-}
-
 // ------------------------------------------------------------------ merging
 
 /**
@@ -575,72 +547,25 @@ const LEAF_COLORS = {
   rock: [0xb7a88c, 0xa39882, 0xc2b497],
 };
 
-/**
- * Trees, bushes and rocks around the map, drawn with instancing: one draw call per part type no
- * matter how many there are. `spots` is [{ x, z, scale, rot, kind }].
- */
-export function createScenery(spots) {
-  const group = new THREE.Group();
-  const white = std({ color: 0xffffff });
-  const m = new THREE.Matrix4();
-  const q = new THREE.Quaternion();
-  const up = new THREE.Vector3(0, 1, 0);
-  const offset = new THREE.Vector3();
-  const color = new THREE.Color();
-  for (const [kind, parts] of Object.entries(SCENERY_KINDS)) {
-    const list = spots.filter((s) => s.kind === kind);
-    if (list.length === 0) continue;
-    for (const [geometry, matKey, off, scl = [1, 1, 1]] of parts) {
-      const material = matKey === 'trunk' ? MATERIALS.woodDark : white;
-      const inst = new THREE.InstancedMesh(geometry, material, list.length);
-      list.forEach((s, i) => {
-        q.setFromAxisAngle(up, s.rot);
-        offset.set(off[0], off[1], off[2]).multiplyScalar(s.scale).applyQuaternion(q);
-        m.compose(
-          new THREE.Vector3(s.x + offset.x, offset.y, s.z + offset.z),
-          q,
-          new THREE.Vector3(scl[0] * s.scale, scl[1] * s.scale, scl[2] * s.scale),
-        );
-        inst.setMatrixAt(i, m);
-        if (matKey !== 'trunk') {
-          const palette = LEAF_COLORS[matKey];
-          inst.setColorAt(i, color.setHex(palette[(s.variant ?? i) % palette.length]));
-        }
-      });
-      inst.castShadow = true;
-      inst.receiveShadow = true;
-      group.add(inst);
-    }
+export const SCENERY_TYPES = Object.keys(SCENERY_KINDS);
+export const SCENERY_VARIANTS = 3;
+
+/** One tree, bush or rock (for baking into a sprite). `variant` picks its colour. */
+export function createSceneryObject(kind, variant = 0) {
+  const p = new Parts();
+  for (const [geometry, matKey, off, scl = [1, 1, 1]] of SCENERY_KINDS[kind]) {
+    const material = matKey === 'trunk' ? MATERIALS.woodDark : leafMaterial(matKey, variant);
+    p.add(geometry, material, { x: off[0], y: off[1], z: off[2], sx: scl[0], sy: scl[1], sz: scl[2], ry: variant * 1.3 });
   }
-  return group;
+  return p.build();
 }
 
-// ------------------------------------------------------------------ overlays
-
-const barGeo = cached('bar-bg', () => new THREE.PlaneGeometry(1, 0.12));
-const barFgGeo = cached('bar-fg', () => new THREE.PlaneGeometry(1, 0.12).translate(0.5, 0, 0));
-const barBgMat = new THREE.MeshBasicMaterial({ color: 0x1a0c0c, depthTest: false, transparent: true, opacity: 0.8 });
-
-/** Billboarded health bar. Call setHealthBar() to update the fill. */
-export function createHealthBar(width = 1) {
-  const g = new THREE.Group();
-  const bg = new THREE.Mesh(barGeo, barBgMat);
-  bg.scale.x = width + 0.06;
-  bg.scale.y = 1.4;
-  // Both parts are transparent so they're drawn in the same pass and renderOrder puts the fill on top.
-  const fg = new THREE.Mesh(barFgGeo, new THREE.MeshBasicMaterial({ color: 0x55dd55, depthTest: false, transparent: true }));
-  fg.position.x = -width / 2;
-  bg.renderOrder = 998;
-  fg.renderOrder = 999;
-  g.add(bg, fg);
-  g.userData = { fg, width };
-  return g;
-}
-
-const tmpColor = new THREE.Color();
-export function setHealthBar(bar, ratio) {
-  const { fg, width } = bar.userData;
-  const r = Math.max(0, Math.min(1, ratio));
-  fg.scale.x = Math.max(0.001, r * width);
-  fg.material.color.copy(tmpColor.setHSL(r * 0.33, 0.75, 0.5));
+const leafMaterials = new Map();
+function leafMaterial(kind, variant) {
+  const key = `${kind}:${variant}`;
+  if (!leafMaterials.has(key)) {
+    const palette = LEAF_COLORS[kind];
+    leafMaterials.set(key, std({ color: palette[variant % palette.length], roughness: 0.95 }));
+  }
+  return leafMaterials.get(key);
 }

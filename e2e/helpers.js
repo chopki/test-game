@@ -27,7 +27,7 @@ export const buildingAt = (page, x, z) =>
 export const countBuildings = (page, type) =>
   page.evaluate((type) => [...window.game.world.buildings.values()].filter((b) => b.type === type).length, type);
 
-/** A button in one row of the settings menu, e.g. settingButton(page, 'Shadows', 'Off'). */
+/** A button in one row of the settings menu, e.g. settingButton(page, 'Scenery', 'Off'). */
 export const settingButton = (page, row, name) =>
   page.locator('#settings-body .setting', { has: page.locator('.setting-label', { hasText: row }) }).getByRole('button', { name, exact: true });
 
@@ -37,9 +37,7 @@ export const graphicsState = (page) =>
     return {
       ...window.game.graphics,
       pixelRatio: r.renderer.getPixelRatio(),
-      shadowsOn: r.renderer.shadowMap.enabled,
-      shadowSize: r.sun.shadow.mapSize.x,
-      sceneryParts: r.scenery?.children.length ?? 0,
+      scenerySprites: r.scenerySpots.length,
     };
   });
 

@@ -31,6 +31,16 @@ Rough order, with each milestone playable on its own. Checkboxes track progress.
 - [x] UI redesign after `docs/reference/ui-style.jpg`: framed health/gold plaques, wave sign, tower cards with
       rendered portraits, cog buttons, Battle Chronicle log, Engineer's Codex selection panel
 
+## Painted look, phone-first (in progress)
+
+Pre-rendered sprites on a fixed isometric camera (see ARCHITECTURE.md), working towards
+`docs/reference/art-style.jpg` at phone-friendly frame rates.
+
+- [x] Step 1: fixed iso camera, sprite baker + atlas, instanced sprite renderer, build-time `npm run bake`
+- [ ] Step 2: detailed models built from the reference drawings (Town Hall, towers, walls, scenery, then enemies)
+- [ ] Step 3: painted terrain and ground detail (grass tufts, stones, bushes)
+- [ ] Step 4: animated units (8-direction walk/attack frames)
+
 ## v0.2: Defence depth
 
 - [ ] **Upgrades, 5 stages each** (per the art reference): Town Hall levels; Archer/Cannon/Spire/Catapult stages

@@ -32,10 +32,10 @@ describe('graphics settings', () => {
 
   it('changing one setting makes it Custom; choosing a preset resets the values', () => {
     const low = settingsForPreset('low');
-    const custom = withSetting(low, 'shadows', 'high');
+    const custom = withSetting(low, 'scenery', 'high');
     expect(custom.preset).toBe('custom');
-    expect(custom.shadows).toBe('high');
-    expect(withSetting(custom, 'shadows', PRESETS.low.shadows).preset).toBe('low'); // back to matching Low
+    expect(custom.scenery).toBe('high');
+    expect(withSetting(custom, 'scenery', PRESETS.low.scenery).preset).toBe('low'); // back to matching Low
     expect(withPreset(custom, 'medium')).toMatchObject({ preset: 'medium', ...PRESETS.medium });
   });
 
@@ -60,10 +60,10 @@ describe('graphics settings', () => {
   });
 
   it('ignores invalid carried-over values', () => {
-    const bad = memoryStorage({ 'hold-the-hall:graphics-for-reload': JSON.stringify({ resolution: 7, shadows: 'ultra', fpsCap: 60 }) });
+    const bad = memoryStorage({ 'hold-the-hall:graphics-for-reload': JSON.stringify({ resolution: 7, scenery: 'ultra', fpsCap: 60 }) });
     const fixed = startupSettings(bad);
     expect(fixed.resolution).toBe(PRESETS.low.resolution);
-    expect(fixed.shadows).toBe(PRESETS.low.shadows);
+    expect(fixed.scenery).toBe(PRESETS.low.scenery);
     expect(fixed.fpsCap).toBe(60);
     expect(matchPreset(fixed)).toBe(fixed.preset);
     expect(startupSettings(memoryStorage({ 'hold-the-hall:graphics-for-reload': '{not json' })).preset).toBe('low');

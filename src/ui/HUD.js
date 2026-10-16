@@ -1,7 +1,8 @@
 import { BUILDINGS, TIMING } from '../sim/config.js';
 import { onPress } from './press.js';
 import { summarizeWave } from '../sim/WaveManager.js';
-import { renderBuildingIcons } from '../render/icons.js';
+import { frameToDataURL } from '../render/spriteBaker.js';
+import { spriteKeys } from '../render/spriteCatalog.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -74,7 +75,8 @@ export class HUD {
       speedIcon: $('speed-icon'),
     };
     this._last = {};
-    this.icons = renderBuildingIcons(Object.keys(BUILDINGS));
+    // Portraits cropped from the baked sprite atlas, so the cards match the battlefield exactly.
+    this.icons = Object.fromEntries(Object.keys(BUILDINGS).map((t) => [t, frameToDataURL(game.renderer.atlas, spriteKeys.icon(t))]));
     this.icons.sell = sellIcon();
 
     this.buttons = new Map();

@@ -13,11 +13,12 @@ const BEST_KEY = 'hold-the-hall:best-wave';
 
 /** Wires the simulation, renderer, input and HUD together and runs the main loop. */
 export class Game {
-  constructor(container) {
+  /** `atlas` is the battlefield sprite atlas (see render/spriteAssets.js). */
+  constructor(container, atlas) {
     this.graphics = startupSettings(); // always Low on a fresh start (see graphicsSettings.js)
     // Settings fixed when the WebGL context was created (anti-aliasing); used to flag "reload to apply".
     this.startupGraphics = { ...this.graphics };
-    this.renderer = new Renderer(container, this.graphics);
+    this.renderer = new Renderer(container, this.graphics, atlas);
     this._syncDynamicResolution();
     this.contextLost = false;
     // If the GPU resets, the canvas goes blank. Pause the game and tell the player instead of
