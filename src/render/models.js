@@ -123,7 +123,35 @@ function townHall() {
 }
 
 /** Peeled logs, light brown like the reference's palisade. */
-const LOGS = ['#a57444', '#b0804e', '#99683c'].map((c) => foliage(c));
+/** Peeled logs, light tan like the reference's palisade. */
+const LOGS = ['#bb8d58', '#c69b66', '#ad8050'].map((c) => foliage(c));
+const RAIL = std({ color: 0x9a6c3e });
+
+/**
+ * The rest of a palisade run along (dx, dz), from `a` to `b` tiles out from the origin: one rail on the far face
+ * (partly hidden by the logs, as in the reference), slanted props behind the wall, and a grassy foot.
+ */
+function palisadeRun(p, rnd, dx, dz, a, b) {
+  const M = MATERIALS;
+  const mid = (a + b) / 2;
+  const len = b - a;
+  const at = (d, side) => ({ x: dx ? dx * d : side, z: dz ? dz * d : side });
+  // The far face is the -x / -z side, away from the camera.
+  p.add(box(dx ? len : 0.05, 0.08, dx ? 0.05 : len), RAIL, { ...at(mid, -0.085), y: 0.68 });
+  for (let d = a + 0.25; d < b; d += 0.5) {
+    p.add(box(0.055, 0.86, 0.055), RAIL, { ...at(d, -0.27), y: 0.39, rx: dx ? 0.42 : 0, rz: dx ? 0 : -0.42 });
+  }
+  p.add(box(dx ? len : 0.24, 0.04, dx ? 0.24 : len), M.dirt, { ...at(mid, 0), y: 0.02 });
+  for (let i = 0; i < Math.round(len * 7); i++) {
+    const d = a + rnd.next() * len;
+    p.add(cone(0.035, rnd.range(0.12, 0.22), 4), rnd.next() < 0.5 ? M.grass : M.grassDark, {
+      ...at(d, rnd.range(-0.15, 0.15)),
+      y: 0.07,
+      rz: rnd.range(-0.4, 0.4),
+      rx: rnd.range(-0.3, 0.3),
+    });
+  }
+}
 
 /**
  * A wooden palisade tile that joins up with its neighbours. `connections` = { n, e, s, w } booleans: true where
@@ -142,35 +170,20 @@ function wall({ connections = {} } = {}) {
     ['n', 0, -1],
   ].filter(([k]) => connections[k]);
   const PITCH = 1 / 7;
-  const logs = [];
-  const log = (x, z, r = 0.075) => logs.push({ x, z, r });
-  log(0, 0, dirs.length === 2 && dirs[0][1] === -dirs[1][1] && dirs[0][2] === -dirs[1][2] ? 0.075 : 0.095);
+  const straight = dirs.length === 2 && dirs[0][1] === -dirs[1][1] && dirs[0][2] === -dirs[1][2];
+  // Centre log: a thicker post where the wall turns, ends or branches.
+  if (straight) palisadeLog(p, rnd, 0, 0);
+  else palisadeLog(p, rnd, 0, 0, { r: 0.095, h: rnd.range(1.25, 1.4) });
   for (const [, dx, dz] of dirs) {
-    for (let i = 1; i <= 3; i++) log(dx * i * PITCH, dz * i * PITCH);
-    // Rails on both faces of the run.
-    for (const side of [-1, 1]) {
-      const off = side * 0.085;
-      for (const y of [0.32, 0.82]) {
-        p.add(box(dx ? 0.5 : 0.05, 0.07, dx ? 0.05 : 0.5), M.woodDark, { x: dx ? dx * 0.25 : off, y, z: dz ? dz * 0.25 : off });
-      }
-    }
+    for (let i = 1; i <= 3; i++) palisadeLog(p, rnd, dx * i * PITCH, dz * i * PITCH);
+    palisadeRun(p, rnd, dx, dz, 0, 0.5);
   }
   if (dirs.length === 0) {
-    // A lone stretch: a short run of logs with braces.
-    for (const i of [-2, -1, 1, 2]) log(i * PITCH, 0);
-    for (const side of [-1, 1]) p.add(box(0.07, 0.07, 0.6), M.woodDark, { x: side * 0.3, y: 0.3, z: 0.18, rx: 0.9 });
-    for (const y of [0.32, 0.82]) p.add(box(0.62, 0.07, 0.05), M.woodDark, { y, z: 0.085 });
+    // A lone stretch of logs.
+    for (const i of [-2, -1, 1, 2]) palisadeLog(p, rnd, i * PITCH, 0);
+    palisadeRun(p, rnd, 1, 0, -0.36, 0.36);
   }
-  for (const { x, z, r } of logs) {
-    const h = rnd.range(1.0, 1.22) + (r > 0.08 ? 0.1 : 0);
-    const tilt = { rx: rnd.range(-0.04, 0.04), rz: rnd.range(-0.04, 0.04) };
-    const mat = rnd.pick(LOGS);
-    p.add(cyl(r, r * 1.05, h, 8), mat, { x, y: h / 2, z, ...tilt, ry: rnd.range(0, 3) });
-    p.add(cone(r, 0.2, 8), mat, { x, y: h + 0.1, z, ...tilt });
-  }
-  // Earth banked against the foot of the logs.
-  p.add(box(0.3, 0.06, 0.3), M.dirt, { y: 0.03 });
-  for (const [, dx, dz] of dirs) p.add(box(dx ? 0.5 : 0.28, 0.06, dx ? 0.28 : 0.5), M.dirt, { x: dx * 0.25, y: 0.03, z: dz * 0.25 });
+  p.add(box(0.26, 0.04, 0.26), M.dirt, { y: 0.02 });
   groundDressing(p, { w: 0.6, d: 0.6, rnd, count: 3 });
   const g = p.build();
   g.userData.connections = connections;
@@ -188,19 +201,9 @@ function wallJoint({ dir = 'e' } = {}) {
   const rnd = rng('nesw'.indexOf(dir) * 13 + 211);
   const [dx, dz] = { n: [0, -1], e: [1, 0], s: [0, 1], w: [-1, 0] }[dir];
   const PITCH = 1 / 7;
-  // The palisade arm, matching wall tiles (same log pitch, rails and banked earth).
-  for (let i = 1; i <= 3; i++) {
-    const h = rnd.range(1.0, 1.22);
-    const mat = rnd.pick(LOGS);
-    const tilt = { rx: rnd.range(-0.04, 0.04), rz: rnd.range(-0.04, 0.04) };
-    p.add(cyl(0.075, 0.079, h, 8), mat, { x: dx * i * PITCH, y: h / 2, z: dz * i * PITCH, ...tilt, ry: rnd.range(0, 3) });
-    p.add(cone(0.075, 0.2, 8), mat, { x: dx * i * PITCH, y: h + 0.1, z: dz * i * PITCH, ...tilt });
-  }
-  for (const side of [-1, 1]) {
-    const off = side * 0.085;
-    for (const y of [0.32, 0.82]) p.add(box(dx ? 0.5 : 0.05, 0.07, dx ? 0.05 : 0.5), M.woodDark, { x: dx ? dx * 0.25 : off, y, z: dz ? dz * 0.25 : off });
-  }
-  p.add(box(dx ? 0.5 : 0.28, 0.06, dx ? 0.28 : 0.5), M.dirt, { x: dx * 0.25, y: 0.03, z: dz * 0.25 });
+  // The palisade arm, matching wall tiles (same log pitch, rail, props and grassy foot).
+  for (let i = 1; i <= 3; i++) palisadeLog(p, rnd, dx * i * PITCH, dz * i * PITCH);
+  palisadeRun(p, rnd, dx, dz, 0, 0.5);
   // Anchor post: stone footing and a thick log with iron bands.
   stoneBlocks(p, { w: 0.38, d: 0.38, h: 0.18, rows: 1, rnd, minBlock: 0.18, maxBlock: 0.24 });
   p.add(cyl(0.12, 0.13, 1.42, 10), rnd.pick(LOGS), { y: 0.18 + 0.71 });
@@ -457,11 +460,13 @@ function addCatapultTurret(g, y) {
 export const IN_WALL_SHAPES = ['we', 'ns', 'wn', 'ws', 'en', 'es'];
 const ARM = { n: [0, -1], e: [1, 0], s: [0, 1], w: [-1, 0] };
 
-function palisadeLog(p, rnd, x, z, { r = 0.075, h = rnd.range(1.0, 1.22) } = {}) {
+/** One sharpened palisade log; heights, points and lean vary so the top line is ragged, as in the reference. */
+function palisadeLog(p, rnd, x, z, { r = 0.075, h = rnd.range(0.95, 1.28) } = {}) {
   const mat = rnd.pick(LOGS);
-  const tilt = { rx: rnd.range(-0.04, 0.04), rz: rnd.range(-0.04, 0.04) };
+  const tilt = { rx: rnd.range(-0.06, 0.06), rz: rnd.range(-0.06, 0.06) };
+  const point = rnd.range(0.15, 0.3);
   p.add(cyl(r, r * 1.05, h, 8), mat, { x, y: h / 2, z, ...tilt, ry: rnd.range(0, 3) });
-  p.add(cone(r, 0.2, 8), mat, { x, y: h + 0.1, z, ...tilt });
+  p.add(cone(r, point, 8), mat, { x, y: h + point / 2, z, ...tilt });
 }
 
 /**
@@ -505,7 +510,6 @@ function bastion(p, rnd, { r, h = 1.15, deck = 0 }) {
 
 /** Palisade stubs from the bastion (half-width `from`) out along each arm of `shape`, on the wall's log grid. */
 function wallStubs(p, rnd, shape, from) {
-  const M = MATERIALS;
   const straight = shape === 'we' || shape === 'ns';
   const len = straight ? 1 : 1.5;
   // Wall tiles put logs at (tile + (j + 0.5) / 7); measured from the tower's drawn centre, that grid is offset
@@ -517,13 +521,7 @@ function wallStubs(p, rnd, shape, from) {
       const d = (j + 0.5) / 7 - shift;
       if (d > from + 0.03 && d < len) palisadeLog(p, rnd, dx * d, dz * d);
     }
-    const mid = (from + len) / 2;
-    const l = len - from;
-    for (const side of [-1, 1]) {
-      const off = side * 0.085;
-      for (const y of [0.32, 0.82]) p.add(box(dx ? l : 0.05, 0.07, dx ? 0.05 : l), M.woodDark, { x: dx ? dx * mid : off, y, z: dz ? dz * mid : off });
-    }
-    p.add(box(dx ? l : 0.28, 0.06, dx ? 0.28 : l), M.dirt, { x: dx * mid, y: 0.03, z: dz * mid });
+    palisadeRun(p, rnd, dx, dz, from, len);
   }
 }
 
