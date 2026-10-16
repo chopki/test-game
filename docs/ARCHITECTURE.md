@@ -86,7 +86,7 @@ so the whole battlefield is ~15 draw calls and a few hundred triangles however d
 - `Renderer.js`: scene, terrain, the iso `MapControls` camera (pan and zoom only), entity view sync into the
   sprite layers, health bars, burst effects, ground picking (`pickGround` → sim coords).
 - `graphicsSettings.js`: graphics presets (Low/Medium/High), per-setting options, `startupSettings()` and
-  `stepDown()` for after a GPU crash. Every launch starts on Low and nothing is remembered between visits; the
+  `stepDown()` for after a GPU crash. Every launch starts on `STARTUP_PRESET` (High) and nothing is remembered between visits; the
   menu's "Reload now" carries the current settings through that one reload via `sessionStorage`. It has no
   three.js dependency and is unit-tested in `test/graphics.test.js`. `Renderer.applySettings()` applies everything
   live except anti-aliasing, which is fixed when the WebGL context is created. The frame-rate cap is enforced in

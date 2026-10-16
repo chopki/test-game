@@ -4,7 +4,11 @@ A 3D browser tower-defence / survival game. Raiders pour in from the edges of th
 **Town Hall**. Ring it with **castle walls**, raise **archer towers**, **cannon towers**, **magic spires** and
 **catapults**, and survive as many waves as you can against goblins, orcs and trolls.
 
-![Screenshot](docs/screenshot.png)
+| Desktop | Phone (Pixel 7) |
+| ------- | --------------- |
+| ![Desktop, High preset](docs/screenshots/showcase-desktop-high.jpg) | ![Phone, High preset](docs/screenshots/showcase-phone-high.jpg) |
+
+Map 8 (`?seed=8`) on the default High preset.
 
 Built with [Three.js](https://threejs.org/) and [Vite](https://vitejs.dev/). Plain JavaScript (ES modules), no assets: every model
 is built from primitives in code.
@@ -23,7 +27,7 @@ npm run dev      # http://localhost:5173
 | `npm run preview` | Serve the production build locally               |
 | `npm test`        | Run the headless simulation tests (Vitest), incl. a check that the pre-baked sprites are current |
 | `npm run bake`    | Re-bake the battlefield sprites into `public/sprites/` (run after changing models or textures) |
-| `npm run test:e2e` | Vital browser tests (`@smoke`, ~1.5 min, desktop + phone) |
+| `npm run test:e2e` | Vital browser tests (`@smoke`, ~3 min, desktop + phone) |
 | `npm run test:e2e:full` | Full browser regression suite (~4 min)      |
 | `npm run test:all` | Unit tests + vital browser tests                |
 | `npm run test:full` | Unit tests + full browser suite                |
@@ -80,15 +84,15 @@ devices.
 
 Open **⚙** in the top bar. The game pauses while the menu is open.
 
-| Preset | Render scale | Anti-aliasing | Shadows | Frame-rate cap | Scenery |
-| ------ | ------------ | ------------- | ------- | -------------- | ------- |
-| Low (always used at startup) | Auto | off | low (1024) | 30 fps | low |
-| Medium | Auto | off | low (1024) | 60 fps | medium |
-| High | 150% | on | high (2048) | unlimited | high |
+| Preset | Render scale | Anti-aliasing | Frame-rate cap | Scenery and ground detail |
+| ------ | ------------ | ------------- | -------------- | ------------------------- |
+| Low | Auto | off | 30 fps | low |
+| Medium | Auto | off | 60 fps | medium |
+| High (always used at startup) | 150% | on | unlimited | high |
 
 **Auto** render scale adjusts itself (50%–150%, capped at the screen's pixel density) to hold the frame-rate
-cap: it drops as soon as frames slow down and creeps back up after a few smooth seconds. Shadows are cheap
-because the shadow map is only redrawn when buildings change; moving units get soft blob shadows instead.
+cap: it drops as soon as frames slow down and creeps back up after a few smooth seconds. Shadows are baked into
+the sprites, so they cost nothing extra.
 The FPS counter also shows the current render scale.
 
 You can override any setting on top of a preset; the preset then shows as **Custom**. There are also toggles for
@@ -96,7 +100,8 @@ effects and an FPS counter. Changes apply immediately, except anti-aliasing, whi
 capped at the screen's real pixel density. If the browser resets the graphics, the game automatically drops one
 preset (Custom goes to Low) and tells you.
 
-**The game always starts on Low**, on every device. Settings you change last until the game is closed or
+**The game always starts on High**, on every device (it runs well on current phones; if a phone struggles,
+pick Medium or Low). Settings you change last until the game is closed or
 reloaded, but aren't remembered, so a setting that made the GPU crash can never get stuck on. The one exception
 is **Reload now** in the menu (needed to apply anti-aliasing): it keeps your current settings for that single
 reload.

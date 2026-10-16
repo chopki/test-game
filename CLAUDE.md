@@ -3,7 +3,7 @@
 3D browser tower-defence / survival game (Three.js + Vite, plain JS ES modules).
 
 - `npm test` runs the Vitest simulation tests. Browser tests (Playwright, desktop + Pixel 7 phone, against the
-  production build) come in two sizes: `npm run test:e2e` runs the vital `@smoke` set (~1.5 min: loading, placing,
+  production build) come in two sizes: `npm run test:e2e` runs the vital `@smoke` set (~3 min: loading, placing,
   walls, waves, crash recovery, frame-rate cap and draw-call budget, phone touch flow). Run it before pushing
   UI/input/rendering changes. `npm run test:e2e:full` is the full regression suite: run it only when asked for a
   full test. `npm run build` must stay green. CI only runs the unit tests on push.

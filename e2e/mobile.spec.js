@@ -1,11 +1,11 @@
 import { test } from '@playwright/test';
-import { buildingAt, cameraTarget, countBuildings, expect, gold, openGame, tileToScreen, touchInput, buildShowcase } from './helpers.js';
+import { buildShowcase, buildingAt, cameraTarget, countBuildings, expect, gold, openGame, settingButton, tileToScreen, touchInput } from './helpers.js';
 
 // Runs with the Pixel 7 profile (touch, portrait 412×915).
 
 const pendingTile = (page) => page.evaluate(() => window.game.build.pending);
 
-test('defaults to the Low graphics preset and the HUD fits the screen', { tag: '@smoke' }, async ({ page }) => {
+test('defaults to the High graphics preset and the HUD fits the screen', { tag: '@smoke' }, async ({ page }) => {
   const errors = await openGame(page);
   const r = await page.evaluate(() => ({
     pixelRatio: window.game.renderer.renderer.getPixelRatio(),
@@ -14,8 +14,8 @@ test('defaults to the Low graphics preset and the HUD fits the screen', { tag: '
     topbarBottom: document.querySelector('.topbar').getBoundingClientRect().bottom,
     buttons: [...document.querySelectorAll('.build-btn')].map((b) => b.getBoundingClientRect().toJSON()),
   }));
-  expect(r.preset).toBe('low');
-  expect(r.pixelRatio).toBeLessThanOrEqual(0.75); // 'auto' starts at 75% on touch screens and adapts
+  expect(r.preset).toBe('high');
+  expect(r.pixelRatio).toBe(1.5); // High renders at 150% (under the Pixel 7's 2.6× screen)
   expect(r.overflowX).toBe(false);
   expect(r.topbarBottom).toBeLessThan(915 * 0.3);
   const vp = page.viewportSize();
@@ -164,6 +164,12 @@ test('the settings menu fits the phone screen and can be scrolled to Done', asyn
 
 test('frame rate: Low caps at 30 fps and uses automatic render scale', { tag: '@smoke' }, async ({ page }) => {
   await openGame(page, { paused: false, map: 'terrain' });
+  // The default High preset stays inside the draw-call budget on the terrain map too.
+  expect(await page.evaluate(() => window.game.renderer.renderer.info.render.calls)).toBeLessThanOrEqual(25);
+  await page.getByRole('button', { name: 'Settings' }).tap();
+  await settingButton(page, 'Preset', 'Low').tap();
+  await page.getByRole('button', { name: 'Done' }).tap();
+  await expect(page.locator('#settings')).toBeHidden();
   const r = await page.evaluate(
     () =>
       new Promise((resolve) => {

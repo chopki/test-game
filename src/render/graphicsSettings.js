@@ -95,14 +95,17 @@ export function stepDown(settings) {
   return i <= 0 ? null : withPreset(settings, PRESET_ORDER[i - 1]);
 }
 
-// Graphics always start on Low: no settings are remembered between visits, so a setting that made the GPU
-// crash can never be stuck on. The one exception is the settings menu's "Reload now" (needed to apply
+/** The preset every launch starts on (High works on current phones; a GPU crash steps it down live). */
+export const STARTUP_PRESET = 'high';
+
+// Graphics always start on STARTUP_PRESET: no settings are remembered between visits, so a setting that made the
+// GPU crash can never be stuck on. The one exception is the settings menu's "Reload now" (needed to apply
 // anti-aliasing): it carries the current settings through that single reload via sessionStorage.
 const RELOAD_KEY = 'hold-the-hall:graphics-for-reload';
 
-/** Settings for this launch: Low, or the settings carried over by "Reload now" (validated, used once). */
+/** Settings for this launch: STARTUP_PRESET, or the settings carried over by "Reload now" (validated, used once). */
 export function startupSettings(storage = safeSessionStorage()) {
-  const low = settingsForPreset('low');
+  const start = settingsForPreset(STARTUP_PRESET);
   let carried = null;
   try {
     carried = JSON.parse(storage?.getItem(RELOAD_KEY) ?? 'null');
@@ -110,8 +113,8 @@ export function startupSettings(storage = safeSessionStorage()) {
   } catch {
     carried = null;
   }
-  if (!carried || typeof carried !== 'object') return low;
-  const out = { ...low };
+  if (!carried || typeof carried !== 'object') return start;
+  const out = { ...start };
   for (const [key, options] of Object.entries(OPTIONS)) {
     if (options.some(([v]) => v === carried[key])) out[key] = carried[key];
   }
@@ -124,7 +127,7 @@ export function carrySettingsThroughReload(settings, storage = safeSessionStorag
   try {
     storage?.setItem(RELOAD_KEY, JSON.stringify(settings));
   } catch {
-    // Storage unavailable: the reload just starts on Low like any other launch.
+    // Storage unavailable: the reload just starts on STARTUP_PRESET like any other launch.
   }
 }
 

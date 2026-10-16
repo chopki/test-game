@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   OPTIONS,
   PRESETS,
+  STARTUP_PRESET,
   carrySettingsThroughReload,
   matchPreset,
   settingsForPreset,
@@ -25,9 +26,10 @@ describe('graphics settings', () => {
     }
   });
 
-  it('always starts on Low when nothing was carried over', () => {
-    expect(startupSettings(memoryStorage())).toMatchObject({ preset: 'low', ...PRESETS.low });
-    expect(startupSettings(null).preset).toBe('low');
+  it('always starts on High when nothing was carried over', () => {
+    expect(STARTUP_PRESET).toBe('high');
+    expect(startupSettings(memoryStorage())).toMatchObject({ preset: 'high', ...PRESETS.high });
+    expect(startupSettings(null).preset).toBe('high');
   });
 
   it('changing one setting makes it Custom; choosing a preset resets the values', () => {
@@ -52,20 +54,20 @@ describe('graphics settings', () => {
     expect(stepDown(withSetting(settingsForPreset('high'), 'fpsCap', 30)).preset).toBe('low'); // custom → Low
   });
 
-  it('carries settings through exactly one reload, then starts on Low again', () => {
+  it('carries settings through exactly one reload, then starts on High again', () => {
     const storage = memoryStorage();
-    carrySettingsThroughReload(withSetting(settingsForPreset('high'), 'fpsCap', 30), storage);
-    expect(startupSettings(storage)).toMatchObject({ preset: 'custom', fpsCap: 30, antialias: true });
-    expect(startupSettings(storage).preset).toBe('low'); // used up
+    carrySettingsThroughReload(withSetting(settingsForPreset('low'), 'fpsCap', 60), storage);
+    expect(startupSettings(storage)).toMatchObject({ preset: 'custom', fpsCap: 60, antialias: false });
+    expect(startupSettings(storage).preset).toBe('high'); // used up
   });
 
   it('ignores invalid carried-over values', () => {
     const bad = memoryStorage({ 'hold-the-hall:graphics-for-reload': JSON.stringify({ resolution: 7, scenery: 'ultra', fpsCap: 60 }) });
     const fixed = startupSettings(bad);
-    expect(fixed.resolution).toBe(PRESETS.low.resolution);
-    expect(fixed.scenery).toBe(PRESETS.low.scenery);
+    expect(fixed.resolution).toBe(PRESETS.high.resolution);
+    expect(fixed.scenery).toBe(PRESETS.high.scenery);
     expect(fixed.fpsCap).toBe(60);
     expect(matchPreset(fixed)).toBe(fixed.preset);
-    expect(startupSettings(memoryStorage({ 'hold-the-hall:graphics-for-reload': '{not json' })).preset).toBe('low');
+    expect(startupSettings(memoryStorage({ 'hold-the-hall:graphics-for-reload': '{not json' })).preset).toBe('high');
   });
 });

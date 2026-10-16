@@ -168,16 +168,15 @@ test('runtime errors are shown on screen instead of a blank page', async ({ page
   await expect(page.locator('#error-message')).toHaveText('simulated failure');
 });
 
-test('graphics start on Low, presets apply live, and the game pauses while the menu is open', async ({ page }) => {
+test('graphics start on High, presets apply live, and the game pauses while the menu is open', async ({ page }) => {
   await openGame(page, { paused: false });
-  expect(await graphicsState(page)).toMatchObject({ preset: 'low', scenery: 'low' });
+  expect(await graphicsState(page)).toMatchObject({ preset: 'high', resolution: 1.5, scenery: 'high' });
 
   await page.getByRole('button', { name: 'Settings' }).click();
   await expect(page.locator('#settings')).toBeVisible();
   expect(await page.evaluate(() => window.game.paused)).toBe(true);
+  await expect(settingButton(page, 'Preset', 'High')).toHaveClass(/active/);
 
-  await settingButton(page, 'Preset', 'High').click();
-  expect(await graphicsState(page)).toMatchObject({ preset: 'high', resolution: 1.5, scenery: 'high' });
   await settingButton(page, 'Preset', 'Low').click();
   expect(await graphicsState(page)).toMatchObject({ preset: 'low', fpsCap: 30, resolution: 'auto' });
   await expect(settingButton(page, 'Preset', 'Low')).toHaveClass(/active/);
@@ -194,14 +193,14 @@ test('graphics start on Low, presets apply live, and the game pauses while the m
 
 });
 
-test('settings are not remembered: a fresh load always starts on Low', async ({ page }) => {
+test('settings are not remembered: a fresh load always starts on High', async ({ page }) => {
   await openGame(page);
   await page.getByRole('button', { name: 'Settings' }).click();
-  await settingButton(page, 'Preset', 'High').click();
+  await settingButton(page, 'Preset', 'Low').click();
   await page.getByRole('button', { name: 'Done' }).click();
   await page.reload();
   await page.waitForFunction(() => window.game?.world);
-  expect((await graphicsState(page)).preset).toBe('low');
+  expect((await graphicsState(page)).preset).toBe('high');
 });
 
 test('overriding one setting marks the preset Custom; FPS counter and frame cap work', { tag: '@smoke' }, async ({ page }) => {
@@ -228,22 +227,22 @@ test('overriding one setting marks the preset Custom; FPS counter and frame cap 
 test('changing anti-aliasing offers a reload that keeps the chosen settings', async ({ page }) => {
   await openGame(page);
   await page.getByRole('button', { name: 'Settings' }).click();
-  await expect(page.locator('#settings-reload-note')).toBeHidden();
-  await settingButton(page, 'Anti-aliasing', 'On').click();
-  await expect(page.locator('#settings-reload-note')).toBeVisible();
+  await expect(page.locator('#settings-reload-note')).toBeHidden(); // starts on High, which has anti-aliasing
   await settingButton(page, 'Anti-aliasing', 'Off').click();
+  await expect(page.locator('#settings-reload-note')).toBeVisible();
+  await settingButton(page, 'Anti-aliasing', 'On').click();
   await expect(page.locator('#settings-reload-note')).toBeHidden();
 
-  await settingButton(page, 'Preset', 'High').click(); // High includes anti-aliasing
+  await settingButton(page, 'Preset', 'Low').click(); // Low has no anti-aliasing
   await expect(page.locator('#settings-reload-note')).toBeVisible();
   await page.getByRole('button', { name: 'Reload now' }).click();
   await page.waitForFunction(() => window.game?.world);
-  expect(await page.evaluate(() => window.game.graphics.preset)).toBe('high');
-  expect(await page.evaluate(() => window.game.renderer.renderer.getContextAttributes().antialias)).toBe(true);
-  // That carry-over was one-off: the next load is back to Low.
+  expect(await page.evaluate(() => window.game.graphics.preset)).toBe('low');
+  expect(await page.evaluate(() => window.game.renderer.renderer.getContextAttributes().antialias)).toBe(false);
+  // That carry-over was one-off: the next load is back to High.
   await page.reload();
   await page.waitForFunction(() => window.game?.world);
-  expect(await page.evaluate(() => window.game.graphics.preset)).toBe('low');
+  expect(await page.evaluate(() => window.game.graphics.preset)).toBe('high');
 });
 
 test('the Magic Spire and Catapult can be built with hotkeys 4 and 5', async ({ page }) => {
