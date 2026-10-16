@@ -74,6 +74,8 @@ Towers can be built **into a wall line**: the wall tiles under the tower are rep
 with an anchor post. Anything other than walls (another tower, the Town Hall) still blocks placement.
 Hovering a wall tile with a tower selected snaps it into the wall: across the middle of a straight run (the wall
 carries on from both sides), or onto a corner so both arms join it, preferring the side facing the Town Hall.
+Towers are 2 tiles wide and walls 1, so a tower in a wall is drawn half a tile towards it: the wall runs through
+its middle, and a corner tower sits right on the junction (its footprint for the rules doesn't change).
 
 | Building     | Size | Cost | HP   | Attack                                   | Notes |
 | ------------ | ---- | ---- | ---- | ---------------------------------------- | ----- |

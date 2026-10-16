@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { BUILDINGS } from '../sim/config.js';
+import { wallSeat } from '../render/wallSeat.js';
 import { createBuildingModel } from '../render/models.js';
 import { underlay } from '../render/Renderer.js';
 
@@ -419,7 +420,9 @@ export class BuildController {
     const cx = a.x + def.size / 2;
     const cz = a.z + def.size / 2;
     this.ghostMaterial.color.setHex(color);
-    this.game.renderer.toScene(cx, 0, cz, this.ghost.position);
+    // Preview the tower where it will be drawn: on the wall it's built into (see wallSeat.js).
+    const seat = wallSeat(this.world, this.mode, a.x, a.z);
+    this.game.renderer.toScene(cx + seat.dx, 0, cz + seat.dz, this.ghost.position);
     this.ghost.visible = true;
     this._showFootprint(cx, cz, def.size, color);
     if (def.attack) this._showRange(cx, cz, def.attack.range);

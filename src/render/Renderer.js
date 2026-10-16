@@ -6,6 +6,7 @@ import { createRng } from '../sim/rng.js';
 import { AUTO_RESOLUTION, GROUND_DETAIL, GROUND_PX, SCENERY_COUNT } from './graphicsSettings.js';
 import { OUTER_GROUND, outsideForest, paintTerrain } from './terrainPainter.js';
 import { cloudTexture } from './textures.js';
+import { wallSeat } from './wallSeat.js';
 import { createProjectileModel, SCENERY_VARIANTS } from './models.js';
 import { BlobShadowBatch, HealthBarBatch } from './batches.js';
 import { ISO_QUATERNION, isoDirection } from './iso.js';
@@ -553,7 +554,9 @@ export class Renderer {
   }
 
   _updateBuildingView(view, b) {
-    const ground = this.toScene(b.cx, 0, b.cz, this._v);
+    // Towers built into a wall are drawn on it (half a tile off their footprint centre; see wallSeat.js).
+    const seat = b.type === 'wall' ? { dx: 0, dz: 0 } : wallSeat(this.world, b.type, b.x, b.z);
+    const ground = this.toScene(b.cx + seat.dx, 0, b.cz + seat.dz, this._v);
     if (b.type === 'wall') {
       view.wallKey = this._wallConnections(b).key;
       this.sprites.add(spriteKeys.wall(view.wallKey), ground);
@@ -577,11 +580,15 @@ export class Renderer {
       this._drawWallJoints(b);
     }
     if (b.hp < b.maxHp || b.type === 'townHall') {
-      this.healthBars.add(this.toScene(b.cx, b.def.height + 0.6, b.cz, this._v), Math.min(2.4, 0.8 * b.size + 0.2), b.hp / b.maxHp);
+      this.healthBars.add(this.toScene(b.cx + seat.dx, b.def.height + 0.6, b.cz + seat.dz, this._v), Math.min(2.4, 0.8 * b.size + 0.2), b.hp / b.maxHp);
     }
   }
 
-  /** Where a wall touches this building, tie it in with a joint piece in the building's edge tile. */
+  /**
+   * Where a wall touches this building, tie it in with a joint piece (palisade arm and anchor post) in the
+   * building's edge tile. A tower drawn shifted onto its wall (wallSeat.js) only ever moves across those arms or
+   * away from them, so the post still lands on the tower's edge.
+   */
   _drawWallJoints(b) {
     const grid = this.world.grid;
     for (let i = 0; i < b.size; i++) {
