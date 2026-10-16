@@ -79,9 +79,9 @@ Open **⚙** in the top bar. The game pauses while the menu is open.
 
 | Preset | Render scale | Anti-aliasing | Shadows | Frame-rate cap | Scenery |
 | ------ | ------------ | ------------- | ------- | -------------- | ------- |
-| Low (phone/tablet default) | Auto | off | low (1024) | 30 fps | low |
+| Low (always used at startup) | Auto | off | low (1024) | 30 fps | low |
 | Medium | Auto | off | low (1024) | 60 fps | medium |
-| High (desktop default) | 150% | on | high (2048) | unlimited | high |
+| High | 150% | on | high (2048) | unlimited | high |
 
 **Auto** render scale adjusts itself (50%–150%, capped at the screen's pixel density) to hold the frame-rate
 cap: it drops as soon as frames slow down and creeps back up after a few smooth seconds. Shadows are cheap
@@ -91,7 +91,12 @@ The FPS counter also shows the current render scale.
 You can override any setting on top of a preset; the preset then shows as **Custom**. There are also toggles for
 effects and an FPS counter. Changes apply immediately, except anti-aliasing, which needs a reload. Render scale is
 capped at the screen's real pixel density. If the browser resets the graphics, the game automatically drops one
-preset (Custom goes to Low) and tells you. Settings are saved in the browser.
+preset (Custom goes to Low) and tells you.
+
+**The game always starts on Low**, on every device. Settings you change last until the game is closed or
+reloaded, but aren't remembered, so a setting that made the GPU crash can never get stuck on. The one exception
+is **Reload now** in the menu (needed to apply anti-aliasing): it keeps your current settings for that single
+reload.
 
 ## Documentation
 

@@ -63,17 +63,6 @@ export const SCENERY_COUNT = { off: 0, low: 60, medium: 120, high: 220 };
 /** Settings that only take effect when the WebGL context is created (i.e. after a reload). */
 export const RELOAD_REQUIRED = ['antialias'];
 
-const STORAGE_KEY = 'hold-the-hall:graphics';
-
-/** Phones and tablets get Low by default: their GPUs drop the WebGL context when overloaded. */
-export function defaultPreset(isTouch = detectTouch()) {
-  return isTouch ? 'low' : 'high';
-}
-
-function detectTouch() {
-  return typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
-}
-
 export function settingsForPreset(preset) {
   return { preset, ...PRESETS[preset], showFps: false };
 }
@@ -108,35 +97,42 @@ export function stepDown(settings) {
   return i <= 0 ? null : withPreset(settings, PRESET_ORDER[i - 1]);
 }
 
-/** Saved settings, validated against OPTIONS; falls back to the device default. */
-export function loadSettings(storage = safeStorage(), isTouch = detectTouch()) {
-  const fallback = settingsForPreset(defaultPreset(isTouch));
-  let saved;
+// Graphics always start on Low: no settings are remembered between visits, so a setting that made the GPU
+// crash can never be stuck on. The one exception is the settings menu's "Reload now" (needed to apply
+// anti-aliasing): it carries the current settings through that single reload via sessionStorage.
+const RELOAD_KEY = 'hold-the-hall:graphics-for-reload';
+
+/** Settings for this launch: Low, or the settings carried over by "Reload now" (validated, used once). */
+export function startupSettings(storage = safeSessionStorage()) {
+  const low = settingsForPreset('low');
+  let carried = null;
   try {
-    saved = JSON.parse(storage?.getItem(STORAGE_KEY) ?? 'null');
+    carried = JSON.parse(storage?.getItem(RELOAD_KEY) ?? 'null');
+    storage?.removeItem(RELOAD_KEY);
   } catch {
-    saved = null;
+    carried = null;
   }
-  if (!saved || typeof saved !== 'object') return fallback;
-  const out = { ...fallback };
+  if (!carried || typeof carried !== 'object') return low;
+  const out = { ...low };
   for (const [key, options] of Object.entries(OPTIONS)) {
-    if (options.some(([v]) => v === saved[key])) out[key] = saved[key];
+    if (options.some(([v]) => v === carried[key])) out[key] = carried[key];
   }
   out.preset = matchPreset(out);
   return out;
 }
 
-export function saveSettings(settings, storage = safeStorage()) {
+/** Keep `settings` for the next page load only (the settings menu's "Reload now"). */
+export function carrySettingsThroughReload(settings, storage = safeSessionStorage()) {
   try {
-    storage?.setItem(STORAGE_KEY, JSON.stringify(settings));
+    storage?.setItem(RELOAD_KEY, JSON.stringify(settings));
   } catch {
-    // Storage unavailable (private mode etc.): settings just won't persist.
+    // Storage unavailable: the reload just starts on Low like any other launch.
   }
 }
 
-function safeStorage() {
+function safeSessionStorage() {
   try {
-    return typeof localStorage === 'undefined' ? null : localStorage;
+    return typeof sessionStorage === 'undefined' ? null : sessionStorage;
   } catch {
     return null;
   }

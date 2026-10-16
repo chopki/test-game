@@ -65,11 +65,13 @@ including the Town Hall.
 
 - `Renderer.js`: scene, lights, terrain, `MapControls` camera, entity view sync, health bars, burst effects,
   ground picking (`pickGround` → sim coords).
-- `graphicsSettings.js`: graphics presets (Low/Medium/High), per-setting options, saving to `localStorage`, and
-  `stepDown()` for after a GPU crash. It has no three.js dependency and is unit-tested in `test/graphics.test.js`.
-  `Renderer.applySettings()` applies everything live except anti-aliasing, which is fixed when the WebGL context is
-  created. The frame-rate cap is enforced in `Game._frame`, and the menu is `ui/SettingsMenu.js`. Touch devices
-  default to Low; when the context is lost, `Game` drops one preset automatically.
+- `graphicsSettings.js`: graphics presets (Low/Medium/High), per-setting options, `startupSettings()` and
+  `stepDown()` for after a GPU crash. Every launch starts on Low and nothing is remembered between visits; the
+  menu's "Reload now" carries the current settings through that one reload via `sessionStorage`. It has no
+  three.js dependency and is unit-tested in `test/graphics.test.js`. `Renderer.applySettings()` applies everything
+  live except anti-aliasing, which is fixed when the WebGL context is created. The frame-rate cap is enforced in
+  `Game._frame`, and the menu is `ui/SettingsMenu.js`. When the context is lost, `Game` drops one preset
+  automatically.
 - `models.js`: procedural low-poly models. Each model is assembled from primitives with a `Parts` helper, which
   merges them into one mesh per material, so a detailed building costs only 2–4 draw calls. Animated parts
   (`userData.turret`, `flag`, `arm`/`ammo` on the catapult, `crystal` on the spire) stay separate. Walls take

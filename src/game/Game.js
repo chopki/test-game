@@ -3,7 +3,7 @@ import { World } from '../sim/World.js';
 import { Renderer } from '../render/Renderer.js';
 import { HUD } from '../ui/HUD.js';
 import { SettingsMenu } from '../ui/SettingsMenu.js';
-import { AUTO_RESOLUTION, loadSettings, saveSettings, stepDown } from '../render/graphicsSettings.js';
+import { AUTO_RESOLUTION, startupSettings, stepDown } from '../render/graphicsSettings.js';
 import { DynamicResolution } from '../render/dynamicResolution.js';
 import { BuildController } from './BuildController.js';
 
@@ -14,7 +14,7 @@ const BEST_KEY = 'hold-the-hall:best-wave';
 /** Wires the simulation, renderer, input and HUD together and runs the main loop. */
 export class Game {
   constructor(container) {
-    this.graphics = loadSettings();
+    this.graphics = startupSettings(); // always Low on a fresh start (see graphicsSettings.js)
     // Settings fixed when the WebGL context was created (anti-aliasing); used to flag "reload to apply".
     this.startupGraphics = { ...this.graphics };
     this.renderer = new Renderer(container, this.graphics);
@@ -72,10 +72,9 @@ export class Game {
     this.hud.setSpeed(this.speed);
   }
 
-  /** Apply and save new graphics settings (see render/graphicsSettings.js). */
+  /** Apply new graphics settings for this session (they aren't remembered; see graphicsSettings.js). */
   setGraphics(settings) {
     this.graphics = settings;
-    saveSettings(settings);
     this.renderer.applySettings(settings);
     this._syncDynamicResolution();
     this.hud.setFpsVisible(settings.showFps);

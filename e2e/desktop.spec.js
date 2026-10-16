@@ -116,13 +116,17 @@ test('starting a wave spawns enemies', async ({ page }) => {
 
 test('a GPU context loss pauses the game and it recovers', async ({ page }) => {
   await openGame(page, { paused: false });
+  // Switch up to High first, so there's a preset to step down from.
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await settingButton(page, 'Preset', 'High').click();
+  await page.getByRole('button', { name: 'Done' }).click();
   await page.evaluate(() => {
     window.__lose = window.game.renderer.renderer.getContext().getExtension('WEBGL_lose_context');
     window.__lose.loseContext();
   });
   await expect(page.locator('#error')).toBeVisible();
   await expect(page.locator('#error-title')).toHaveText('Graphics were reset by your browser');
-  // Desktop starts on High; the crash drops it one step to Medium.
+  // The crash drops High one step to Medium.
   await expect(page.locator('#error-message')).toContainText('lowered to Medium');
   expect((await graphicsState(page)).preset).toBe('medium');
   const timer = await page.evaluate(() => window.game.world.phaseTimer);
@@ -144,14 +148,16 @@ test('runtime errors are shown on screen instead of a blank page', async ({ page
   await expect(page.locator('#error-message')).toHaveText('simulated failure');
 });
 
-test('graphics presets apply live, persist across reloads, and pause the game while open', async ({ page }) => {
+test('graphics start on Low, presets apply live, and the game pauses while the menu is open', async ({ page }) => {
   await openGame(page, { paused: false });
-  expect(await graphicsState(page)).toMatchObject({ preset: 'high', shadowsOn: true, shadowSize: 2048 });
+  expect(await graphicsState(page)).toMatchObject({ preset: 'low', shadowsOn: true, shadowSize: 1024 });
 
   await page.getByRole('button', { name: 'Settings' }).click();
   await expect(page.locator('#settings')).toBeVisible();
   expect(await page.evaluate(() => window.game.paused)).toBe(true);
 
+  await settingButton(page, 'Preset', 'High').click();
+  expect(await graphicsState(page)).toMatchObject({ preset: 'high', resolution: 1.5, shadowsOn: true, shadowSize: 2048 });
   await settingButton(page, 'Preset', 'Low').click();
   expect(await graphicsState(page)).toMatchObject({ preset: 'low', fpsCap: 30, resolution: 'auto', shadowsOn: true, shadowSize: 1024 });
   await expect(settingButton(page, 'Preset', 'Low')).toHaveClass(/active/);
@@ -166,17 +172,26 @@ test('graphics presets apply live, persist across reloads, and pause the game wh
   await expect(page.locator('#settings')).toBeHidden();
   expect(await page.evaluate(() => window.game.paused)).toBe(false);
 
+});
+
+test('settings are not remembered: a fresh load always starts on Low', async ({ page }) => {
+  await openGame(page);
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await settingButton(page, 'Preset', 'High').click();
+  await page.getByRole('button', { name: 'Done' }).click();
   await page.reload();
   await page.waitForFunction(() => window.game?.world);
-  expect(await graphicsState(page)).toMatchObject({ preset: 'low', shadowsOn: true });
+  expect((await graphicsState(page)).preset).toBe('low');
 });
 
 test('overriding one setting marks the preset Custom; FPS counter and frame cap work', async ({ page }) => {
   await openGame(page);
   await page.getByRole('button', { name: 'Settings' }).click();
-  await settingButton(page, 'Shadows', 'Low').click();
+  await settingButton(page, 'Shadows', 'High').click();
   await expect(page.locator('.custom-tag')).toBeVisible();
-  expect(await graphicsState(page)).toMatchObject({ preset: 'custom', shadowsOn: true, shadowSize: 1024 });
+  expect(await graphicsState(page)).toMatchObject({ preset: 'custom', shadowsOn: true, shadowSize: 2048 });
+  await settingButton(page, 'Shadows', 'Off').click();
+  expect(await graphicsState(page)).toMatchObject({ preset: 'custom', shadowsOn: false });
 
   await settingButton(page, 'Scenery', 'Off').click();
   expect((await graphicsState(page)).sceneryParts).toBe(0);
@@ -192,14 +207,25 @@ test('overriding one setting marks the preset Custom; FPS counter and frame cap 
   expect(await page.evaluate(() => window.game.fps)).toBeLessThanOrEqual(32);
 });
 
-test('changing anti-aliasing offers a reload', async ({ page }) => {
+test('changing anti-aliasing offers a reload that keeps the chosen settings', async ({ page }) => {
   await openGame(page);
   await page.getByRole('button', { name: 'Settings' }).click();
   await expect(page.locator('#settings-reload-note')).toBeHidden();
-  await settingButton(page, 'Anti-aliasing', 'Off').click();
-  await expect(page.locator('#settings-reload-note')).toBeVisible();
   await settingButton(page, 'Anti-aliasing', 'On').click();
+  await expect(page.locator('#settings-reload-note')).toBeVisible();
+  await settingButton(page, 'Anti-aliasing', 'Off').click();
   await expect(page.locator('#settings-reload-note')).toBeHidden();
+
+  await settingButton(page, 'Preset', 'High').click(); // High includes anti-aliasing
+  await expect(page.locator('#settings-reload-note')).toBeVisible();
+  await page.getByRole('button', { name: 'Reload now' }).click();
+  await page.waitForFunction(() => window.game?.world);
+  expect(await page.evaluate(() => window.game.graphics.preset)).toBe('high');
+  expect(await page.evaluate(() => window.game.renderer.renderer.getContextAttributes().antialias)).toBe(true);
+  // That carry-over was one-off: the next load is back to Low.
+  await page.reload();
+  await page.waitForFunction(() => window.game?.world);
+  expect(await page.evaluate(() => window.game.graphics.preset)).toBe('low');
 });
 
 test('the Magic Spire and Catapult can be built with hotkeys 4 and 5', async ({ page }) => {

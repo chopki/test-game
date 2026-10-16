@@ -1,4 +1,4 @@
-import { OPTIONS, PRESET_ORDER, RELOAD_REQUIRED, withPreset, withSetting } from '../render/graphicsSettings.js';
+import { carrySettingsThroughReload, OPTIONS, PRESET_ORDER, RELOAD_REQUIRED, withPreset, withSetting } from '../render/graphicsSettings.js';
 import { onPress } from './press.js';
 
 const $ = (id) => document.getElementById(id);
@@ -30,7 +30,12 @@ export class SettingsMenu {
     this.customTag = document.createElement('span');
     this.customTag.className = 'custom-tag';
     this.customTag.textContent = 'Custom';
-    this.body.appendChild(this._row('Preset', 'Low is safest on phones; High looks best on desktops.', [...this.presetButtons, this.customTag]));
+    this.body.appendChild(
+      this._row('Preset', 'The game always starts on Low. High looks best on desktops; changes last until you close the game.', [
+        ...this.presetButtons,
+        this.customTag,
+      ]),
+    );
 
     this.optionButtons = {};
     for (const [key, label, help] of ROWS) {
@@ -42,7 +47,10 @@ export class SettingsMenu {
 
     onPress($('settings-btn'), () => this.open());
     onPress($('settings-close'), () => this.close());
-    onPress($('settings-reload'), () => location.reload());
+    onPress($('settings-reload'), () => {
+      carrySettingsThroughReload(this.game.graphics);
+      location.reload();
+    });
     // Tapping the dark backdrop closes the menu. The grace period ignores the click a touch on ⚙
     // can still generate after the menu has already opened under the finger.
     this.el.addEventListener('click', (e) => {

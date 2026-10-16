@@ -2,10 +2,10 @@ import { describe, expect, it } from 'vitest';
 import {
   OPTIONS,
   PRESETS,
-  loadSettings,
+  carrySettingsThroughReload,
   matchPreset,
-  saveSettings,
   settingsForPreset,
+  startupSettings,
   stepDown,
   withPreset,
   withSetting,
@@ -13,7 +13,7 @@ import {
 
 function memoryStorage(initial = {}) {
   const data = { ...initial };
-  return { getItem: (k) => data[k] ?? null, setItem: (k, v) => (data[k] = v), data };
+  return { getItem: (k) => data[k] ?? null, setItem: (k, v) => (data[k] = v), removeItem: (k) => delete data[k], data };
 }
 
 describe('graphics settings', () => {
@@ -25,9 +25,9 @@ describe('graphics settings', () => {
     }
   });
 
-  it('defaults to Low on touch devices and High otherwise', () => {
-    expect(loadSettings(memoryStorage(), true).preset).toBe('low');
-    expect(loadSettings(memoryStorage(), false).preset).toBe('high');
+  it('always starts on Low when nothing was carried over', () => {
+    expect(startupSettings(memoryStorage())).toMatchObject({ preset: 'low', ...PRESETS.low });
+    expect(startupSettings(null).preset).toBe('low');
   });
 
   it('changing one setting makes it Custom; choosing a preset resets the values', () => {
@@ -52,20 +52,20 @@ describe('graphics settings', () => {
     expect(stepDown(withSetting(settingsForPreset('high'), 'fpsCap', 30)).preset).toBe('low'); // custom → Low
   });
 
-  it('round-trips through storage and ignores invalid saved values', () => {
+  it('carries settings through exactly one reload, then starts on Low again', () => {
     const storage = memoryStorage();
-    saveSettings(withSetting(settingsForPreset('medium'), 'fpsCap', 30), storage);
-    const loaded = loadSettings(storage, false);
-    expect(loaded).toMatchObject({ preset: 'custom', fpsCap: 30, shadows: 'low' });
+    carrySettingsThroughReload(withSetting(settingsForPreset('high'), 'fpsCap', 30), storage);
+    expect(startupSettings(storage)).toMatchObject({ preset: 'custom', fpsCap: 30, antialias: true });
+    expect(startupSettings(storage).preset).toBe('low'); // used up
+  });
 
-    const bad = memoryStorage({ 'hold-the-hall:graphics': JSON.stringify({ resolution: 7, shadows: 'ultra', fpsCap: 60 }) });
-    // (Low uses 'auto' resolution and low shadows, so the invalid values fall back to those.)
-    const fixed = loadSettings(bad, true);
-    expect(fixed.resolution).toBe(PRESETS.low.resolution); // 7 isn't an option
+  it('ignores invalid carried-over values', () => {
+    const bad = memoryStorage({ 'hold-the-hall:graphics-for-reload': JSON.stringify({ resolution: 7, shadows: 'ultra', fpsCap: 60 }) });
+    const fixed = startupSettings(bad);
+    expect(fixed.resolution).toBe(PRESETS.low.resolution);
     expect(fixed.shadows).toBe(PRESETS.low.shadows);
     expect(fixed.fpsCap).toBe(60);
     expect(matchPreset(fixed)).toBe(fixed.preset);
-
-    expect(loadSettings(memoryStorage({ 'hold-the-hall:graphics': '{not json' }), true).preset).toBe('low');
+    expect(startupSettings(memoryStorage({ 'hold-the-hall:graphics-for-reload': '{not json' })).preset).toBe('low');
   });
 });
