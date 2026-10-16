@@ -1,5 +1,5 @@
 import { test } from '@playwright/test';
-import { buildingAt, countBuildings, expect, gold, graphicsState, openGame, settingButton, tileToScreen } from './helpers.js';
+import { buildingAt, countBuildings, expect, gold, graphicsState, openGame, settingButton, tileToScreen, buildShowcase } from './helpers.js';
 
 // The Town Hall covers tiles 18–20 on both axes; tiles inside 2..37 are buildable.
 
@@ -309,4 +309,10 @@ test('draw calls stay flat as walls and enemies are added (instancing)', { tag: 
   // Enemies are sprites on the same atlas pages as walls; health bars and blob shadows add 3 batches.
   expect(await calls()).toBeLessThanOrEqual(withSomeWalls + 6);
   expect(await calls()).toBeLessThanOrEqual(25); // the whole battlefield in a couple of dozen draw calls
+});
+
+test('showcase: a walled base with every tower and enemy renders without errors (screenshot attached)', async ({ page }, testInfo) => {
+  const errors = await openGame(page);
+  await buildShowcase(page, testInfo, 'showcase-desktop');
+  expect(errors).toEqual([]);
 });

@@ -173,3 +173,35 @@ export function dirtTexture() {
     }
   });
 }
+
+/** Fine speckled stone for individual blocks (the mortar is real geometry between blocks). */
+export function speckleTexture(base = '#c9a679', amount = 0.1) {
+  return make(`speckle:${base}:${amount}`, 64, (ctx, s, rnd) => {
+    ctx.fillStyle = base;
+    ctx.fillRect(0, 0, s, s);
+    for (let i = 0; i < 260; i++) {
+      ctx.fillStyle = shade(base, (rnd() - 0.5) * amount * 2);
+      const r = 0.6 + rnd() * 1.8;
+      ctx.fillRect(rnd() * s, rnd() * s, r, r);
+    }
+    // A couple of soft chips and stains.
+    for (let i = 0; i < 4; i++) {
+      ctx.fillStyle = `rgba(60,40,20,${0.05 + rnd() * 0.06})`;
+      ctx.beginPath();
+      ctx.arc(rnd() * s, rnd() * s, 3 + rnd() * 6, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  });
+}
+
+/** Lime plaster with faint trowel marks. */
+export function plasterTexture(base = '#ecdfc2') {
+  return make(`plaster:${base}`, 64, (ctx, s, rnd) => {
+    ctx.fillStyle = base;
+    ctx.fillRect(0, 0, s, s);
+    for (let i = 0; i < 30; i++) {
+      ctx.fillStyle = shade(base, (rnd() - 0.5) * 0.06);
+      ctx.fillRect(rnd() * s, rnd() * s, 6 + rnd() * 12, 2 + rnd() * 3);
+    }
+  });
+}

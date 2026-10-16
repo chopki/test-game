@@ -1,261 +1,108 @@
 import * as THREE from 'three';
-import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { roofTexture, stoneTexture, timberTexture, woodTexture } from './textures.js';
+import {
+  GREYSTONE,
+  MATERIALS,
+  Parts,
+  SANDSTONE,
+  SLATE,
+  banner,
+  barrel,
+  box,
+  capsule,
+  cone,
+  crate,
+  cyl,
+  dodeca,
+  door,
+  groundDressing,
+  ico,
+  merlonsRect,
+  merlonsRing,
+  octa,
+  pennant,
+  place,
+  rng,
+  shingleCone,
+  shingleGable,
+  sphere,
+  std,
+  stoneBlocks,
+  stoneRing,
+  timberFace,
+  torus,
+  wheel,
+  windowFrame,
+} from './modelKit.js';
 
-// Procedural low-poly models in a warm "storybook medieval" style: sandstone, red clay roofs,
-// timber and plaster. Every model is assembled from primitives and then merged into one mesh per
-// material (see Parts), so detailed buildings still cost only a few draw calls. Parts that animate
-// (turrets, flags, the catapult arm, the spire crystal) stay separate and are exposed on userData.
-
-// ------------------------------------------------------------------ materials
-
-const std = (opts) => new THREE.MeshStandardMaterial({ roughness: 0.9, metalness: 0, ...opts });
-
-export const MATERIALS = {
-  stone: std({ map: stoneTexture() }),
-  stoneDark: std({ map: stoneTexture('#a98a63') }),
-  stoneGrey: std({ map: stoneTexture('#a7a399') }),
-  roof: std({ map: roofTexture() }),
-  wood: std({ map: woodTexture() }),
-  woodDark: std({ map: woodTexture('#5f3d23') }),
-  timber: std({ map: timberTexture() }),
-  opening: std({ color: 0x2b1d14 }),
-  iron: std({ color: 0x34343a, metalness: 0.6, roughness: 0.45 }),
-  gold: std({ color: 0xd8b545, metalness: 0.5, roughness: 0.4 }),
-  bannerRed: std({ color: 0xb3322b, side: THREE.DoubleSide }),
-  bannerBlue: std({ color: 0x2f5d9e, side: THREE.DoubleSide }),
-  crystal: std({ color: 0xc58cff, emissive: 0x8a3dff, emissiveIntensity: 1.2, roughness: 0.3 }),
-  rune: std({ color: 0x9b6bff, emissive: 0x7a3dff, emissiveIntensity: 0.9 }),
-  rope: std({ color: 0xb59a6a }),
-  // Creatures
-  goblinSkin: std({ color: 0x7fae4a }),
-  orcSkin: std({ color: 0x6a8a4a }),
-  trollSkin: std({ color: 0x7d8a92 }),
-  leather: std({ color: 0x7b5233 }),
-  cloth: std({ color: 0x9a3b2a }),
-  hood: std({ color: 0x5d4a2e }),
-  eyes: std({ color: 0xffd23f, emissive: 0xffb000, emissiveIntensity: 0.6 }),
-  boulder: std({ color: 0x9a948a }),
-  cannonball: std({ color: 0x1d1d1f, metalness: 0.5, roughness: 0.5 }),
-};
-
-// ------------------------------------------------------------------ geometry with world-scaled UVs
-// Textures tile once per world unit, so UVs are scaled to each primitive's real size.
-
-const geoCache = new Map();
-function cached(key, make) {
-  if (!geoCache.has(key)) geoCache.set(key, make());
-  return geoCache.get(key);
-}
-
-function scaleUVs(geometry, fn) {
-  const uv = geometry.attributes.uv;
-  const n = geometry.attributes.normal;
-  for (let i = 0; i < uv.count; i++) {
-    const [su, sv] = fn(n.getX(i), n.getY(i), n.getZ(i));
-    uv.setXY(i, uv.getX(i) * su, uv.getY(i) * sv);
-  }
-  return geometry;
-}
-
-export function box(w, h, d) {
-  return cached(`box:${w}:${h}:${d}`, () =>
-    scaleUVs(new THREE.BoxGeometry(w, h, d), (nx, ny) => (Math.abs(nx) > 0.5 ? [d, h] : Math.abs(ny) > 0.5 ? [w, d] : [w, h])),
-  );
-}
-
-function cyl(rt, rb, h, seg = 8) {
-  const r = Math.max(rt, rb);
-  return cached(`cyl:${rt}:${rb}:${h}:${seg}`, () =>
-    scaleUVs(new THREE.CylinderGeometry(rt, rb, h, seg), (nx, ny) =>
-      Math.abs(ny) > 0.99 ? [2 * r, 2 * r] : [2 * Math.PI * r, Math.hypot(h, rb - rt)],
-    ),
-  );
-}
-
-function cone(r, h, seg = 8) {
-  return cached(`cone:${r}:${h}:${seg}`, () =>
-    scaleUVs(new THREE.ConeGeometry(r, h, seg), (nx, ny) => (Math.abs(ny) > 0.99 ? [2 * r, 2 * r] : [2 * Math.PI * r, Math.hypot(r, h)])),
-  );
-}
-
-const sphere = (r, w = 10, h = 8) => cached(`sphere:${r}:${w}:${h}`, () => new THREE.SphereGeometry(r, w, h));
-const ico = (r, detail = 0) => cached(`ico:${r}:${detail}`, () => new THREE.IcosahedronGeometry(r, detail));
-const dodeca = (r) => cached(`dodeca:${r}`, () => new THREE.DodecahedronGeometry(r, 0));
-const octa = (r) => cached(`octa:${r}`, () => new THREE.OctahedronGeometry(r, 0));
-const capsule = (r, l) => cached(`capsule:${r}:${l}`, () => new THREE.CapsuleGeometry(r, l, 3, 8));
-
-/**
- * Gabled roof along x: { slopes, ends } geometries. `length` × `width` footprint, ridge `height` above
- * the eaves. Slopes take the roof material; the triangular gable ends take a wall material.
- */
-function gable(length, width, height) {
-  return cached(`gable:${length}:${width}:${height}`, () => {
-    const L = length / 2;
-    const W = width / 2;
-    const slope = Math.hypot(W, height);
-    const quad = (a, b, c, d, uvs) => ({ pos: [...a, ...b, ...c, ...a, ...c, ...d], uv: [...uvs[0], ...uvs[1], ...uvs[2], ...uvs[0], ...uvs[2], ...uvs[3]] });
-    const front = quad([-L, 0, W], [L, 0, W], [L, height, 0], [-L, height, 0], [[0, 0], [length, 0], [length, slope], [0, slope]]);
-    const back = quad([L, 0, -W], [-L, 0, -W], [-L, height, 0], [L, height, 0], [[0, 0], [length, 0], [length, slope], [0, slope]]);
-    const slopes = new THREE.BufferGeometry();
-    slopes.setAttribute('position', new THREE.Float32BufferAttribute([...front.pos, ...back.pos], 3));
-    slopes.setAttribute('uv', new THREE.Float32BufferAttribute([...front.uv, ...back.uv], 2));
-    slopes.computeVertexNormals();
-    const ends = new THREE.BufferGeometry();
-    ends.setAttribute('position', new THREE.Float32BufferAttribute([L, 0, W, L, 0, -W, L, height, 0, -L, 0, -W, -L, 0, W, -L, height, 0], 3));
-    ends.setAttribute('uv', new THREE.Float32BufferAttribute([0, 0, width, 0, W, height, 0, 0, width, 0, W, height], 2));
-    ends.computeVertexNormals();
-    return { slopes, ends };
-  });
-}
-
-// ------------------------------------------------------------------ merging
-
-const tmpMatrix = new THREE.Matrix4();
-const tmpQuat = new THREE.Quaternion();
-const tmpEuler = new THREE.Euler();
-
-// ------------------------------------------------------------------ material variants
-
-const shadedVariants = new Map();
-/** The same material with vertex colours on (for the baked height shading below). */
-function shaded(material) {
-  if (!shadedVariants.has(material)) {
-    const m = material.clone();
-    m.vertexColors = true;
-    shadedVariants.set(material, m);
-  }
-  return shadedVariants.get(material);
-}
-
-// ------------------------------------------------------------------ merging
-
-/**
- * Collects transformed primitives and merges them into one mesh per material.
- *
- * Baked shading: each vertex gets a colour that darkens towards the ground (a cheap stand-in for ambient
- * occlusion), so buildings and creatures look grounded and modelled at no per-frame cost. `yOffset` is how
- * high the finished group will sit above the ground, so parts mounted higher up (turrets, arms) shade correctly.
- */
-class Parts {
-  constructor({ yOffset = 0, shade = true } = {}) {
-    this.byMaterial = new Map();
-    this.yOffset = yOffset;
-    this.shade = shade;
-  }
-
-  add(geometry, material, { x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0, sx = 1, sy = 1, sz = 1 } = {}) {
-    let g = geometry.index ? geometry.toNonIndexed() : geometry.clone();
-    for (const name of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(name)) g.deleteAttribute(name);
-    if (!g.attributes.uv) g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2));
-    tmpQuat.setFromEuler(tmpEuler.set(rx, ry, rz));
-    g.applyMatrix4(tmpMatrix.compose(new THREE.Vector3(x, y, z), tmpQuat, new THREE.Vector3(sx, sy, sz)));
-    if (this.shade) {
-      const pos = g.attributes.position;
-      const colors = new Float32Array(pos.count * 3);
-      for (let i = 0; i < pos.count; i++) {
-        const k = 0.58 + 0.42 * THREE.MathUtils.smoothstep(pos.getY(i) + this.yOffset, 0, 1.1);
-        colors[i * 3] = colors[i * 3 + 1] = colors[i * 3 + 2] = k;
-      }
-      g.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-    }
-    if (!this.byMaterial.has(material)) this.byMaterial.set(material, []);
-    this.byMaterial.get(material).push(g);
-    return this;
-  }
-
-  /** Merge into `group` (or a new Group). */
-  build(group = new THREE.Group()) {
-    for (const [material, geometries] of this.byMaterial) {
-      const mesh = new THREE.Mesh(mergeGeometries(geometries), this.shade ? shaded(material) : material);
-      mesh.castShadow = true;
-      mesh.receiveShadow = true;
-      group.add(mesh);
-    }
-    return group;
-  }
-}
-
-/** Merlons around a w × d rectangle at height y (top of the parapet). */
-function merlonsRect(p, material, w, d, y, size = 0.16, spacing = 0.3) {
-  const along = (len) => {
-    const n = Math.max(2, Math.round(len / spacing));
-    return Array.from({ length: n }, (_, i) => -len / 2 + size / 2 + (i * (len - size)) / (n - 1));
-  };
-  for (const x of along(w)) {
-    p.add(box(size, size * 1.3, size), material, { x, y: y + size * 0.65, z: d / 2 - size / 2 });
-    p.add(box(size, size * 1.3, size), material, { x, y: y + size * 0.65, z: -d / 2 + size / 2 });
-  }
-  for (const z of along(d).slice(1, -1)) {
-    p.add(box(size, size * 1.3, size), material, { x: w / 2 - size / 2, y: y + size * 0.65, z });
-    p.add(box(size, size * 1.3, size), material, { x: -w / 2 + size / 2, y: y + size * 0.65, z });
-  }
-}
-
-function merlonsRing(p, material, r, y, count, size = 0.16) {
-  for (let i = 0; i < count; i++) {
-    const a = (i / count) * Math.PI * 2;
-    p.add(box(size, size * 1.3, size), material, { x: Math.cos(a) * r, y: y + size * 0.65, z: Math.sin(a) * r, ry: -a });
-  }
-}
-
-function flag(material, width = 0.5, height = 0.3) {
-  const f = new THREE.Mesh(cached(`flag:${width}:${height}`, () => new THREE.PlaneGeometry(width, height).translate(width / 2, 0, 0)), material);
-  f.castShadow = true;
-  return f;
-}
+// The game's models, built after docs/reference/art-style.jpg: block-laid sandstone, red clay shingles, timber
+// framing and plaster, chunky crenellations, round leafy trees, green goblins and orcs, grey trolls.
+//
+// These are only rendered when sprites are baked (see spriteBaker.js), so they can be as detailed as needed.
+// Parts that move in game (turrets, the catapult arm, the spire crystal) are exposed on userData and baked
+// separately in their poses. +z and +x are the faces the iso camera sees, so most detail goes there.
 
 // ------------------------------------------------------------------ buildings
 
 function townHall() {
   const M = MATERIALS;
   const p = new Parts();
-  // Plinth and stone ground floor.
-  p.add(box(2.9, 0.22, 2.9), M.stoneDark, { y: 0.11 });
-  p.add(box(2.3, 1.1, 1.7), M.stone, { y: 0.77, z: 0.1 });
-  // Half-timbered upper floor, jettied out a little.
-  p.add(box(2.45, 0.85, 1.85), M.timber, { y: 1.75, z: 0.1 });
-  p.add(box(2.5, 0.08, 1.9), M.woodDark, { y: 1.33, z: 0.1 });
-  const main = gable(2.75, 2.15, 1.15);
-  p.add(main.slopes, M.roof, { y: 2.17, z: 0.1 });
-  p.add(main.ends, M.timber, { y: 2.17, z: 0.1 });
-  // Front cross-gable over the entrance.
-  p.add(box(0.95, 0.85, 0.7), M.timber, { y: 1.75, z: 1.15 });
-  const front = gable(1.0, 1.05, 0.75);
-  p.add(front.slopes, M.roof, { y: 2.17, z: 1.2, ry: Math.PI / 2 });
-  p.add(front.ends, M.timber, { y: 2.17, z: 1.2, ry: Math.PI / 2 });
-  // Door, windows, chimney.
-  p.add(box(0.5, 0.72, 0.06), M.woodDark, { y: 0.58, z: 0.96 });
-  p.add(cyl(0.25, 0.25, 0.06, 10), M.woodDark, { y: 0.94, z: 0.96, rx: Math.PI / 2 });
-  for (const x of [-0.75, 0.75]) p.add(box(0.26, 0.34, 0.05), M.opening, { x, y: 0.85, z: 0.96 });
-  for (const x of [-0.85, -0.35, 0.35, 0.85]) p.add(box(0.2, 0.3, 0.05), M.opening, { x, y: 1.8, z: 1.04 });
-  p.add(box(0.28, 0.9, 0.28), M.stoneDark, { x: 0.7, y: 2.85, z: -0.35 });
-  // Round corner tower with a pointed roof.
-  p.add(cyl(0.45, 0.5, 3.0, 10), M.stone, { x: -1.05, y: 1.5, z: -0.85 });
-  p.add(cone(0.62, 1.15, 10), M.roof, { x: -1.05, y: 3.58, z: -0.85 });
-  p.add(box(0.12, 0.3, 0.05), M.opening, { x: -1.05, y: 2.4, z: -0.39 });
-  // Small watch turret on the front right corner.
-  p.add(cyl(0.28, 0.3, 2.0, 8), M.stone, { x: 1.15, y: 1.0, z: 0.95 });
-  p.add(cone(0.4, 0.75, 8), M.roof, { x: 1.15, y: 2.38, z: 0.95 });
-  // Flagpole.
-  p.add(cyl(0.03, 0.03, 1.0, 6), M.woodDark, { x: -1.05, y: 4.6, z: -0.85 });
-  const g = p.build();
-  const f = flag(M.bannerRed, 0.55, 0.32);
-  f.position.set(-1.05, 4.9, -0.85);
-  g.add(f);
-  g.userData.flag = f;
-  return g;
+  const rnd = rng(11);
+  // Flagstone platform and front steps.
+  stoneBlocks(p, { w: 2.92, h: 0.2, d: 2.92, rows: 1, rnd, minBlock: 0.36, maxBlock: 0.62 });
+  stoneBlocks(p, { y: 0.2, z: 1.06, w: 0.8, h: 0.1, d: 0.28, rows: 1, rnd });
+  // Stone ground floor.
+  stoneBlocks(p, { y: 0.2, z: 0.1, w: 2.2, h: 1.0, d: 1.6, rows: 5, rnd });
+  // Jettied, half-timbered upper floor.
+  p.add(box(2.48, 0.1, 1.86), M.beam, { y: 1.25, z: 0.1 });
+  p.add(box(2.36, 0.9, 1.76), M.plaster, { y: 1.75, z: 0.1 });
+  timberFace(p, { y: 1.75, z: 0.98, w: 2.36, h: 0.9 });
+  timberFace(p, { y: 1.75, z: -0.78, w: 2.36, h: 0.9, ry: Math.PI });
+  timberFace(p, { x: 1.18, y: 1.75, z: 0.1, w: 1.76, h: 0.9, ry: Math.PI / 2, spacing: 0.45 });
+  timberFace(p, { x: -1.18, y: 1.75, z: 0.1, w: 1.76, h: 0.9, ry: -Math.PI / 2, spacing: 0.45 });
+  for (const x of [-0.78, 0.78]) windowFrame(p, { x, y: 1.75, z: 1.0, w: 0.26, h: 0.32 });
+  for (const z of [-0.35, 0.55]) windowFrame(p, { x: 1.2, y: 1.75, z, ry: Math.PI / 2, w: 0.24, h: 0.3 });
+  // Ground floor: door, windows and banners.
+  door(p, { z: 0.9, y: 0.2, w: 0.5, h: 0.74 });
+  for (const x of [-0.72, 0.72]) windowFrame(p, { x, y: 0.72, z: 0.92, w: 0.24, h: 0.3, shutters: false });
+  windowFrame(p, { x: 1.11, y: 0.72, z: 0.35, ry: Math.PI / 2, w: 0.24, h: 0.3, shutters: false });
+  for (const x of [-0.42, 0.42]) banner(p, { x, y: 1.1, z: 0.92, w: 0.22, h: 0.5 });
+  // Main roof and a front cross-gable over the door.
+  shingleGable(p, { y: 2.2, z: 0.1, length: 2.36, width: 1.76, height: 1.15, rnd });
+  p.add(box(0.92, 0.9, 0.56), M.plaster, { y: 1.75, z: 1.26 });
+  timberFace(p, { y: 1.75, z: 1.54, w: 0.92, h: 0.9, spacing: 0.46 });
+  windowFrame(p, { y: 1.78, z: 1.56, w: 0.22, h: 0.3 });
+  shingleGable(p, { y: 2.2, z: 1.2, length: 0.7, width: 1.0, height: 0.72, ry: Math.PI / 2, rnd, overhang: 0.1 });
+  // Chimney.
+  stoneBlocks(p, { x: 0.72, y: 2.3, z: -0.32, w: 0.3, h: 1.0, d: 0.3, rows: 4, rnd });
+  p.add(box(0.36, 0.06, 0.36), M.capstone, { x: 0.72, y: 3.33, z: -0.32 });
+  // Round stone corner tower with a stepped cone roof.
+  stoneRing(p, { x: -1.06, y: 0.2, z: -0.86, r: 0.5, h: 3.0, rnd, taper: 0.04 });
+  for (const y of [1.3, 2.3]) windowFrame(p, { x: -0.85, y, z: -0.43, ry: Math.PI / 5, w: 0.14, h: 0.26, shutters: false });
+  p.add(cyl(0.52, 0.52, 0.08, 16), M.capstone, { x: -1.06, y: 3.22, z: -0.86 });
+  shingleCone(p, { x: -1.06, y: 3.24, z: -0.86, r: 0.68, h: 1.35, rows: 7, rnd });
+  pennant(p, { x: -1.06, y: 4.55, z: -0.86, h: 0.55, w: 0.42 });
+  // Small watch turret on the front-right corner.
+  stoneRing(p, { x: 1.13, y: 0.2, z: 0.93, r: 0.3, h: 2.1, rnd, thickness: 0.16, blockLen: 0.32 });
+  shingleCone(p, { x: 1.13, y: 2.3, z: 0.93, r: 0.42, h: 0.85, rows: 5, rnd });
+  // Props.
+  barrel(p, { x: -1.15, y: 0.2, z: 1.15 });
+  barrel(p, { x: -0.92, y: 0.2, z: 1.25, r: 0.11, h: 0.26 });
+  crate(p, { x: 1.25, y: 0.2, z: -0.95, ry: 0.4 });
+  groundDressing(p, { w: 2.92, d: 2.92, rnd, count: 16 });
+  return p.build();
 }
 
 /**
- * A wall tile that joins up with its neighbours. `connections` = { n, e, s, w } booleans: true where
- * the neighbouring tile has a wall or another building (so walls meet towers flush).
+ * A wall tile that joins up with its neighbours. `connections` = { n, e, s, w } booleans: true where the
+ * neighbouring tile has a wall or another building, so runs, corners and tower joins connect.
  */
 function wall({ connections = {} } = {}) {
   const M = MATERIALS;
   const p = new Parts();
+  const key = ['n', 'e', 's', 'w'].map((d) => (connections[d] ? 1 : 0)).join('');
+  const rnd = rng(parseInt(key, 2) + 101);
   const H = 1.0;
-  const T = 0.56;
+  const T = 0.58;
   const dirs = [
     ['e', 1, 0],
     ['w', -1, 0],
@@ -265,108 +112,210 @@ function wall({ connections = {} } = {}) {
   const straight = dirs.length === 2 && dirs[0][1] === -dirs[1][1] && dirs[0][2] === -dirs[1][2];
 
   for (const [, dx, dz] of dirs) {
-    // Wall arm from the centre to the tile edge, with a darker footing and merlons on both faces.
     const alongX = dx !== 0;
+    const c = { x: dx * 0.25, z: dz * 0.25 };
     const [w, d] = alongX ? [0.5, T] : [T, 0.5];
-    p.add(box(w, H, d), M.stone, { x: dx * 0.25, y: H / 2, z: dz * 0.25 });
-    p.add(box(alongX ? 0.5 : T + 0.08, 0.16, alongX ? T + 0.08 : 0.5), M.stoneDark, { x: dx * 0.25, y: 0.08, z: dz * 0.25 });
-    for (const t of [0.125, 0.375]) {
-      for (const side of [-1, 1]) {
-        const off = side * (T / 2 - 0.07);
-        p.add(box(0.13, 0.2, 0.13), M.stoneDark, {
-          x: alongX ? dx * t : off,
-          y: H + 0.1,
-          z: alongX ? off : dz * t,
-        });
-      }
+    // Footing course, then the wall body, built along the run.
+    stoneBlocks(p, { ...c, w: alongX ? 0.5 : T + 0.1, d: alongX ? T + 0.1 : 0.5, h: 0.16, rows: 1, along: alongX ? 'x' : 'z', rnd });
+    stoneBlocks(p, { ...c, y: 0.16, w, h: H - 0.16, d, rows: 3, along: alongX ? 'x' : 'z', rnd });
+    // One merlon per arm and side, so runs of wall get evenly spaced crenellations (0.5 apart).
+    for (const side of [-1, 1]) {
+      const off = side * (T / 2 - 0.09);
+      const at = { x: alongX ? dx * 0.25 : off, z: alongX ? off : dz * 0.25 };
+      p.add(box(0.2, 0.24, 0.17), rnd.pick(SANDSTONE), { ...at, y: H + 0.12, ry: alongX ? 0 : Math.PI / 2 });
+      p.add(box(0.24, 0.05, 0.21), M.capstone, { ...at, y: H + 0.265, ry: alongX ? 0 : Math.PI / 2 });
     }
   }
 
   if (straight) {
-    // Mid-run: just fill the centre so the wall is continuous.
-    p.add(box(T, H, T), M.stone, { y: H / 2 });
+    const alongX = dirs[0][1] !== 0;
+    stoneBlocks(p, { w: T, d: T, h: 0.16, rows: 1, along: alongX ? 'x' : 'z', rnd });
+    stoneBlocks(p, { y: 0.16, w: T, d: T, h: H - 0.16, rows: 3, along: alongX ? 'x' : 'z', rnd });
   } else {
-    // End, corner or junction: a slightly taller buttress post with corner merlons.
-    const size = dirs.length === 0 ? 0.72 : 0.66;
-    const h = H + (dirs.length === 0 ? 0.15 : 0.22);
-    p.add(box(size, h, size), M.stone, { y: h / 2 });
-    p.add(box(size + 0.08, 0.18, size + 0.08), M.stoneDark, { y: 0.09 });
-    merlonsRect(p, M.stoneDark, size, size, h, 0.15, 0.25);
+    // End, corner or junction: a buttressed post with its own merlons.
+    const size = dirs.length === 0 ? 0.74 : 0.7;
+    const h = H + (dirs.length === 0 ? 0.18 : 0.28);
+    stoneBlocks(p, { w: size + 0.1, d: size + 0.1, h: 0.18, rows: 1, rnd });
+    stoneBlocks(p, { y: 0.18, w: size, d: size, h: h - 0.18, rows: 4, along: 'z', rnd });
+    p.add(box(size + 0.06, 0.06, size + 0.06), M.capstone, { y: h + 0.03 });
+    merlonsRect(p, { y: h + 0.06, w: size, d: size, size: 0.17, height: 0.22, spacing: 0.27, rnd });
   }
+  groundDressing(p, { w: 0.6, d: 0.6, rnd, count: 3 });
   const g = p.build();
   g.userData.connections = connections;
   return g;
 }
 
+/** A small archer figure (for the archer tower's fighting platform). */
+function archer(p, { x, y, z, ry = 0 }) {
+  const M = MATERIALS;
+  p.add(capsule(0.07, 0.14), M.clothBlue, { x, y: y + 0.15, z });
+  p.add(sphere(0.06, 8, 6), std({ color: 0xe2b48a }), { x, y: y + 0.32, z });
+  p.add(cone(0.075, 0.09, 8), M.leatherDark, { x, y: y + 0.39, z });
+  const bow = place(x, z, ry, 0.08, 0.04);
+  p.add(torus(0.12, 0.012, 10), M.woodDark, { x: bow.x, y: y + 0.2, z: bow.z, ry: ry + Math.PI / 2, sx: 0.5 });
+}
+
 function archerTower() {
   const M = MATERIALS;
   const p = new Parts();
-  p.add(box(1.6, 0.25, 1.6), M.stoneDark, { y: 0.125 });
-  // Square shaft with a gentle taper (a 4-sided cylinder turned 45°).
-  p.add(cyl(0.82, 0.95, 2.3, 4), M.stone, { y: 1.4, ry: Math.PI / 4 });
-  // Corbelled fighting platform with crenellations.
-  p.add(box(1.36, 0.14, 1.36), M.stoneDark, { y: 2.55 });
-  p.add(box(1.5, 0.3, 1.5), M.stone, { y: 2.77 });
-  merlonsRect(p, M.stone, 1.5, 1.5, 2.92, 0.2, 0.36);
-  // Arrow slits and a door.
-  for (const [x, z, ry] of [[0, 0.6, 0], [0.6, 0, Math.PI / 2], [-0.6, 0, Math.PI / 2], [0, -0.6, 0]]) {
-    p.add(box(0.08, 0.36, 0.04), M.opening, { x, y: 1.85, z, ry });
+  const rnd = rng(23);
+  stoneBlocks(p, { w: 1.72, h: 0.22, d: 1.72, rows: 1, rnd, minBlock: 0.3, maxBlock: 0.5 });
+  // Tapering shaft: one course at a time, alternating direction so the corners interlock.
+  const courses = 10;
+  const top = 2.5;
+  for (let i = 0; i < courses; i++) {
+    const t = i / (courses - 1);
+    const w = 1.34 - 0.2 * t;
+    const rowH = (top - 0.22) / courses;
+    stoneBlocks(p, { y: 0.22 + i * rowH, w, d: w, h: rowH, rows: 1, along: i % 2 ? 'x' : 'z', rnd });
   }
-  p.add(box(0.36, 0.55, 0.05), M.woodDark, { y: 0.52, z: 0.66 });
-  // Flag pole.
-  p.add(cyl(0.025, 0.025, 0.9, 6), M.woodDark, { x: 0.5, y: 3.4, z: -0.5 });
-  const g = p.build();
-  const f = flag(M.bannerRed, 0.42, 0.26);
-  f.position.set(0.5, 3.7, -0.5);
-  g.add(f);
-  g.userData.flag = f;
-  return g;
+  door(p, { y: 0.22, z: 0.67, w: 0.38, h: 0.56 });
+  for (const [x, z, ry] of [
+    [0, 0.62, 0],
+    [0.62, 0, Math.PI / 2],
+  ]) {
+    for (const y of [1.25, 1.95]) {
+      const at = place(x, z, ry, 0, 0.005);
+      p.add(box(0.07, 0.3, 0.05), M.opening, { x: at.x, y, z: at.z, ry });
+      p.add(box(0.15, 0.05, 0.07), M.capstone, { x: at.x, y: y - 0.17, z: at.z, ry });
+    }
+  }
+  // Corbels under an overhanging fighting platform, then the parapet.
+  for (let i = 0; i < 5; i++) {
+    const t = -0.5 + (i + 0.5) / 5;
+    for (const [x, z] of [
+      [t * 1.2, 0.6],
+      [0.6, t * 1.2],
+      [t * 1.2, -0.6],
+      [-0.6, t * 1.2],
+    ]) {
+      p.add(box(0.12, 0.16, 0.12), rnd.pick(SANDSTONE), { x: x * 1.04, y: top - 0.04, z: z * 1.04 });
+    }
+  }
+  stoneBlocks(p, { y: top + 0.04, w: 1.56, d: 1.56, h: 0.16, rows: 1, rnd, minBlock: 0.3, maxBlock: 0.5 });
+  p.add(box(1.3, 0.04, 1.3), M.woodLight, { y: top + 0.21 });
+  merlonsRect(p, { y: top + 0.2, w: 1.56, d: 1.56, size: 0.22, height: 0.32, spacing: 0.4, rnd });
+  archer(p, { x: 0.2, y: top + 0.23, z: 0.25, ry: Math.PI / 4 });
+  pennant(p, { x: -0.55, y: top + 0.2, z: -0.55, h: 1.05, w: 0.46 });
+  groundDressing(p, { w: 1.72, d: 1.72, rnd, count: 9 });
+  return p.build();
 }
 
 function cannonTower() {
   const M = MATERIALS;
   const p = new Parts();
-  p.add(cyl(0.95, 1.0, 0.25, 12), M.stoneDark, { y: 0.125 });
-  p.add(cyl(0.82, 0.92, 1.05, 12), M.stone, { y: 0.77 });
-  p.add(cyl(0.9, 0.84, 0.16, 12), M.stoneDark, { y: 1.36 });
-  merlonsRing(p, M.stone, 0.8, 1.44, 10, 0.2);
-  p.add(box(0.34, 0.5, 0.05), M.woodDark, { y: 0.5, z: 0.89 });
+  const rnd = rng(37);
+  stoneRing(p, { r: 0.98, h: 0.2, rows: 1, rnd, thickness: 0.3, blockLen: 0.5 });
+  stoneRing(p, { y: 0.2, r: 0.88, h: 1.05, rows: 4, rnd, taper: 0.06, thickness: 0.26 });
+  p.add(cyl(0.86, 0.86, 0.08, 20), M.capstone, { y: 1.29 });
+  p.add(cyl(0.74, 0.74, 0.04, 20), M.woodLight, { y: 1.33 });
+  merlonsRing(p, { y: 1.33, r: 0.78, count: 10, size: 0.22, height: 0.28, rnd });
+  door(p, { y: 0.2, z: 0.85, w: 0.36, h: 0.54 });
+  windowFrame(p, { x: 0.6, y: 0.85, z: 0.6, ry: Math.PI / 4, w: 0.14, h: 0.22, shutters: false });
+  // A neat pyramid of cannonballs.
+  for (const [x, z, y] of [
+    [-0.42, -0.2, 0],
+    [-0.28, -0.32, 0],
+    [-0.46, -0.38, 0],
+    [-0.39, -0.3, 0.1],
+  ]) {
+    p.add(sphere(0.07, 8, 6), M.cannonball, { x, y: 1.42 + y, z });
+  }
+  groundDressing(p, { w: 1.9, d: 1.9, rnd, count: 9 });
   const g = p.build();
 
-  // Turret: wooden carriage with a big iron cannon; rotates to aim (+z is forward).
-  const t = new Parts({ yOffset: 1.44 });
-  t.add(box(0.62, 0.22, 0.82), M.wood, { y: 0.11 });
-  for (const sx of [-0.36, 0.36]) {
-    for (const sz of [-0.25, 0.25]) t.add(cyl(0.15, 0.15, 0.08, 10), M.woodDark, { x: sx, y: 0.1, z: sz, rz: Math.PI / 2 });
+  // Turret: a heavy cannon on a carriage with spoked wheels; rotates to aim (+z is forward).
+  const t = new Parts({ yOffset: 1.35 });
+  for (const sx of [-0.18, 0.18]) t.add(box(0.07, 0.24, 0.72), M.wood, { x: sx, y: 0.17, z: -0.02 });
+  t.add(box(0.44, 0.06, 0.5), M.woodDark, { y: 0.07 });
+  for (const sx of [-0.27, 0.27]) {
+    for (const sz of [-0.22, 0.22]) wheel(t, { x: sx, y: 0.14, z: sz, r: 0.14, spokes: 5 });
   }
-  t.add(cyl(0.17, 0.23, 1.0, 12), M.iron, { y: 0.42, z: 0.22, rx: Math.PI / 2 - 0.22 });
-  t.add(cyl(0.21, 0.21, 0.1, 12), M.iron, { y: 0.52, z: 0.68, rx: Math.PI / 2 - 0.22 });
-  t.add(sphere(0.2), M.iron, { y: 0.32, z: -0.28 });
+  t.add(cyl(0.13, 0.18, 1.0, 14), M.iron, { y: 0.36, z: 0.2, rx: Math.PI / 2 - 0.2 });
+  for (const zz of [0.62, 0.04]) t.add(torus(0.17, 0.03, 14), M.iron, { y: 0.36 + (zz - 0.2) * Math.sin(0.2), z: zz, rx: -0.2 });
+  t.add(sphere(0.19, 12, 9), M.iron, { y: 0.28, z: -0.28 });
+  t.add(sphere(0.06, 8, 6), M.iron, { y: 0.24, z: -0.48 });
   const turret = t.build();
-  turret.position.y = 1.44;
+  turret.position.y = 1.35;
   g.add(turret);
   g.userData.turret = turret;
   return g;
 }
 
+function crystalCluster(p, { x, y, z, scale = 1, rnd }) {
+  const M = MATERIALS;
+  for (let i = 0; i < 3; i++) {
+    p.add(octa(0.09 * scale * rnd.range(0.7, 1.2)), M.crystal, {
+      x: x + rnd.range(-0.05, 0.05) * scale,
+      y: y + 0.08 * scale,
+      z: z + rnd.range(-0.05, 0.05) * scale,
+      sy: rnd.range(1.6, 2.4),
+      rx: rnd.range(-0.4, 0.4),
+      rz: rnd.range(-0.4, 0.4),
+    });
+  }
+}
+
 function magicSpire() {
   const M = MATERIALS;
   const p = new Parts();
-  // Stepped base with glowing runes.
-  p.add(box(1.75, 0.25, 1.75), M.stoneDark, { y: 0.125 });
-  p.add(box(1.35, 0.3, 1.35), M.stoneGrey, { y: 0.4 });
-  for (const [x, z] of [[0, 0.68], [0, -0.68], [0.68, 0], [-0.68, 0]]) p.add(box(0.3, 0.12, 0.04), M.rune, { x, y: 0.4, z, ry: x ? Math.PI / 2 : 0 });
-  // Obelisk with a pointed cap.
-  p.add(cyl(0.28, 0.48, 1.9, 4), M.stoneGrey, { y: 1.5, ry: Math.PI / 4 });
-  p.add(cone(0.36, 0.5, 4), M.roof, { y: 2.7, ry: Math.PI / 4 });
-  for (const [x, z] of [[0, 0.3], [0, -0.3], [0.3, 0], [-0.3, 0]]) p.add(box(0.05, 0.9, 0.04), M.rune, { x: x * 1.05, y: 1.5, z: z * 1.05, ry: x ? Math.PI / 2 : 0 });
-  // Small crystals at the corners of the base.
-  for (const [x, z] of [[0.6, 0.6], [-0.6, 0.6], [0.6, -0.6], [-0.6, -0.6]]) p.add(octa(0.14), M.crystal, { x, y: 0.7, z, sy: 1.6 });
+  const rnd = rng(41);
+  // Three-tier dark stone platform with glowing runes.
+  let y = 0;
+  for (const [w, h] of [
+    [1.82, 0.24],
+    [1.46, 0.28],
+    [1.12, 0.28],
+  ]) {
+    stoneBlocks(p, { y, w, d: w, h, rows: 1, rnd, stones: GREYSTONE, mortar: M.mortarDark, minBlock: 0.28, maxBlock: 0.46 });
+    p.add(box(w + 0.04, 0.04, w + 0.04), M.capstone, { y: y + h + 0.01 });
+    for (const [rx, rz, ry] of [
+      [0, w / 2 + 0.01, 0],
+      [w / 2 + 0.01, 0, Math.PI / 2],
+    ]) {
+      for (const k of [-0.25, 0, 0.25]) {
+        const at = place(rx, rz, ry, k * w, 0);
+        p.add(box(0.1, 0.05, 0.02), M.rune, { x: at.x, y: y + h / 2, z: at.z, ry });
+      }
+    }
+    y += h + 0.02;
+  }
+  // Tapering obelisk.
+  const courses = 8;
+  const top = 2.75;
+  for (let i = 0; i < courses; i++) {
+    const t = i / (courses - 1);
+    const w = 0.62 - 0.26 * t;
+    const rowH = (top - y) / courses;
+    stoneBlocks(p, { y: y + i * rowH, w, d: w, h: rowH, rows: 1, along: i % 2 ? 'x' : 'z', rnd, stones: GREYSTONE, mortar: M.mortarDark, minBlock: 0.18, maxBlock: 0.32 });
+  }
+  for (const [x, z, ry] of [
+    [0, 0.26, 0],
+    [0.26, 0, Math.PI / 2],
+  ]) {
+    const at = place(x, z, ry, 0, 0.0);
+    p.add(box(0.05, 1.3, 0.03), M.rune, { x: at.x, y: y + 0.9, z: at.z, ry });
+  }
+  p.add(box(0.44, 0.08, 0.44), M.capstone, { y: top + 0.04 });
+  p.add(cone(0.34, 0.6, 4), SLATE[0], { y: top + 0.38, ry: Math.PI / 4 });
+  p.add(octa(0.07), M.crystal, { y: top + 0.74, sy: 1.8 });
+  for (const [x, z] of [
+    [0.72, 0.72],
+    [-0.72, 0.72],
+    [0.72, -0.72],
+    [-0.72, -0.72],
+  ]) {
+    crystalCluster(p, { x, y: 0.24, z, rnd });
+  }
+  groundDressing(p, { w: 1.82, d: 1.82, rnd, count: 8 });
   const g = p.build();
-  // Floating crystal, animated by the renderer.
-  const crystal = new THREE.Mesh(octa(0.3), M.crystal);
-  crystal.scale.y = 1.5;
-  crystal.position.y = 3.35;
+  // Floating crystal, baked separately and bobbed in game.
+  const c = new Parts({ yOffset: 3.4 });
+  c.add(octa(0.26), M.crystal, { sy: 1.6 });
+  for (const a of [0, 2.1, 4.2]) c.add(octa(0.06), M.crystal, { x: Math.cos(a) * 0.32, y: Math.sin(a * 2) * 0.08, z: Math.sin(a) * 0.32, sy: 1.7 });
+  const crystal = c.build();
+  crystal.position.y = 3.45;
   g.add(crystal);
   g.userData.crystal = crystal;
   return g;
@@ -375,34 +324,59 @@ function magicSpire() {
 function catapult() {
   const M = MATERIALS;
   const p = new Parts();
-  p.add(box(1.7, 0.25, 1.7), M.stoneDark, { y: 0.125 });
-  p.add(box(1.5, 0.12, 1.5), M.wood, { y: 0.31 });
+  const rnd = rng(53);
+  // Plank deck on stone footings, with a pile of boulders.
+  for (const [x, z] of [
+    [-0.72, -0.72],
+    [0.72, -0.72],
+    [-0.72, 0.72],
+    [0.72, 0.72],
+  ]) {
+    stoneBlocks(p, { x, z, w: 0.24, d: 0.24, h: 0.16, rows: 1, rnd });
+  }
+  p.add(box(1.62, 0.08, 1.62), M.woodLight, { y: 0.2 });
+  for (let i = 0; i < 7; i++) p.add(box(0.03, 0.01, 1.62), M.woodDark, { x: -0.7 + i * 0.233, y: 0.245 });
+  for (const s of [-1, 1]) {
+    p.add(box(1.7, 0.09, 0.09), M.beam, { y: 0.23, z: s * 0.8 });
+    p.add(box(0.09, 0.09, 1.7), M.beam, { x: s * 0.8, y: 0.23 });
+  }
+  for (const [x, z, r] of [
+    [-0.6, -0.45, 0.13],
+    [-0.45, -0.6, 0.11],
+    [-0.62, -0.62, 0.1],
+    [-0.52, -0.52, 0.09],
+  ]) {
+    p.add(dodeca(r), M.boulder, { x, y: 0.3 + (r < 0.1 ? 0.12 : 0), z });
+  }
+  groundDressing(p, { w: 1.7, d: 1.7, rnd, count: 8 });
   const g = p.build();
 
-  // Turret: the catapult frame (rotates to aim, +z forward) with the throwing arm.
-  const t = new Parts({ yOffset: 0.37 });
-  for (const sx of [-0.42, 0.42]) {
-    t.add(box(0.12, 0.12, 1.3), M.wood, { x: sx, y: 0.1 }); // base rails
-    t.add(box(0.1, 0.85, 0.1), M.wood, { x: sx, y: 0.5, z: -0.12, rx: 0.32 });
-    t.add(box(0.1, 0.85, 0.1), M.wood, { x: sx, y: 0.5, z: 0.12, rx: -0.32 });
-    for (const sz of [-0.5, 0.5]) t.add(cyl(0.14, 0.14, 0.07, 10), M.woodDark, { x: sx + Math.sign(sx) * 0.08, y: 0.06, z: sz, rz: Math.PI / 2 });
+  // Turret: frame on wheels (rotates to aim, +z forward) carrying the throwing arm.
+  const t = new Parts({ yOffset: 0.36 });
+  for (const sx of [-0.4, 0.4]) {
+    t.add(box(0.1, 0.1, 1.3), M.wood, { x: sx, y: 0.12 });
+    t.add(box(0.09, 0.9, 0.09), M.wood, { x: sx, y: 0.52, z: -0.14, rx: 0.32 });
+    t.add(box(0.09, 0.9, 0.09), M.wood, { x: sx, y: 0.52, z: 0.14, rx: -0.32 });
+    for (const sz of [-0.48, 0.48]) wheel(t, { x: sx + Math.sign(sx) * 0.09, y: 0.12, z: sz, r: 0.15, spokes: 6 });
   }
-  t.add(box(0.96, 0.1, 0.1), M.wood, { y: 0.1, z: 0.55 });
-  t.add(box(0.96, 0.1, 0.1), M.wood, { y: 0.1, z: -0.55 });
-  t.add(cyl(0.05, 0.05, 0.96, 8), M.iron, { y: 0.88, rz: Math.PI / 2 }); // axle
-  t.add(box(0.9, 0.12, 0.12), M.wood, { y: 0.62, z: 0.42 }); // stop bar
+  for (const sz of [-0.56, 0.56]) t.add(box(0.9, 0.09, 0.09), M.wood, { y: 0.14, z: sz });
+  t.add(cyl(0.045, 0.045, 0.96, 8), M.iron, { y: 0.88, rz: Math.PI / 2 });
+  t.add(box(0.86, 0.1, 0.1), M.woodDark, { y: 0.6, z: 0.42 });
+  t.add(torus(0.08, 0.025, 10), M.rope, { x: 0.3, y: 0.62, z: 0.42, ry: Math.PI / 2 });
   const turret = t.build();
-  turret.position.y = 0.37;
+  turret.position.y = 0.36;
 
   // Throwing arm: pivots at the axle; the bucket end points to -z when loaded.
-  const a = new Parts({ yOffset: 1.25 });
-  a.add(box(0.1, 0.1, 1.45), M.woodDark, { z: -0.42 });
-  a.add(cyl(0.16, 0.12, 0.14, 8), M.wood, { y: 0.06, z: -1.1 }); // bucket
-  a.add(box(0.36, 0.3, 0.3), M.stoneGrey, { y: -0.1, z: 0.38 }); // counterweight
+  const a = new Parts({ yOffset: 1.24 });
+  a.add(box(0.1, 0.1, 1.5), M.woodDark, { z: -0.42 });
+  a.add(cyl(0.17, 0.11, 0.14, 12), M.wood, { y: 0.06, z: -1.12 });
+  a.add(torus(0.16, 0.02, 12), M.iron, { y: 0.12, z: -1.12, rx: Math.PI / 2 });
+  stoneBlocks(a, { y: -0.27, z: 0.38, w: 0.36, h: 0.3, d: 0.3, rows: 2, rnd });
+  for (const yy of [-0.2, -0.05]) a.add(box(0.4, 0.03, 0.34), M.iron, { y: yy, z: 0.38 });
   const arm = a.build();
   arm.position.y = 0.88;
-  const ammo = new THREE.Mesh(dodeca(0.13), M.boulder);
-  ammo.position.set(0, 0.18, -1.1);
+  const ammo = new Parts({ yOffset: 1.3 }).add(dodeca(0.13), M.boulder).build();
+  ammo.position.set(0, 0.2, -1.12);
   arm.add(ammo);
   turret.add(arm);
   g.add(turret);
@@ -418,7 +392,7 @@ export function createBuildingModel(type, opts) {
 }
 
 // ------------------------------------------------------------------ enemies
-// Each enemy's static parts are merged into a `body` group, which the renderer bobs and lunges.
+// Each enemy's parts are merged into a `body` group. Models face +z.
 
 function finishEnemy(p) {
   const g = new THREE.Group();
@@ -428,65 +402,98 @@ function finishEnemy(p) {
   return g;
 }
 
-function goblinHead(p, M, y, scale = 1) {
-  p.add(sphere(0.16 * scale), M.goblinSkin, { y, sy: 0.9 });
-  for (const s of [-1, 1]) p.add(cone(0.06 * scale, 0.22 * scale, 5), M.goblinSkin, { x: s * 0.17 * scale, y: y + 0.03, rz: -s * 1.25 });
-  for (const s of [-1, 1]) p.add(sphere(0.03 * scale, 6, 4), M.eyes, { x: s * 0.06 * scale, y: y + 0.03, z: 0.13 * scale });
-  p.add(cone(0.035 * scale, 0.1 * scale, 5), M.goblinSkin, { y: y - 0.02, z: 0.17 * scale, rx: Math.PI / 2 });
+function goblinHead(p, { y, z = 0.02, s = 1 }) {
+  const M = MATERIALS;
+  p.add(sphere(0.15 * s, 12, 9), M.goblinSkin, { y, z, sy: 0.92 });
+  for (const side of [-1, 1]) {
+    p.add(cone(0.05 * s, 0.26 * s, 6), M.goblinSkin, { x: side * 0.18 * s, y: y + 0.04 * s, z: z - 0.02, rz: -side * 1.3, rx: -0.2 });
+    p.add(sphere(0.028 * s, 6, 5), M.eyes, { x: side * 0.055 * s, y: y + 0.025 * s, z: z + 0.125 * s });
+  }
+  p.add(cone(0.035 * s, 0.12 * s, 6), M.goblinSkinDark, { y: y - 0.02 * s, z: z + 0.17 * s, rx: Math.PI / 2 - 0.3 });
+  p.add(box(0.12 * s, 0.025 * s, 0.03 * s), M.leatherDark, { y: y - 0.07 * s, z: z + 0.12 * s });
 }
 
 function grunt() {
   const M = MATERIALS;
   const p = new Parts();
-  for (const s of [-1, 1]) p.add(box(0.09, 0.28, 0.09), M.leather, { x: s * 0.08, y: 0.14 });
-  p.add(box(0.3, 0.32, 0.2), M.cloth, { y: 0.42 });
-  p.add(box(0.32, 0.06, 0.22), M.leather, { y: 0.3 });
-  goblinHead(p, M, 0.72);
-  for (const s of [-1, 1]) p.add(box(0.07, 0.26, 0.07), M.goblinSkin, { x: s * 0.2, y: 0.42, rz: s * 0.15 });
-  p.add(cyl(0.05, 0.07, 0.42, 6), M.woodDark, { x: 0.24, y: 0.45, z: 0.14, rx: 0.9 }); // club
+  for (const s of [-1, 1]) {
+    p.add(capsule(0.045, 0.18), M.goblinSkinDark, { x: s * 0.08, y: 0.13 });
+    p.add(box(0.08, 0.05, 0.12), M.leatherDark, { x: s * 0.08, y: 0.025, z: 0.02 });
+  }
+  p.add(box(0.26, 0.12, 0.18), M.cloth, { y: 0.28 }); // loincloth
+  p.add(capsule(0.13, 0.14), M.leather, { y: 0.45, z: 0.02, rx: 0.25 }); // hunched torso in a vest
+  p.add(box(0.28, 0.04, 0.2), M.leatherDark, { y: 0.36, z: 0.02 }); // belt
+  goblinHead(p, { y: 0.72, z: 0.08 });
+  for (const s of [-1, 1]) p.add(capsule(0.04, 0.2), M.goblinSkin, { x: s * 0.19, y: 0.45, z: 0.06, rz: s * 0.25, rx: -0.4 });
+  // Spiked club.
+  p.add(cyl(0.035, 0.065, 0.42, 8), M.woodDark, { x: 0.23, y: 0.48, z: 0.2, rx: 0.9 });
+  for (let i = 0; i < 4; i++) p.add(cone(0.02, 0.06, 4), M.bone, { x: 0.23 + (i % 2 ? 0.05 : -0.05), y: 0.6, z: 0.36, rx: 0.9 + i });
   return finishEnemy(p);
 }
 
 function runner() {
   const M = MATERIALS;
   const p = new Parts();
-  for (const s of [-1, 1]) p.add(box(0.07, 0.24, 0.07), M.leather, { x: s * 0.07, y: 0.12 });
-  p.add(box(0.24, 0.26, 0.17), M.leather, { y: 0.36 });
-  goblinHead(p, M, 0.62, 0.85);
-  p.add(cone(0.17, 0.26, 6), M.hood, { y: 0.74 });
-  p.add(box(0.03, 0.03, 0.28), M.iron, { x: 0.18, y: 0.36, z: 0.14 }); // dagger
+  for (const s of [-1, 1]) p.add(capsule(0.035, 0.18), M.goblinSkinDark, { x: s * 0.065, y: 0.12, rx: s * 0.3 });
+  p.add(capsule(0.1, 0.12), M.hood, { y: 0.38, z: 0.03, rx: 0.4 });
+  goblinHead(p, { y: 0.6, z: 0.1, s: 0.85 });
+  p.add(cone(0.15, 0.26, 8), M.hood, { y: 0.7, z: 0.06, rx: -0.3 }); // hood
+  p.add(cone(0.16, 0.36, 8), M.hood, { y: 0.32, z: -0.08, rx: -0.5 }); // cape
+  p.add(box(0.025, 0.025, 0.26), M.iron, { x: 0.15, y: 0.38, z: 0.18 }); // dagger
+  p.add(box(0.06, 0.03, 0.03), M.gold, { x: 0.15, y: 0.38, z: 0.05 });
   return finishEnemy(p);
 }
 
 function orc() {
   const M = MATERIALS;
   const p = new Parts();
-  for (const s of [-1, 1]) p.add(box(0.13, 0.36, 0.13), M.leather, { x: s * 0.11, y: 0.18 });
-  p.add(box(0.44, 0.42, 0.3), M.orcSkin, { y: 0.56 });
-  p.add(box(0.46, 0.3, 0.32), M.iron, { y: 0.6 }); // breastplate
-  for (const s of [-1, 1]) p.add(sphere(0.12, 8, 6), M.iron, { x: s * 0.26, y: 0.78, sy: 0.7 }); // pauldrons
-  for (const s of [-1, 1]) p.add(box(0.1, 0.36, 0.1), M.orcSkin, { x: s * 0.3, y: 0.52 });
-  p.add(sphere(0.17), M.orcSkin, { y: 0.98, z: 0.03 });
-  for (const s of [-1, 1]) p.add(cone(0.025, 0.08, 4), M.stoneGrey, { x: s * 0.06, y: 0.93, z: 0.17 }); // tusks
-  for (const s of [-1, 1]) p.add(sphere(0.03, 6, 4), M.eyes, { x: s * 0.07, y: 1.02, z: 0.15 });
-  // Axe.
-  p.add(cyl(0.03, 0.03, 0.7, 6), M.woodDark, { x: 0.36, y: 0.55, z: 0.12 });
-  p.add(box(0.03, 0.2, 0.18), M.iron, { x: 0.36, y: 0.82, z: 0.2 });
+  for (const s of [-1, 1]) {
+    p.add(capsule(0.07, 0.22), M.leatherDark, { x: s * 0.11, y: 0.17 });
+    p.add(box(0.12, 0.07, 0.17), M.iron, { x: s * 0.11, y: 0.035, z: 0.03 });
+  }
+  p.add(box(0.36, 0.16, 0.24), M.leather, { y: 0.38 });
+  p.add(capsule(0.19, 0.16), M.orcSkin, { y: 0.62, z: 0.02, rx: 0.15 });
+  p.add(box(0.4, 0.3, 0.3), M.iron, { y: 0.66, z: 0.03, rx: 0.15 }); // breastplate
+  for (const s of [-1, 1]) {
+    p.add(sphere(0.13, 10, 7), M.iron, { x: s * 0.27, y: 0.84, sy: 0.7 }); // pauldrons
+    p.add(cone(0.035, 0.12, 5), M.bone, { x: s * 0.3, y: 0.95, rz: -s * 0.5 });
+    p.add(capsule(0.065, 0.24), M.orcSkin, { x: s * 0.32, y: 0.6, z: 0.05, rz: s * 0.15, rx: -0.3 });
+  }
+  p.add(sphere(0.15, 12, 9), M.orcSkin, { y: 1.0, z: 0.06 });
+  p.add(box(0.2, 0.06, 0.12), M.orcSkin, { y: 0.92, z: 0.15 }); // jaw
+  for (const s of [-1, 1]) {
+    p.add(cone(0.022, 0.08, 5), M.bone, { x: s * 0.06, y: 0.97, z: 0.2 });
+    p.add(sphere(0.028, 6, 5), M.eyes, { x: s * 0.06, y: 1.04, z: 0.18 });
+  }
+  p.add(box(0.2, 0.05, 0.05), M.leatherDark, { y: 1.08, z: 0.16 }); // brow
+  // Two-handed axe.
+  p.add(cyl(0.025, 0.025, 0.8, 6), M.woodDark, { x: 0.36, y: 0.6, z: 0.18, rx: 0.15 });
+  p.add(box(0.03, 0.24, 0.2), M.iron, { x: 0.36, y: 0.92, z: 0.3, rx: 0.15 });
   return finishEnemy(p);
 }
 
 function brute() {
   const M = MATERIALS;
   const p = new Parts();
-  for (const s of [-1, 1]) p.add(cyl(0.12, 0.15, 0.45, 8), M.trollSkin, { x: s * 0.17, y: 0.22 });
-  p.add(box(0.5, 0.18, 0.4), M.leather, { y: 0.48 }); // loincloth
-  p.add(sphere(0.38, 10, 8), M.trollSkin, { y: 0.85, z: 0.05, sy: 1.1 }); // hunched torso
-  p.add(sphere(0.17, 8, 6), M.trollSkin, { y: 1.22, z: 0.26 });
-  for (const s of [-1, 1]) p.add(sphere(0.035, 6, 4), M.eyes, { x: s * 0.07, y: 1.26, z: 0.4 });
-  // Long arms and a stone-studded club.
-  for (const s of [-1, 1]) p.add(cyl(0.08, 0.11, 0.7, 8), M.trollSkin, { x: s * 0.42, y: 0.6, z: 0.12, rz: s * 0.2 });
-  p.add(cyl(0.07, 0.14, 0.9, 8), M.woodDark, { x: 0.52, y: 0.42, z: 0.38, rx: 1.0 });
-  p.add(dodeca(0.13), M.stoneGrey, { x: 0.52, y: 0.15, z: 0.75 });
+  for (const s of [-1, 1]) {
+    p.add(cyl(0.12, 0.16, 0.42, 10), M.trollSkinDark, { x: s * 0.2, y: 0.21 });
+    p.add(sphere(0.13, 10, 7), M.trollSkinDark, { x: s * 0.2, y: 0.04, z: 0.06, sy: 0.5 });
+  }
+  p.add(box(0.56, 0.2, 0.42), M.leather, { y: 0.46 }); // loincloth
+  p.add(sphere(0.42, 14, 10), M.trollSkin, { y: 0.86, z: 0.04, sy: 1.05, sz: 0.9 }); // hunched torso
+  p.add(sphere(0.3, 12, 9), M.trollSkinDark, { y: 1.08, z: -0.12, sx: 1.1 }); // back hump
+  p.add(sphere(0.17, 12, 9), M.trollSkin, { y: 1.18, z: 0.3 }); // head, jutting forward
+  p.add(box(0.22, 0.07, 0.12), M.trollSkinDark, { y: 1.1, z: 0.42 }); // jaw
+  for (const s of [-1, 1]) {
+    p.add(sphere(0.032, 6, 5), M.eyes, { x: s * 0.065, y: 1.22, z: 0.45 });
+    p.add(cone(0.025, 0.07, 5), M.bone, { x: s * 0.07, y: 1.15, z: 0.47, rx: -0.4 });
+    // Long arms ending in big fists.
+    p.add(cyl(0.08, 0.12, 0.72, 10), M.trollSkin, { x: s * 0.46, y: 0.62, z: 0.14, rz: s * 0.18 });
+    p.add(sphere(0.13, 10, 7), M.trollSkinDark, { x: s * 0.52, y: 0.24, z: 0.18 });
+  }
+  // Tree-trunk club.
+  p.add(cyl(0.07, 0.15, 0.95, 10), M.woodDark, { x: 0.55, y: 0.38, z: 0.45, rx: 1.05 });
+  p.add(dodeca(0.13), MATERIALS.boulder, { x: 0.55, y: 0.14, z: 0.82 });
   return finishEnemy(p);
 }
 
@@ -496,17 +503,23 @@ export function createEnemyModel(type, elite = false) {
   const g = ENEMY_MODELS[type]();
   if (elite) {
     g.scale.setScalar(1.3);
-    const crown = new Parts({ shade: false }).add(cyl(0.12, 0.14, 0.1, 6), MATERIALS.gold).build();
-    crown.position.set(0, type === 'brute' ? 1.42 : 1.15, type === 'brute' ? 0.26 : 0);
-    g.userData.body.add(crown);
+    const crown = new Parts({ shade: false });
+    crown.add(cyl(0.12, 0.14, 0.08, 8), MATERIALS.gold);
+    for (let i = 0; i < 5; i++) {
+      const a = (i / 5) * Math.PI * 2;
+      crown.add(cone(0.03, 0.08, 4), MATERIALS.gold, { x: Math.cos(a) * 0.12, y: 0.07, z: Math.sin(a) * 0.12 });
+    }
+    const c = crown.build();
+    c.position.set(0, type === 'brute' ? 1.36 : 1.15, type === 'brute' ? 0.3 : 0);
+    g.userData.body.add(c);
   }
   return g;
 }
 
-// ------------------------------------------------------------------ projectiles
+// ------------------------------------------------------------------ projectiles (drawn live)
 
 export function createProjectileModel(kind) {
-  const p = new Parts({ shade: false }); // in the air: no ground shading
+  const p = new Parts({ shade: false });
   if (kind === 'cannonball') return p.add(sphere(0.15), MATERIALS.cannonball).build();
   if (kind === 'boulder') return p.add(dodeca(0.22), MATERIALS.boulder).build();
   // Arrow points along +z so Object3D.lookAt() aims it at its destination.
@@ -519,53 +532,81 @@ export function createProjectileModel(kind) {
 
 // ------------------------------------------------------------------ scenery
 
-const SCENERY_KINDS = {
-  // [geometry, material key or leaf colour, offset {x,y,z}, scale {x,y,z}]
-  pine: [
-    [cyl(0.1, 0.14, 0.7, 6), 'trunk', [0, 0.35, 0]],
-    [cone(0.7, 1.2, 7), 'pine', [0, 1.1, 0]],
-    [cone(0.52, 1.0, 7), 'pine', [0, 1.6, 0]],
-    [cone(0.32, 0.7, 7), 'pine', [0, 2.05, 0]],
-  ],
-  oak: [
-    [cyl(0.12, 0.17, 0.9, 6), 'trunk', [0, 0.45, 0]],
-    [ico(0.62, 1), 'oak', [0, 1.35, 0]],
-    [ico(0.42, 1), 'oak', [0.38, 1.15, 0.12]],
-    [ico(0.4, 1), 'oak', [-0.3, 1.2, -0.2]],
-  ],
-  bush: [[ico(0.35, 1), 'oak', [0, 0.22, 0], [1, 0.7, 1]]],
-  rock: [
-    [dodeca(0.38), 'rock', [0, 0.18, 0], [1, 0.65, 1]],
-    [dodeca(0.24), 'rock', [0.38, 0.1, 0.1], [1, 0.7, 1]],
-    [dodeca(0.16), 'rock', [-0.25, 0.07, 0.3], [1, 0.8, 1]],
-  ],
-};
-
 const LEAF_COLORS = {
-  pine: [0x2f6b3a, 0x285c32, 0x3a7a3f],
-  oak: [0x5a9a3c, 0x4c8a34, 0x6aa845],
-  rock: [0xb7a88c, 0xa39882, 0xc2b497],
+  oak: [
+    ['#4f8a34', '#6aa844', '#3e7029'],
+    ['#5a9638', '#78b24c', '#467a2c'],
+    ['#6e9a36', '#8ab64a', '#557a2a'],
+  ],
+  pine: [
+    ['#2f6b3a', '#3d7f45'],
+    ['#285c32', '#356d3c'],
+    ['#3a7340', '#4a8a4c'],
+  ],
+};
+const leafCache = new Map();
+const leaf = (color) => {
+  if (!leafCache.has(color)) leafCache.set(color, std({ color, roughness: 0.95 }));
+  return leafCache.get(color);
 };
 
-export const SCENERY_TYPES = Object.keys(SCENERY_KINDS);
-export const SCENERY_VARIANTS = 3;
-
-/** One tree, bush or rock (for baking into a sprite). `variant` picks its colour. */
-export function createSceneryObject(kind, variant = 0) {
-  const p = new Parts();
-  for (const [geometry, matKey, off, scl = [1, 1, 1]] of SCENERY_KINDS[kind]) {
-    const material = matKey === 'trunk' ? MATERIALS.woodDark : leafMaterial(matKey, variant);
-    p.add(geometry, material, { x: off[0], y: off[1], z: off[2], sx: scl[0], sy: scl[1], sz: scl[2], ry: variant * 1.3 });
-  }
-  return p.build();
+function oak(p, rnd, v) {
+  const [mid, light, dark] = LEAF_COLORS.oak[v];
+  p.add(cyl(0.1, 0.16, 0.9, 8), MATERIALS.woodDark, { y: 0.45 });
+  for (let i = 0; i < 3; i++) p.add(box(0.06, 0.22, 0.06), MATERIALS.woodDark, { x: Math.cos(i * 2.1) * 0.12, y: 0.06, z: Math.sin(i * 2.1) * 0.12, rx: 0.6, ry: i * 2.1 });
+  const blobs = [
+    [0, 1.25, 0, 0.5, mid],
+    [0.32, 1.05, 0.15, 0.36, dark],
+    [-0.3, 1.1, 0.1, 0.38, dark],
+    [0.05, 1.1, -0.32, 0.36, dark],
+    [0.12, 1.55, 0.12, 0.34, light],
+    [-0.18, 1.45, -0.12, 0.3, mid],
+    [0.25, 1.35, -0.15, 0.3, light],
+  ];
+  for (const [x, y, z, r, color] of blobs) p.add(ico(r * rnd.range(0.9, 1.1), 1), leaf(color), { x, y, z });
 }
 
-const leafMaterials = new Map();
-function leafMaterial(kind, variant) {
-  const key = `${kind}:${variant}`;
-  if (!leafMaterials.has(key)) {
-    const palette = LEAF_COLORS[kind];
-    leafMaterials.set(key, std({ color: palette[variant % palette.length], roughness: 0.95 }));
+function pine(p, rnd, v) {
+  const [dark, light] = LEAF_COLORS.pine[v];
+  p.add(cyl(0.08, 0.12, 0.6, 7), MATERIALS.woodDark, { y: 0.3 });
+  const tiers = 4;
+  for (let i = 0; i < tiers; i++) {
+    const r = 0.62 - i * 0.13;
+    p.add(cone(r, 0.62, 9), leaf(i % 2 ? light : dark), { y: 0.62 + i * 0.36, rx: rnd.range(-0.06, 0.06), rz: rnd.range(-0.06, 0.06) });
   }
-  return leafMaterials.get(key);
+}
+
+function bush(p, rnd, v) {
+  const [mid, light, dark] = LEAF_COLORS.oak[v];
+  p.add(ico(0.3, 1), leaf(mid), { y: 0.22, sy: 0.75 });
+  p.add(ico(0.22, 1), leaf(dark), { x: 0.24, y: 0.16, z: 0.08, sy: 0.75 });
+  p.add(ico(0.2, 1), leaf(light), { x: -0.18, y: 0.18, z: 0.16, sy: 0.8 });
+  if (v === 1) for (let i = 0; i < 5; i++) p.add(sphere(0.03, 6, 4), MATERIALS.bannerRed, { x: rnd.range(-0.25, 0.25), y: rnd.range(0.2, 0.36), z: rnd.range(0, 0.3) });
+}
+
+function rock(p, rnd) {
+  const count = 3 + Math.floor(rnd.next() * 3);
+  for (let i = 0; i < count; i++) {
+    const r = i === 0 ? 0.36 : rnd.range(0.12, 0.26);
+    p.add(dodeca(r), rnd.pick(SANDSTONE), {
+      x: i === 0 ? 0 : rnd.range(-0.4, 0.4),
+      y: r * 0.45,
+      z: i === 0 ? 0 : rnd.range(-0.3, 0.4),
+      sy: 0.7,
+      ry: rnd.range(0, 3),
+      rx: rnd.range(-0.2, 0.2),
+    });
+  }
+  for (let i = 0; i < 4; i++) p.add(cone(0.04, 0.16, 4), MATERIALS.grass, { x: rnd.range(-0.45, 0.45), y: 0.07, z: rnd.range(0.1, 0.45), rz: rnd.range(-0.4, 0.4) });
+}
+
+const SCENERY_BUILDERS = { oak, pine, bush, rock };
+export const SCENERY_TYPES = Object.keys(SCENERY_BUILDERS);
+export const SCENERY_VARIANTS = 3;
+
+/** One tree, bush or rock (for baking into a sprite). `variant` picks its shape and colour. */
+export function createSceneryObject(kind, variant = 0) {
+  const p = new Parts();
+  SCENERY_BUILDERS[kind](p, rng(kind.length * 31 + variant * 7 + 3), variant);
+  return p.build();
 }

@@ -26,7 +26,7 @@ export const spriteKeys = {
 
 /** Height of a building's turret pivot above the ground (sprites are lifted by this much). */
 export const turretHeight = (type) => createBuildingModel(type).userData.turret?.position.y ?? 0;
-export const CRYSTAL_HEIGHT = 3.35;
+export const CRYSTAL_HEIGHT = 3.45;
 
 /** Which buildings have separately animated parts (and so extra sprites). */
 const BUILDING_PARTS = {

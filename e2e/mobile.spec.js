@@ -1,5 +1,5 @@
 import { test } from '@playwright/test';
-import { buildingAt, cameraTarget, countBuildings, expect, gold, openGame, tileToScreen, touchInput } from './helpers.js';
+import { buildingAt, cameraTarget, countBuildings, expect, gold, openGame, tileToScreen, touchInput, buildShowcase } from './helpers.js';
 
 // Runs with the Pixel 7 profile (touch, portrait 412×915).
 
@@ -181,4 +181,10 @@ test('frame rate: Low caps at 30 fps and uses automatic render scale', { tag: '@
   expect(r.fps).toBeGreaterThan(0);
   expect(r.auto).toBe(true);
   expect(r.scale).toBeGreaterThanOrEqual(0.5);
+});
+
+test('showcase: a walled base with every tower and enemy renders without errors (screenshot attached)', async ({ page }, testInfo) => {
+  const errors = await openGame(page);
+  await buildShowcase(page, testInfo, 'showcase-phone');
+  expect(errors).toEqual([]);
 });

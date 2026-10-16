@@ -72,3 +72,34 @@ export async function touchInput(page) {
 }
 
 export { expect };
+
+/**
+ * Build a sample base (walled ring, one of each tower, a few enemies outside) and save a screenshot as a test
+ * attachment, for reviewing the art. Also checks the battlefield renders it without errors.
+ */
+export async function buildShowcase(page, testInfo, name) {
+  await page.evaluate(() => {
+    const w = window.game.world;
+    w.economy.earn(100000);
+    // Hall is 18–20; a wall ring from 14 to 24 with towers inside.
+    for (let i = 14; i <= 24; i++) for (const [x, z] of [[i, 14], [i, 24], [14, i], [24, i]]) w.place('wall', x, z);
+    w.place('archerTower', 15, 15);
+    w.place('cannonTower', 22, 15);
+    w.place('magicSpire', 15, 22);
+    w.place('catapult', 22, 22);
+    w.place('archerTower', 18, 16);
+    w.phase = 'wave';
+    ['grunt', 'runner', 'orc', 'brute'].forEach((type, i) => {
+      for (let n = 0; n < 3; n++) {
+        w._spawnEnemy({ type, side: 'north', hpMult: 1, elite: type === 'brute' && n === 0 });
+        const e = w.enemies.at(-1);
+        e.x = 15 + i * 2.4 + n * 0.7;
+        e.z = 11.5 + n * 0.6;
+        e.def = { ...e.def, speed: 0 };
+      }
+    });
+  });
+  await page.waitForTimeout(500);
+  const shot = await page.screenshot({ path: testInfo.outputPath(`${name}.png`) });
+  await testInfo.attach(name, { body: shot, contentType: 'image/png' });
+}

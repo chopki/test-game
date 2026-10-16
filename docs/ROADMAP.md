@@ -37,7 +37,7 @@ Pre-rendered sprites on a fixed isometric camera (see ARCHITECTURE.md), working 
 `docs/reference/art-style.jpg` at phone-friendly frame rates.
 
 - [x] Step 1: fixed iso camera, sprite baker + atlas, instanced sprite renderer, build-time `npm run bake`
-- [ ] Step 2: detailed models built from the reference drawings (Town Hall, towers, walls, scenery, then enemies)
+- [x] Step 2: detailed models built from the reference drawings (Town Hall, towers, walls, scenery, enemies), assembled from the shared kit in `src/render/modelKit.js`
 - [ ] Step 3: painted terrain and ground detail (grass tufts, stones, bushes)
 - [ ] Step 4: animated units (8-direction walk/attack frames)
 

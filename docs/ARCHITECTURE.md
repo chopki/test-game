@@ -90,16 +90,19 @@ so the whole battlefield is ~15 draw calls and a few hundred triangles however d
   live except anti-aliasing, which is fixed when the WebGL context is created. The frame-rate cap is enforced in
   `Game._frame`, and the menu is `ui/SettingsMenu.js`. When the context is lost, `Game` drops one preset
   automatically.
-- `models.js`: procedural low-poly models. Each model is assembled from primitives with a `Parts` helper, which
-  merges them into one mesh per material, so a detailed building costs only 2–4 draw calls. Animated parts
-  (`userData.turret`, `flag`, `arm`/`ammo` on the catapult, `crystal` on the spire) stay separate. Walls take
-  `{ connections: { n, e, s, w } }` and are rebuilt by the renderer whenever a neighbouring tile changes.
-  Scenery uses `InstancedMesh` (one draw call per part type for every tree, bush and rock).
+- `models.js`: the detailed models, built after `docs/reference/art-style.jpg`. They are only rendered when
+  sprites are baked, so polygon count doesn't matter. Animated parts (`userData.turret`, `arm`/`ammo` on the
+  catapult, `crystal` on the spire) stay separate and get their own sprites. Walls take
+  `{ connections: { n, e, s, w } }`, and every shape is baked as `wall:<key>`.
+- `modelKit.js`: the building blocks the models share. `Parts` merges primitives into one mesh per material and
+  adds height-based ambient occlusion. The builders lay real masonry (`stoneBlocks`, `stoneRing`, with mortar gaps),
+  `merlonsRect`/`merlonsRing`, shingled roofs (`shingleGable`, `shingleCone`), half-timbering (`timberFace`),
+  windows, doors, wheels, barrels, banners and ground dressing. Stone, roof and other palettes are shared materials.
 - `batches.js`: `HealthBarBatch` (all health bars in two draw calls) and `BlobShadowBatch` (unit shadows).
 - `dynamicResolution.js`: the 'auto' render-scale controller (no three.js, unit-tested). `Game` feeds it the time
   between rendered frames and applies its result with `renderer.setRenderScale()`.
 - `textures.js`: procedural canvas textures (sandstone, roof tiles, wood, half-timbering, grass, dirt). Each texture
-  tiles once per world unit, and the geometry helpers in `models.js` scale UVs to each primitive's real size. Geometries and materials are cached and shared.
+  tiles once per world unit, and the geometry helpers in `modelKit.js` scale UVs to each primitive's real size. Geometries and materials are cached and shared.
 
 The scene is centred on the grid: `scene = sim − (width/2, height/2)`. Use `renderer.toScene()` rather than doing
 the maths by hand.
