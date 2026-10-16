@@ -83,6 +83,11 @@ Selling refunds 50% of the cost × remaining HP fraction.
 
 ## Art direction
 
+![Art style reference](reference/art-style.jpg)
+
+The reference sheet above ([`docs/reference/art-style.jpg`](reference/art-style.jpg)) is the target look, including
+the five-stage upgrade art for the Town Hall, towers and walls planned on the roadmap.
+
 Warm, storybook medieval: sandstone blocks, red clay roofs, half-timbered plaster, chunky crenellations,
 round leafy trees and pines, green goblins and orcs, grey trolls. Everything is built from code (procedural
 textures in `render/textures.js`, models in `render/models.js`), so there are no asset files to manage.
