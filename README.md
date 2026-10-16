@@ -25,6 +25,16 @@ npm run dev      # http://localhost:5173
 
 Requires Node 18+.
 
+## Play in the browser (GitHub Pages)
+
+`.github/workflows/deploy.yml` tests and builds every push, and publishes the default branch to GitHub Pages.
+One-time setup: **Settings → Pages → Build and deployment → Source: GitHub Actions**. Then push (or run the
+workflow from the Actions tab). The game is served at `https://<owner>.github.io/<repo>/`.
+
+GitHub Pages needs a **public** repository on a free GitHub plan; private repos need GitHub Pro, Team or Enterprise.
+The build in `dist/` is plain static files (relative paths), so it also works on any static host such as Netlify,
+Vercel or Cloudflare Pages.
+
 ## How to play
 
 - Enemies spawn in the **dirt border** around the map and march toward the Town Hall.
