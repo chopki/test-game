@@ -8,8 +8,9 @@
     <!-- Used by scripts/bake-sprites.mjs: bakes every sprite in the browser and hands the result back. -->
     <script type="module">
       import { bakeSprites, serializeAtlas } from '/src/render/spriteBaker.js';
-      import { BAKE_OPTIONS, spriteSpecs } from '/src/render/spriteCatalog.js';
-      window.__bake = serializeAtlas(bakeSprites(spriteSpecs(), BAKE_OPTIONS));
+      import { SPRITE_SETS, spriteSpecs } from '/src/render/spriteCatalog.js';
+      const set = SPRITE_SETS[new URLSearchParams(location.search).get('set') ?? 'standard'];
+      window.__bake = serializeAtlas(bakeSprites(spriteSpecs(), set.options));
     </script>
   </body>
 </html>

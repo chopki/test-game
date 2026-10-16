@@ -11,6 +11,8 @@ test('loads with the HUD and no errors', { tag: '@smoke' }, async ({ page }) => 
   await expect(page.locator('#next-wave')).toContainText('Wave 1');
   // Shadows and other ground decals must leave the canvas opaque (else they show the page colour through).
   expect(await minCanvasAlpha(page)).toBe(255);
+  // Desktops get the double-resolution sprite set.
+  expect(await page.evaluate(() => window.game.renderer.atlas.set)).toBe('hd');
   expect(errors).toEqual([]);
 });
 

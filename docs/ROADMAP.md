@@ -69,8 +69,7 @@ Pre-rendered sprites on a fixed isometric camera (see ARCHITECTURE.md), working 
 - [ ] Combat effects: arrow trails, cannon smoke, dust bursts when walls are hit, smoke and fire on damaged
       buildings (baked damaged variants), debris when a building falls
 - [ ] Tree sway (a small vertex wobble on tree sprites)
-- [ ] Sharper sprites on High (a double-resolution atlas only High loads) and WebP atlas pages to cut the
-      download (6.1 MB of PNG today)
+- [x] WebP atlas pages (6.1 MB of PNG → 1.5 MB) and an HD sprite set for desktops (2.5 MB), sharp when zoomed in
 - [ ] Ground marks: worn earth round buildings, scorch marks where boulders land, bridges at fords
 - [ ] Rivers more often (about half of maps have one today), or a map option to ask for one
 - [ ] Warm colour grade and a soft glow on crystals and fire (High only)

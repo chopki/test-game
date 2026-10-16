@@ -71,8 +71,11 @@ sprites**. Every building, wall shape, turret direction, enemy direction and sce
 list of sprites in `spriteCatalog.js`). In game, `SpriteLayer` draws them all as instanced camera-facing quads,
 so the whole battlefield is ~15 draw calls and a few hundred triangles however detailed the models are.
 
-- **Baking is done ahead of time**: `npm run bake` (scripts/bake-sprites.mjs) renders the atlas in headless
-  Chromium and writes `public/sprites/atlas.json` + page PNGs, which production builds load (`spriteAssets.js`).
+- **Baking is done ahead of time**: `npm run bake` (scripts/bake-sprites.mjs) renders the atlases in headless
+  Chromium and writes `atlas.json` + WebP pages (lossless alpha) for each set in `SPRITE_SETS`: `public/sprites/`
+  (standard, 72 px per tile) and `public/sprites-hd/` (144 px per tile for buildings, walls, towers, scenery and
+  icons). Production builds load one (`spriteAssets.js`): desktops get HD, touch screens standard (a phone shows
+  fewer pixels per tile than the standard set has, even zoomed in); `?sprites=standard|hd` overrides it.
   The dev server bakes live, so model edits show immediately. `test/sprites.test.js` fails when the atlas is
   stale (hash of the model/texture sources), so a deploy can't ship out-of-date sprites. A missing sprite at
   runtime falls back to a live bake.

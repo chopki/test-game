@@ -195,7 +195,7 @@ export function bakeSprites(specs, { pxPerUnit = 64, supersample = 2, ink = true
       rim.position.copy(centre).add(new THREE.Vector3(-6, 5, -6));
       rim.target.position.copy(centre);
 
-      renderer.setSize(outW * supersample, outH * supersample, false);
+      renderer.setSize(Math.ceil(outW * supersample), Math.ceil(outH * supersample), false);
       // Sprites without a ground shadow skip the shadow map entirely (much faster to bake).
       sun.castShadow = shadow;
       const meshes = [];
@@ -307,11 +307,14 @@ function pageTexture(texture) {
   return texture;
 }
 
-/** Plain data for saving an atlas to files: { frames, pages: [PNG data URLs] }. */
-export function serializeAtlas(atlas) {
+/**
+ * Plain data for saving an atlas to files: { frames, pages: [image data URLs] }. Pages are WebP (high quality;
+ * its alpha is stored losslessly, so sprite edges stay clean) unless `format` says otherwise.
+ */
+export function serializeAtlas(atlas, { format = 'image/webp', quality = 0.92 } = {}) {
   return {
     frames: Object.fromEntries(atlas.frames),
-    pages: atlas.pages.map((p) => p.source.toDataURL('image/png')),
+    pages: atlas.pages.map((p) => p.source.toDataURL(format, quality)),
   };
 }
 

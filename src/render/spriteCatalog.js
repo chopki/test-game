@@ -48,6 +48,17 @@ const BUILDING_PARTS = {
 
 /** Options every bake uses (runtime and scripts/bake-sprites.mjs). */
 export const BAKE_OPTIONS = { pxPerUnit: 72, supersample: 2 };
+
+/**
+ * The two pre-baked sprite sets. Phones use 'standard': even zoomed right in they show fewer screen pixels per
+ * tile than it has. Desktops use 'hd', where zooming in would otherwise stretch the sprites: buildings, walls,
+ * towers, scenery and icons at twice the resolution (enemies and catapult frames, which set their own resolution,
+ * stay as they are, since they're small and always moving).
+ */
+export const SPRITE_SETS = {
+  standard: { dir: 'sprites/', options: BAKE_OPTIONS },
+  hd: { dir: 'sprites-hd/', options: { pxPerUnit: 144, supersample: 1.5 } },
+};
 /** Enemies are small and always moving, so they're baked at a lower resolution (there are ~560 frames). */
 const ENEMY_PX_PER_UNIT = 56;
 

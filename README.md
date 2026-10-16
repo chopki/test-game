@@ -26,7 +26,7 @@ npm run dev      # http://localhost:5173
 | `npm run build`   | Production build into `dist/` (static, relative paths) |
 | `npm run preview` | Serve the production build locally               |
 | `npm test`        | Run the headless simulation tests (Vitest), incl. a check that the pre-baked sprites are current |
-| `npm run bake`    | Re-bake the battlefield sprites into `public/sprites/` (run after changing models or textures) |
+| `npm run bake`    | Re-bake the battlefield sprites into `public/sprites/` and `public/sprites-hd/` (run after changing models or textures) |
 | `npm run test:e2e` | Vital browser tests (`@smoke`, ~3 min, desktop + phone) |
 | `npm run test:e2e:full` | Full browser regression suite (~4 min)      |
 | `npm run test:all` | Unit tests + vital browser tests                |
