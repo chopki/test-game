@@ -29,7 +29,9 @@
       <div id="next-wave" class="next-wave"></div>
 
       <div id="toasts"></div>
+      <div id="build-tag" class="build-tag" hidden></div>
       <div id="confirm" class="confirm" hidden>
+        <span id="confirm-label" class="confirm-label"></span>
         <button id="confirm-no" class="confirm-no" aria-label="Don't place">✕</button>
         <button id="confirm-yes" class="confirm-yes" aria-label="Place">✓</button>
       </div>
@@ -49,13 +51,14 @@
             <tr><td>Tap / drag the map</td><td>Position the building, then tap ✓ to build or ✕ to cancel</td></tr>
             <tr><td>Drag near the edge</td><td>Scrolls the map while positioning</td></tr>
             <tr><td>Tap a building</td><td>Select it (to see stats or sell)</td></tr>
-            <tr><td>Drag (walls)</td><td>Paint a line of walls</td></tr>
+            <tr><td>Drag (walls)</td><td>Plan a wall line, then ✓. Drag over a tower to join onto it. Drag either end to adjust.</td></tr>
             <tr><td>One finger</td><td>Pan the camera (when not building)</td></tr>
             <tr><td>Two fingers</td><td>Zoom and rotate</td></tr>
           </table>
           <table class="desktop-only">
             <tr><td><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></td><td>Wall / Archer Tower / Cannon Tower</td></tr>
-            <tr><td>Left click</td><td>Place (drag to paint walls) / select</td></tr>
+            <tr><td>Left click</td><td>Place / select</td></tr>
+            <tr><td>Left drag (walls)</td><td>Plan a wall line, release to build; drag onto a tower to join it</td></tr>
             <tr><td><kbd>X</kbd></td><td>Sell mode</td></tr>
             <tr><td>Right click / <kbd>Esc</kbd></td><td>Cancel</td></tr>
             <tr><td>Right drag</td><td>Rotate camera</td></tr>

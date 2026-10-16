@@ -50,7 +50,7 @@ The flow field is recomputed whenever buildings change and every 0.5s during wav
 | Building     | Size | Cost | HP   | Attack                                   | Notes |
 | ------------ | ---- | ---- | ---- | ---------------------------------------- | ----- |
 | Town Hall    | 3×3  | n/a  | 2500 | 8 dmg, range 5, 1 shot/s                 | Lose when destroyed |
-| Castle Wall  | 1×1  | 10   | 400  | none                                     | Drag to paint lines |
+| Castle Wall  | 1×1  | 10   | 400  | none                                     | Drag to plan a line (straight or L); snaps onto towers |
 | Archer Tower | 2×2  | 75   | 300  | 14 dmg, range 7, 1.25 shots/s            | Homing arrows |
 | Cannon Tower | 2×2  | 150  | 500  | 40 dmg splash r1.6, range 6, 0.45 shots/s | Fires at the ground where the target stood, so it can miss fast enemies |
 

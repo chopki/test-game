@@ -6,7 +6,7 @@ Rough order, with each milestone playable on its own. Checkboxes track progress.
 
 - [x] 3D scene, camera controls, procedural models
 - [x] Tile grid with placement validation and ghost preview
-- [x] Town Hall, Castle Walls (drag to paint), Archer Tower, Cannon Tower
+- [x] Town Hall, Castle Walls (drag to plan a line, snaps to towers), Archer Tower, Cannon Tower
 - [x] Flow-field pathing with breach cost: enemies walk around or smash through walls
 - [x] Three enemy types plus elite boss waves, procedurally generated escalating waves from multiple sides
 - [x] Gold from kills and wave bonuses, selling

@@ -43,6 +43,11 @@ body {
   pointer-events: auto;
 }
 
+/* No double-tap-to-zoom gesture on buttons: it can swallow a quick tap right after a drag. */
+#hud button {
+  touch-action: manipulation;
+}
+
 button {
   font: inherit;
   color: var(--text);
@@ -382,6 +387,40 @@ kbd {
 }
 
 .confirm[hidden] {
+  display: none;
+}
+
+.confirm-label,
+.build-tag {
+  padding: 3px 8px;
+  border-radius: 5px;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  font-size: 0.85em;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.confirm-label {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.confirm-label.bad,
+.build-tag.bad {
+  color: var(--danger);
+}
+
+.build-tag {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+}
+
+.build-tag[hidden] {
   display: none;
 }
 

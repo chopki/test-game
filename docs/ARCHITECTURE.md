@@ -42,6 +42,7 @@ to a fixed-timestep server, replays or AI opponents later.
 | `FlowField.js`   | Dijkstra distance-to-Town-Hall map with building "breach cost"; `nextStep()` for enemies |
 | `WaveManager.js` | Procedural wave generation (`generateWave`) and the spawn queue |
 | `Economy.js`     | Gold: `canAfford`, `spend`, `earn` |
+| `wallPlanner.js` | Wall-line planning for the drag tool: straight/L path, snapping onto towers, per-tile validity, cost (`world.planWall` / `world.buildWall`) |
 | `EventBus.js`, `MinHeap.js`, `rng.js` | Utilities (`rng` is seeded, so tests are deterministic) |
 
 Coordinates are in **tile units**. Tile `(x, z)` covers `[x, x+1) × [z, z+1)`. `x` runs west→east, `z` runs north→south.
@@ -78,7 +79,10 @@ the maths by hand.
 
 - `Game.js`: owns the World, Renderer, HUD and BuildController. Runs the `requestAnimationFrame` loop (dt clamped to
   0.1s; game speed runs extra sim steps rather than bigger ones) and handles keyboard shortcuts.
-- `BuildController.js`: build mode, ghost preview, range ring, drag-to-paint walls, sell mode, selection.
+- `BuildController.js`: build mode, ghost preview, range ring, wall-line planning (mouse: built on release; touch:
+  ✓/✕ with draggable ends), touch placement and edge scroll, sell mode, selection.
+- `ui/press.js`: `onPress()` for HUD buttons. Touch presses fire on release instead of waiting for the browser's
+  click, which Chrome can drop when a tap follows a canvas drag.
 - `HUD.js`: top bar, next-wave preview, build buttons (generated from `BUILDINGS`), info panel, toasts, overlays.
 
 `window.game` is exposed in the browser for debugging, e.g. `game.world.economy.earn(1000)`.
@@ -130,11 +134,13 @@ Keep new gameplay logic in `sim/` so it can be tested the same way.
 `npm run test:e2e` runs Playwright browser tests against the production build (`vite preview`), with WebGL on
 SwiftShader so they work without a GPU (including on CI):
 
-- `e2e/desktop.spec.js` (1280×800): HUD loads with no errors, hotkey + click placement, drag-painting walls,
+- `e2e/desktop.spec.js` (1280×800): HUD loads with no errors, hotkey + click placement, wall lines (cost tag, L-shape, snap to tower,
+  right-click cancel),
   invalid-placement message, select + sell, right-click cancel, wave start, GPU context loss pause/recovery,
   on-screen error overlay
 - `e2e/mobile.spec.js` (Pixel 7 profile): lighter graphics and HUD fit, touch placement (drag without moving the map,
-  ✓ builds, re-drag keeps the finger offset, ✕ cancels, invalid ✓), edge-scroll while dragging, wall painting,
+  ✓ builds, re-drag keeps the finger offset, ✕ cancels, invalid ✓), edge-scroll while dragging, wall lines with ✓ and
+  snapping a dragged end onto a tower,
   one-finger pan and tap-to-select
 
 Tests drive the game through real input and read state through `window.game`, e.g. `game.renderer.toScreen()` to

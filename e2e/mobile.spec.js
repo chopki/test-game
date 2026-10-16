@@ -98,14 +98,44 @@ test('holding a tower at the screen edge scrolls the map', async ({ page }) => {
   expect(z).toBeLessThan(15); // the tower travelled with the scrolling map
 });
 
-test('dragging in wall mode paints walls directly', async ({ page }) => {
+test('dragging in wall mode plans a wall line that ✓ builds', async ({ page }) => {
   await openGame(page);
   const touch = await touchInput(page);
   await page.getByRole('button', { name: /Castle Wall/ }).tap();
   await touch.drag(await tileToScreen(page, 14, 25), await tileToScreen(page, 24, 25), 15);
+  await expect(page.locator('#confirm')).toBeHidden(); // hidden while the finger is down
   await touch.end();
-  expect(await countBuildings(page, 'wall')).toBe(11);
+  expect(await countBuildings(page, 'wall')).toBe(0); // nothing built until ✓
+  await expect(page.locator('#confirm')).toBeVisible();
+  await expect(page.locator('#confirm-label')).toHaveText('11 walls · 110g');
+  await page.locator('#confirm-yes').tap();
+  await expect.poll(() => countBuildings(page, 'wall')).toBe(11);
   await expect(page.locator('#confirm')).toBeHidden();
+});
+
+test('a planned wall end can be dragged onto a tower to snap to it, and ✕ discards the plan', async ({ page }) => {
+  await openGame(page);
+  const touch = await touchInput(page);
+  await page.evaluate(() => window.game.world.place('archerTower', 22, 24)); // covers 22–23, 24–25
+  await page.getByRole('button', { name: /Castle Wall/ }).tap();
+  await touch.drag(await tileToScreen(page, 14, 24), await tileToScreen(page, 17, 24));
+  await touch.end();
+  expect(await page.evaluate(() => window.game.build.currentWallPlan().to)).toEqual({ x: 17, z: 24 });
+
+  // Grab the end of the line and drag it over the tower: it snaps to the tower's west side.
+  await touch.drag(await tileToScreen(page, 17, 24), await tileToScreen(page, 23, 25));
+  await touch.end();
+  const plan = await page.evaluate(() => window.game.build.currentWallPlan());
+  expect(plan.to).toEqual({ x: 21, z: 24 });
+  expect(plan.from).toEqual({ x: 14, z: 24 });
+  expect(plan.snapped).toBe(true);
+  await expect(page.locator('#confirm')).toBeVisible();
+  await expect(page.locator('#confirm-label')).toHaveText('8 walls · 80g');
+
+  await page.locator('#confirm-no').tap();
+  await expect.poll(() => page.evaluate(() => window.game.build.wallPlan)).toBe(null);
+  await expect(page.locator('#confirm')).toBeHidden();
+  expect(await countBuildings(page, 'wall')).toBe(0);
 });
 
 test('one finger pans the map when not building, and a tap selects', async ({ page }) => {

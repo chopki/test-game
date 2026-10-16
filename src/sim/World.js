@@ -5,6 +5,7 @@ import { Grid } from './Grid.js';
 import { FlowField } from './FlowField.js';
 import { Economy } from './Economy.js';
 import { WaveManager } from './WaveManager.js';
+import { planWall } from './wallPlanner.js';
 
 /**
  * The whole game state and rules, with no rendering or DOM dependencies.
@@ -59,7 +60,8 @@ export class World {
     return { x: tileX - offset, z: tileZ - offset };
   }
 
-  canPlace(type, x, z) {
+  /** Can `type` go at (x, z)? With `ignoreCost`, gold isn't checked (used when planning several at once). */
+  canPlace(type, x, z, { ignoreCost = false } = {}) {
     const def = BUILDINGS[type];
     if (!def || !def.buildable) return { ok: false, reason: 'Cannot build that' };
     if (this.phase === 'gameover') return { ok: false, reason: 'Game over' };
@@ -69,8 +71,25 @@ export class World {
     }
     if (!this.grid.isAreaFree(x, z, def.size)) return { ok: false, reason: 'Space is occupied' };
     if (this._enemyInArea(x, z, def.size)) return { ok: false, reason: 'Enemies in the way' };
-    if (!this.economy.canAfford(def.cost)) return { ok: false, reason: 'Not enough gold' };
+    if (!ignoreCost && !this.economy.canAfford(def.cost)) return { ok: false, reason: 'Not enough gold' };
     return { ok: true };
+  }
+
+  /** Plan a wall line from tile `from` to tile `to` (see planWall in wallPlanner.js). */
+  planWall(from, to) {
+    return planWall(this, from, to);
+  }
+
+  /**
+   * Build the buildable tiles of a wall plan, in order, until gold runs out.
+   * Returns { built, planned } so callers can report a partial build.
+   */
+  buildWall(plan) {
+    let built = 0;
+    for (const t of plan.tiles) {
+      if (t.ok && this.place('wall', t.x, t.z).ok) built++;
+    }
+    return { built, planned: plan.count };
   }
 
   sellValue(building) {

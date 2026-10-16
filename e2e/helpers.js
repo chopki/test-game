@@ -49,10 +49,16 @@ export const cameraTarget = (page) => page.evaluate(() => window.game.renderer.c
 export async function touchInput(page) {
   const cdp = await page.context().newCDPSession(page);
   const send = (type, points) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: points });
+  // Wait until the game has processed the finger lifting. Without this, a tap sent straight after
+  // can arrive while the previous touch still counts as down, and the browser drops its click.
+  const released = () => page.waitForFunction(() => window.game.build._touchIds.size === 0);
   return {
     start: (p) => send('touchStart', [{ x: p.x, y: p.y, id: 1 }]),
     move: (p) => send('touchMove', [{ x: p.x, y: p.y, id: 1 }]),
-    end: () => send('touchEnd', []),
+    async end() {
+      await send('touchEnd', []);
+      await released();
+    },
     async drag(from, to, steps = 10) {
       await send('touchStart', [{ x: from.x, y: from.y, id: 1 }]);
       for (let i = 1; i <= steps; i++) {
@@ -62,6 +68,7 @@ export async function touchInput(page) {
     async tap(p) {
       await send('touchStart', [{ x: p.x, y: p.y, id: 1 }]);
       await send('touchEnd', []);
+      await released();
     },
   };
 }

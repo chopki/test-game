@@ -1,4 +1,5 @@
 import { OPTIONS, PRESET_ORDER, RELOAD_REQUIRED, withPreset, withSetting } from '../render/graphicsSettings.js';
+import { onPress } from './press.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -21,6 +22,7 @@ export class SettingsMenu {
     this.el = $('settings');
     this.body = $('settings-body');
     this._wasPaused = false;
+    this._openedAt = 0;
 
     this.presetButtons = PRESET_ORDER.map((preset) =>
       this._button(capitalize(preset), () => this.game.setGraphics(withPreset(this.game.graphics, preset))),
@@ -38,10 +40,14 @@ export class SettingsMenu {
       this.body.appendChild(this._row(label, help, this.optionButtons[key]));
     }
 
-    $('settings-btn').addEventListener('click', () => this.open());
-    $('settings-close').addEventListener('click', () => this.close());
-    $('settings-reload').addEventListener('click', () => location.reload());
-    this.el.addEventListener('click', (e) => e.target === this.el && this.close());
+    onPress($('settings-btn'), () => this.open());
+    onPress($('settings-close'), () => this.close());
+    onPress($('settings-reload'), () => location.reload());
+    // Tapping the dark backdrop closes the menu. The grace period ignores the click a touch on ⚙
+    // can still generate after the menu has already opened under the finger.
+    this.el.addEventListener('click', (e) => {
+      if (e.target === this.el && performance.now() - this._openedAt > 500) this.close();
+    });
   }
 
   get isOpen() {
@@ -52,6 +58,7 @@ export class SettingsMenu {
     this._wasPaused = this.game.paused;
     if (!this.game.paused) this.game.togglePause();
     this.el.hidden = false;
+    this._openedAt = performance.now();
     this.refresh();
   }
 
@@ -80,7 +87,7 @@ export class SettingsMenu {
     const b = document.createElement('button');
     b.type = 'button';
     b.textContent = text;
-    b.addEventListener('click', () => {
+    onPress(b, () => {
       onClick();
       this.refresh();
     });

@@ -23,17 +23,56 @@ test('hotkey + click places an archer tower and spends gold', async ({ page }) =
   expect(errors).toEqual([]);
 });
 
-test('dragging in wall mode paints a line of walls', async ({ page }) => {
-  await openGame(page);
-  await page.keyboard.press('1');
-  const a = await tileToScreen(page, 10, 8);
-  const b = await tileToScreen(page, 20, 8);
+async function mouseDrag(page, from, to, { release = true } = {}) {
+  const a = await tileToScreen(page, from[0], from[1]);
+  const b = await tileToScreen(page, to[0], to[1]);
   await page.mouse.move(a.x, a.y);
   await page.mouse.down();
-  await page.mouse.move(b.x, b.y, { steps: 15 });
+  await page.mouse.move(b.x, b.y, { steps: 10 });
+  if (release) await page.mouse.up();
+}
+
+test('dragging in wall mode previews a wall line with its cost, built on release', async ({ page }) => {
+  await openGame(page);
+  await page.keyboard.press('1');
+  await mouseDrag(page, [10, 8], [20, 8], { release: false });
+  expect(await countBuildings(page, 'wall')).toBe(0); // only a preview while dragging
+  await expect(page.locator('#build-tag')).toHaveText('11 walls · 110g');
   await page.mouse.up();
+  await expect(page.locator('#build-tag')).toBeHidden();
   expect(await countBuildings(page, 'wall')).toBe(11);
   expect(await gold(page)).toBe(300 - 11 * 10);
+});
+
+test('a diagonal wall drag builds an L-shaped wall', async ({ page }) => {
+  await openGame(page);
+  await page.keyboard.press('1');
+  await mouseDrag(page, [8, 8], [13, 11]);
+  expect(await countBuildings(page, 'wall')).toBe(9); // 6 along x, then 3 more along z
+  expect(await buildingAt(page, 13, 8)).toBe('wall'); // the corner
+  expect(await buildingAt(page, 13, 11)).toBe('wall');
+});
+
+test('dragging a wall onto a tower snaps it to the tower side', async ({ page }) => {
+  await openGame(page);
+  await page.keyboard.press('2');
+  const t = await tileToScreen(page, 12, 12);
+  await page.mouse.click(t.x, t.y); // archer tower covers 12–13
+  await page.keyboard.press('1');
+  await mouseDrag(page, [6, 12], [13, 13]); // release over the middle of the tower
+  expect(await buildingAt(page, 11, 12)).toBe('wall'); // touches the tower's west side
+  expect(await buildingAt(page, 12, 12)).toBe('archerTower');
+  expect(await countBuildings(page, 'wall')).toBe(6); // 6..11
+});
+
+test('right-click during a wall drag cancels it', async ({ page }) => {
+  await openGame(page);
+  await page.keyboard.press('1');
+  await mouseDrag(page, [10, 8], [16, 8], { release: false });
+  await page.mouse.down({ button: 'right' });
+  await page.mouse.up({ button: 'right' });
+  await page.mouse.up();
+  expect(await countBuildings(page, 'wall')).toBe(0);
 });
 
 test('invalid placement explains why', async ({ page }) => {

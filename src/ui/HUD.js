@@ -1,4 +1,5 @@
 import { BUILDINGS } from '../sim/config.js';
+import { onPress } from './press.js';
 import { summarizeWave } from '../sim/WaveManager.js';
 
 const $ = (id) => document.getElementById(id);
@@ -28,6 +29,8 @@ export class HUD {
       help: $('help'),
       confirm: $('confirm'),
       fps: $('fps'),
+      confirmLabel: $('confirm-label'),
+      buildTag: $('build-tag'),
       confirmYes: $('confirm-yes'),
     };
     this._last = {};
@@ -39,14 +42,14 @@ export class HUD {
     }
     this.buttons.set('sell', this._makeButton('sell', 'Sell', null, 'X', 'Click a building to sell it for part of its cost.'));
 
-    this.el.startWave.addEventListener('click', () => game.world.startWave());
-    this.el.speed.addEventListener('click', () => game.cycleSpeed());
-    this.el.pause.addEventListener('click', () => game.togglePause());
-    $('help-btn').addEventListener('click', () => this.toggleHelp());
-    $('help-close').addEventListener('click', () => this.toggleHelp(false));
-    $('restart').addEventListener('click', () => game.newGame());
-    $('confirm-yes').addEventListener('click', () => game.build.confirmPending());
-    $('confirm-no').addEventListener('click', () => game.build.cancelPending());
+    onPress(this.el.startWave, () => game.world.startWave());
+    onPress(this.el.speed, () => game.cycleSpeed());
+    onPress(this.el.pause, () => game.togglePause());
+    onPress($('help-btn'), () => this.toggleHelp());
+    onPress($('help-close'), () => this.toggleHelp(false));
+    onPress($('restart'), () => game.newGame());
+    onPress($('confirm-yes'), () => game.build.confirmPending());
+    onPress($('confirm-no'), () => game.build.cancelPending());
   }
 
   _makeButton(mode, name, cost, hotkey, description) {
@@ -57,7 +60,7 @@ export class HUD {
       <span class="hotkey">${hotkey}</span>
       <span class="name">${name}</span>
       ${cost === null ? '' : `<span class="cost"><i class="coin"></i>${cost}</span>`}`;
-    btn.addEventListener('click', () => {
+    onPress(btn, () => {
       const build = this.game.build;
       build.setMode(build.mode === mode ? null : mode);
     });
@@ -118,7 +121,19 @@ export class HUD {
 
     this._updateInfo();
     this._updateConfirm();
+    this._updateBuildTag();
     if (!this.el.fps.hidden) this._set('fps', `${this.game.fps} FPS`);
+  }
+
+  // Desktop: cost of the wall being dragged, next to the cursor.
+  _updateBuildTag() {
+    const tag = this.game.build.dragTag();
+    const el = this.el.buildTag;
+    el.hidden = !tag;
+    if (!tag) return;
+    el.textContent = tag.text;
+    el.classList.toggle('bad', !tag.ok);
+    el.style.transform = `translate(${tag.x + 16}px, ${tag.y + 14}px)`;
   }
 
   setFpsVisible(visible) {
@@ -138,6 +153,8 @@ export class HUD {
     const y = Math.max(130, pos.y - 30);
     el.style.transform = `translate(${x - half}px, ${y - el.offsetHeight}px)`;
     this.el.confirmYes.classList.toggle('invalid', !info.ok);
+    this.el.confirmLabel.textContent = info.ok ? info.label : info.reason;
+    this.el.confirmLabel.classList.toggle('bad', !info.ok);
     this.el.confirmYes.title = info.ok ? 'Place' : info.reason;
   }
 
@@ -166,7 +183,7 @@ export class HUD {
       ${a ? `<p>Damage ${a.damage}${a.splash ? ' (splash)' : ''} · Range ${a.range} · ${(1 / a.cooldown).toFixed(1)} shots/s</p>` : ''}
       ${isHall ? '' : `<button id="sell-selected">Sell for <i class="coin"></i>${this.world.sellValue(b)}</button>`}`;
     if (!isHall) {
-      $('sell-selected').addEventListener('click', () => {
+      onPress($('sell-selected'), () => {
         this.world.sell(b.id);
         this.game.build.select(null);
       });
