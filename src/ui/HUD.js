@@ -26,6 +26,8 @@ export class HUD {
       gameover: $('gameover'),
       gameoverStats: $('gameover-stats'),
       help: $('help'),
+      confirm: $('confirm'),
+      confirmYes: $('confirm-yes'),
     };
     this._last = {};
 
@@ -42,6 +44,8 @@ export class HUD {
     $('help-btn').addEventListener('click', () => this.toggleHelp());
     $('help-close').addEventListener('click', () => this.toggleHelp(false));
     $('restart').addEventListener('click', () => game.newGame());
+    $('confirm-yes').addEventListener('click', () => game.build.confirmPending());
+    $('confirm-no').addEventListener('click', () => game.build.cancelPending());
   }
 
   _makeButton(mode, name, cost, hotkey, description) {
@@ -112,6 +116,23 @@ export class HUD {
     }
 
     this._updateInfo();
+    this._updateConfirm();
+  }
+
+  // ✓/✕ buttons floating above a pending touch placement.
+  _updateConfirm() {
+    const build = this.game.build;
+    const info = build.pendingInfo();
+    const pos = info && !build.draggingPending ? this.game.renderer.toScreen(info.cx, info.height + 0.8, info.cz) : null;
+    const el = this.el.confirm;
+    el.hidden = !pos;
+    if (!pos) return;
+    const half = el.offsetWidth / 2 || 60;
+    const x = Math.min(window.innerWidth - half - 6, Math.max(half + 6, pos.x));
+    const y = Math.max(130, pos.y - 30);
+    el.style.transform = `translate(${x - half}px, ${y - el.offsetHeight}px)`;
+    this.el.confirmYes.classList.toggle('invalid', !info.ok);
+    this.el.confirmYes.title = info.ok ? 'Place' : info.reason;
   }
 
   _set(key, value) {

@@ -282,6 +282,49 @@ kbd {
   opacity: 0;
 }
 
+/* ------------------------------------------------------------------ touch placement ✓ / ✕ */
+
+.confirm {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  gap: 18px;
+  pointer-events: auto;
+}
+
+.confirm[hidden] {
+  display: none;
+}
+
+.confirm button {
+  width: 52px;
+  height: 52px;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1;
+  border-width: 2px;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.4);
+}
+
+.confirm-yes {
+  background: #2f8f3a;
+  border-color: #8ff09a;
+}
+
+.confirm-yes.invalid {
+  background: #5a5a52;
+  border-color: #888;
+  color: #bbb;
+}
+
+.confirm-no {
+  background: #9c2f2a;
+  border-color: #f0958f;
+}
+
 /* ------------------------------------------------------------------ small / touch screens */
 
 .touch-only {

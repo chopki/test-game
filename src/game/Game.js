@@ -132,7 +132,7 @@ export class Game {
     const right = (k.has('d') || k.has('arrowright') ? 1 : 0) - (k.has('a') || k.has('arrowleft') ? 1 : 0);
     if (forward || right) this.renderer.pan(forward * PAN_SPEED * dt, right * PAN_SPEED * dt);
 
-    this.build.update();
+    this.build.update(dt);
     this.renderer.update(dt);
     this.hud.update();
     this.renderer.render();

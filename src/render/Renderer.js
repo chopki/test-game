@@ -189,6 +189,14 @@ export class Renderer {
     return out.set(x - this.offsetX, y, z - this.offsetZ);
   }
 
+  /** Project sim coords to client (CSS pixel) coordinates; null if behind the camera. */
+  toScreen(x, y, z) {
+    const v = this.toScene(x, y, z).project(this.camera);
+    if (v.z > 1) return null;
+    const rect = this.canvas.getBoundingClientRect();
+    return { x: rect.left + ((v.x + 1) / 2) * rect.width, y: rect.top + ((1 - v.y) / 2) * rect.height };
+  }
+
   /** Raycast screen coordinates onto the ground; returns sim coords or null. */
   pickGround(clientX, clientY) {
     const rect = this.canvas.getBoundingClientRect();

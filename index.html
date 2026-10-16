@@ -27,6 +27,10 @@
       <div id="next-wave" class="next-wave"></div>
 
       <div id="toasts"></div>
+      <div id="confirm" class="confirm" hidden>
+        <button id="confirm-no" class="confirm-no" aria-label="Don't place">✕</button>
+        <button id="confirm-yes" class="confirm-yes" aria-label="Place">✓</button>
+      </div>
       <div id="info" class="panel info-panel" hidden></div>
       <div id="buildbar" class="buildbar"></div>
 
@@ -40,7 +44,9 @@
           </p>
           <table class="touch-only">
             <tr><td>Tap a build button</td><td>Choose what to build (tap again to cancel)</td></tr>
-            <tr><td>Tap the map</td><td>Place it, or select a building</td></tr>
+            <tr><td>Tap / drag the map</td><td>Position the building, then tap ✓ to build or ✕ to cancel</td></tr>
+            <tr><td>Drag near the edge</td><td>Scrolls the map while positioning</td></tr>
+            <tr><td>Tap a building</td><td>Select it (to see stats or sell)</td></tr>
             <tr><td>Drag (walls)</td><td>Paint a line of walls</td></tr>
             <tr><td>One finger</td><td>Pan the camera (when not building)</td></tr>
             <tr><td>Two fingers</td><td>Zoom and rotate</td></tr>

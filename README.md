@@ -62,8 +62,10 @@ Vercel or Cloudflare Pages.
 | `P` / `F`                | Pause / cycle speed (1×, 2×, 3×)           |
 | `H`                      | Help                                       |
 
-**On phones and tablets:** tap a build button, then tap the map to place (drag to paint walls). With no build
-mode selected, one finger pans; two fingers zoom and rotate. Graphics settings are automatically lighter on touch
+**On phones and tablets:** tap a build button, then tap or drag on the map to position the building. The map stays
+still while you do; drag to the edge of the screen to scroll it. Lift your finger and tap **✓** to build or **✕** to
+cancel. You can drag the building again before confirming. Walls are painted directly by dragging. With no build mode
+selected, one finger pans; two fingers zoom and rotate. Graphics settings are automatically lighter on touch
 devices.
 
 ## Documentation
