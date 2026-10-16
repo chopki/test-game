@@ -17,7 +17,8 @@ try {
   const page = await browser.newPage();
   page.on('pageerror', (e) => console.error('page error:', e.message));
   const started = Date.now();
-  await page.goto(`${url}bake.html`);
+  // The bake runs while the page loads, so don't wait for 'load'.
+  await page.goto(`${url}bake.html`, { waitUntil: 'commit' });
   await page.waitForFunction(() => window.__bake, null, { timeout: 600_000, polling: 1000 });
   const result = await page.evaluate(() => window.__bake);
 

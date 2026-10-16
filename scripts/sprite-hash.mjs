@@ -10,6 +10,7 @@ export const SPRITE_SOURCES = [
   'src/render/spriteCatalog.js',
   'src/render/spriteBaker.js',
   'src/render/iso.js',
+  'src/render/inkStyle.js',
 ];
 
 const root = fileURLToPath(new URL('..', import.meta.url));

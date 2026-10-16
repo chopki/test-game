@@ -205,3 +205,41 @@ export function plasterTexture(base = '#ecdfc2') {
     }
   });
 }
+
+/**
+ * Tileable cloud mask for the drifting cloud shadows: soft overlapping blobs in clumps (white = cloud), drawn
+ * with wrap-around so the texture repeats seamlessly. Linear (not sRGB): it's data, not a colour.
+ */
+export function cloudTexture() {
+  if (cache.has('clouds')) return cache.get('clouds');
+  const size = 256;
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, size, size);
+  const rnd = seeded(hash('clouds'));
+  for (let c = 0; c < 7; c++) {
+    const cx = rnd() * size;
+    const cy = rnd() * size;
+    const puffs = 6 + Math.floor(rnd() * 6);
+    for (let i = 0; i < puffs; i++) {
+      const x = cx + (rnd() - 0.5) * 70;
+      const y = cy + (rnd() - 0.5) * 40;
+      const r = 14 + rnd() * 26;
+      for (const ox of [-size, 0, size]) {
+        for (const oy of [-size, 0, size]) {
+          const g = ctx.createRadialGradient(x + ox, y + oy, 0, x + ox, y + oy, r);
+          g.addColorStop(0, 'rgba(255,255,255,0.55)');
+          g.addColorStop(1, 'rgba(255,255,255,0)');
+          ctx.fillStyle = g;
+          ctx.fillRect(x + ox - r, y + oy - r, r * 2, r * 2);
+        }
+      }
+    }
+  }
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  cache.set('clouds', tex);
+  return tex;
+}

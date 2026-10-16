@@ -82,6 +82,7 @@ export const graphicsState = (page) =>
       pixelRatio: r.renderer.getPixelRatio(),
       scenerySprites: r.scenerySpots.length,
       terrainSprites: r.terrainSpots.length,
+      cloudShadows: r._clouds.visible,
       terrainPaintMs: r.terrainPaintMs,
     };
   });

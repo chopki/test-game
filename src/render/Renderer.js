@@ -5,6 +5,7 @@ import { T } from '../sim/terrain.js';
 import { createRng } from '../sim/rng.js';
 import { AUTO_RESOLUTION, GROUND_DETAIL, GROUND_PX, SCENERY_COUNT } from './graphicsSettings.js';
 import { OUTER_GROUND, outsideForest, paintTerrain } from './terrainPainter.js';
+import { cloudTexture } from './textures.js';
 import { createProjectileModel, SCENERY_VARIANTS } from './models.js';
 import { BlobShadowBatch, HealthBarBatch } from './batches.js';
 import { ISO_QUATERNION, isoDirection } from './iso.js';
@@ -39,7 +40,7 @@ const VIEW_WIDTH = 30;
  *
  * Draw order: ground (no depth writes) → baked ground shadows, unit blob shadows, grid and selection marks
  * (no depth test, renderOrder 1) → sprites (alpha-cut, depth-tested, renderOrder 2) → 3D projectiles and
- * effects (renderOrder 3) → health bars.
+ * effects (renderOrder 3) → health bars. Cloud shadows (renderOrder 2.5) multiply over the sprites.
  *
  * Sim coordinates (tile units, origin at the grid corner) map to scene coordinates with the grid centred on
  * the origin.
@@ -144,6 +145,52 @@ export class Renderer {
     lines.renderOrder = 1;
     this.grid.add(lines);
     this.scene.add(this.grid);
+    this._clouds = this._createClouds();
+  }
+
+  /**
+   * Cloud shadows drifting across the battlefield: one big ground-level plane drawn after the sprites, which
+   * multiplies a soft, scrolling cloud mask into what's already there (so clouds pass over trees and walls too).
+   * Shown with the Effects setting.
+   */
+  _createClouds() {
+    const material = new THREE.ShaderMaterial({
+      uniforms: { mask: { value: cloudTexture() }, time: { value: 0 } },
+      vertexShader: /* glsl */ `
+        varying vec2 vWorld;
+        void main() {
+          vec4 world = modelMatrix * vec4(position, 1.0);
+          vWorld = world.xz;
+          gl_Position = projectionMatrix * viewMatrix * world;
+        }`,
+      fragmentShader: /* glsl */ `
+        uniform sampler2D mask;
+        uniform float time;
+        varying vec2 vWorld;
+        void main() {
+          // Two layers drifting at slightly different speeds, so the clouds slowly change shape.
+          vec2 wind = vec2(0.55, 0.32) * time;
+          float a = texture2D(mask, (vWorld + wind) / 46.0).r;
+          float b = texture2D(mask, (vWorld * 0.7 + wind * 0.8 + 13.0) / 46.0).r;
+          float cloud = smoothstep(0.22, 0.5, a * 0.7 + b * 0.55);
+          vec3 shade = mix(vec3(1.0), vec3(0.66, 0.69, 0.78), cloud);
+          gl_FragColor = vec4(shade, 1.0);
+        }`,
+      depthTest: false,
+      depthWrite: false,
+      blending: THREE.CustomBlending,
+      // result = what's drawn × shade; the canvas alpha is left alone (see underlay()).
+      blendSrc: THREE.DstColorFactor,
+      blendDst: THREE.ZeroFactor,
+      blendSrcAlpha: THREE.ZeroFactor,
+      blendDstAlpha: THREE.OneFactor,
+    });
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(320, 320).rotateX(-Math.PI / 2), material);
+    mesh.position.y = 0.02;
+    mesh.renderOrder = 2.5; // after the sprites, before projectiles, effects and health bars
+    mesh.frustumCulled = false;
+    this.scene.add(mesh);
+    return mesh;
   }
 
   /**
@@ -315,6 +362,7 @@ export class Renderer {
     if (graphics.resolution !== 'auto') this.setRenderScale(graphics.resolution);
     else if (!prev || prev.resolution !== 'auto') this.setRenderScale(defaultAutoScale());
     if (prev && prev.scenery !== graphics.scenery) this._buildTerrain();
+    this._clouds.visible = graphics.effects;
   }
 
   /** Pixels drawn per CSS pixel, capped at the screen's real pixel ratio. */
@@ -422,6 +470,7 @@ export class Renderer {
       }
     }
     if (this._shimmer) this._shimmer.material.uniforms.time.value = this._time;
+    this._clouds.material.uniforms.time.value = this._time;
     if (world) {
       this._sync(this.views.buildings, world.buildings.values(), (b) => this._createBuildingView(b), (v, b) => this._updateBuildingView(v, b));
       this._sync(this.views.enemies, world.enemies, () => ({ phase: Math.random() * Math.PI * 2 }), (v, e) => this._updateEnemyView(v, e));

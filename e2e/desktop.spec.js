@@ -206,9 +206,10 @@ test('settings are not remembered: a fresh load always starts on High', async ({
 test('overriding one setting marks the preset Custom; FPS counter and frame cap work', { tag: '@smoke' }, async ({ page }) => {
   await openGame(page);
   await page.getByRole('button', { name: 'Settings' }).click();
+  expect((await graphicsState(page)).cloudShadows).toBe(true);
   await settingButton(page, 'Effects', 'Off').click();
   await expect(page.locator('.custom-tag')).toBeVisible();
-  expect(await graphicsState(page)).toMatchObject({ preset: 'custom', effects: false });
+  expect(await graphicsState(page)).toMatchObject({ preset: 'custom', effects: false, cloudShadows: false });
 
   await settingButton(page, 'Scenery', 'Off').click();
   expect((await graphicsState(page)).scenerySprites).toBe(0);

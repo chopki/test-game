@@ -124,7 +124,8 @@ Warm, storybook medieval: sandstone blocks, red clay roofs, half-timbered plaste
 green goblins and orcs, grey trolls. Terrain follows the reference's environment sheet: blocky olive oaks and
 stepped pines, big flat-faced pale sandstone boulders, warm olive-yellow grass with dark grass strokes and few
 flowers, bright turquoise water sunk below the grass with a brown earth bank on the far side, and strong dark
-ground shadows. Everything is built from code (procedural
+ground shadows. Sprites get a hand-drawn finish when baked: warm dark-brown ink outlines and inner lines, shading
+pulled into soft bands, and light hatching in the shadows. Cloud shadows drift slowly across the battlefield. Everything is built from code (procedural
 textures in `render/textures.js`, models in `render/models.js`), so there are no asset files to manage.
 
 ## Economy (v0.1)

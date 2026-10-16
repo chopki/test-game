@@ -100,6 +100,11 @@ so the whole battlefield is ~15 draw calls and a few hundred triangles however d
   adds height-based ambient occlusion. The builders lay real masonry (`stoneBlocks`, `stoneRing`, with mortar gaps),
   `merlonsRect`/`merlonsRing`, shingled roofs (`shingleGable`, `shingleCone`), half-timbering (`timberFace`),
   windows, doors, wheels, barrels, banners and ground dressing. Stone, roof and other palettes are shared materials.
+- `inkStyle.js`: the hand-drawn look, applied by the baker to every sprite (no runtime cost): ink outlines on the
+  silhouette and on inner edges (found from extra normal and depth renders), shading flattened into soft bands,
+  warmer shadows and light hatching. Pure pixel code, unit-tested in `test/inkStyle.test.js`; tune `INK_STYLE`.
+- Cloud shadows: `Renderer._createClouds()` draws one ground plane after the sprites that multiplies a drifting,
+  tileable cloud mask (`cloudTexture()` in textures.js) into the frame. Shown with the Effects setting.
 - `terrainPainter.js`: paints each map's ground into one canvas texture (`paintTerrain`). A low-res colour pass
   blends the terrain with noise for natural edges (forest floor, gravel, banks, water), then it's scaled up and
   small details are stamped in. Resolution and detail follow the Scenery setting (`GROUND_PX`, `GROUND_DETAIL`).

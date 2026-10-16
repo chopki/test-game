@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { ISO_QUATERNION, SUN_DIRECTION, isoDirection } from './iso.js';
+import { inkSprite } from './inkStyle.js';
 
 /**
  * Pre-renders 3D models into sprites ("baking"), the way classic isometric games were made.
@@ -9,6 +10,9 @@ import { ISO_QUATERNION, SUN_DIRECTION, isoDirection } from './iso.js';
  * so the models can be as detailed as we like. Every sprite has two layers:
  *  - the object itself (opaque, alpha-cut), and
  *  - its shadow on the ground (semi-transparent), drawn underneath everything as a decal.
+ *
+ * With `ink` (the default), each object layer also gets the hand-drawn treatment from inkStyle.js: two more
+ * renders (surface normals and depth) find the edges to ink, and the shading is flattened and warmed.
  *
  * Sprites are packed into atlas pages. A frame records where it is in the atlas, its size in world units, and
  * the anchor: where the model's origin (its spot on the ground) falls inside the sprite.
@@ -58,7 +62,7 @@ export class SpriteAtlas {
  * Bake `specs` = [{ key, make: () => Object3D, shadow = true }] into a SpriteAtlas.
  * `pxPerUnit` is the sprite resolution at zoom 1 (rendered at `supersample`× and scaled down for smooth edges).
  */
-export function bakeSprites(specs, { pxPerUnit = 64, supersample = 2 } = {}) {
+export function bakeSprites(specs, { pxPerUnit = 64, supersample = 2, ink = true } = {}) {
   const started = performance.now();
   const atlas = new SpriteAtlas();
   const canvas = document.createElement('canvas');
@@ -88,6 +92,34 @@ export function bakeSprites(specs, { pxPerUnit = 64, supersample = 2 } = {}) {
     catcher.receiveShadow = true;
     scene.add(catcher);
     const depthOnly = new THREE.MeshBasicMaterial({ colorWrite: false });
+    // Edge-finding passes for the ink style.
+    const normalPass = new THREE.MeshNormalMaterial({ side: THREE.DoubleSide });
+    const depthPass = new THREE.ShaderMaterial({
+      side: THREE.DoubleSide,
+      uniforms: { near: { value: 0 }, far: { value: 1 } },
+      vertexShader: /* glsl */ `
+        varying float vDepth;
+        void main() {
+          vec4 mv = modelViewMatrix * vec4(position, 1.0);
+          vDepth = -mv.z;
+          gl_Position = projectionMatrix * mv;
+        }`,
+      fragmentShader: /* glsl */ `
+        uniform float near;
+        uniform float far;
+        varying float vDepth;
+        void main() {
+          float d = clamp((vDepth - near) / (far - near), 0.0, 1.0) * 255.0;
+          gl_FragColor = vec4(floor(d) / 255.0, fract(d), 0.0, 1.0);
+        }`,
+    });
+    const work = document.createElement('canvas');
+    const workCtx = work.getContext('2d', { willReadFrequently: true });
+    const grab = (cw, ch) => {
+      workCtx.clearRect(0, 0, cw, ch);
+      workCtx.drawImage(canvas, 0, 0);
+      return workCtx.getImageData(0, 0, cw, ch);
+    };
 
     const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 200);
     camera.quaternion.copy(ISO_QUATERNION);
@@ -97,7 +129,8 @@ export function bakeSprites(specs, { pxPerUnit = 64, supersample = 2 } = {}) {
     let page = new Page();
     atlas.pages.push(page);
 
-    for (const { key, make, shadow = true } of specs) {
+    for (const spec of specs) {
+      const { key, make, shadow = true } = spec;
       const object = make();
       scene.add(object);
       object.updateMatrixWorld(true);
@@ -173,7 +206,34 @@ export function bakeSprites(specs, { pxPerUnit = 64, supersample = 2 } = {}) {
       // Layer 1: the object.
       catcher.visible = false;
       renderer.render(scene, camera);
-      page.ctx.drawImage(canvas, 0, 0, canvas.width, canvas.height, spot.x, spot.y, outW, outH);
+      let source = canvas;
+      if (ink && spec.ink !== false) {
+        const cw = canvas.width;
+        const ch = canvas.height;
+        work.width = cw;
+        work.height = ch;
+        const color = grab(cw, ch);
+        const passes = {};
+        for (const [name, mat] of [
+          ['normal', normalPass],
+          ['depth', depthPass],
+        ]) {
+          for (const [o] of meshes) o.material = mat;
+          if (name === 'depth') {
+            // Depth only needs to span the object, which keeps the 16-bit packing precise.
+            const mid = 60 - centre.dot(isoDirection(v));
+            depthPass.uniforms.near.value = mid - radius * 1.2;
+            depthPass.uniforms.far.value = mid + radius * 1.2;
+          }
+          renderer.render(scene, camera);
+          passes[name] = grab(cw, ch).data;
+        }
+        for (const [o, mat] of meshes) o.material = mat;
+        inkSprite({ color: color.data, normal: passes.normal, depth: passes.depth, w: cw, h: ch, depthRange: radius * 2.4 });
+        workCtx.putImageData(color, 0, 0);
+        source = work;
+      }
+      page.ctx.drawImage(source, 0, 0, source.width, source.height, spot.x, spot.y, outW, outH);
       const objectFrame = frameFor(atlas.pages.length - 1, spot, outW, outH, w, h, -minX, -minY);
       atlas.frames.set(key, objectFrame);
 
