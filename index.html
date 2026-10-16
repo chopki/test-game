@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Hold the Hall</title>
+  </head>
+  <body>
+    <div id="app"></div>
+
+    <div id="hud">
+      <div class="topbar">
+        <div class="stat gold"><i class="coin"></i><span id="gold">0</span></div>
+        <div class="stat"><span class="label">Wave</span><span id="wave">0</span></div>
+        <div class="stat hall">
+          <span class="label">Town Hall</span>
+          <div class="bar"><div id="hall-bar"></div></div>
+          <span id="hall-hp" class="small"></span>
+        </div>
+        <div class="stat phase"><span id="phase"></span></div>
+        <div class="spacer"></div>
+        <button id="start-wave" class="primary">Start wave <kbd>Space</kbd></button>
+        <button id="pause" title="Pause (P)">❚❚</button>
+        <button id="speed" title="Game speed (F)">1×</button>
+        <button id="help-btn" title="Help (H)">?</button>
+      </div>
+      <div id="next-wave" class="next-wave"></div>
+
+      <div id="toasts"></div>
+      <div id="info" class="panel info-panel" hidden></div>
+      <div id="buildbar" class="buildbar"></div>
+
+      <div id="help" class="overlay" hidden>
+        <div class="panel dialog">
+          <h2>Hold the Hall</h2>
+          <p>
+            Enemies march on your <strong>Town Hall</strong> from the edges of the map. Ring it with
+            <strong>castle walls</strong> and <strong>towers</strong>. Enemies walk around short walls, but if the
+            way around is too long they will smash straight through — so layer your defences.
+          </p>
+          <table>
+            <tr><td><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></td><td>Wall / Archer Tower / Cannon Tower</td></tr>
+            <tr><td>Left click</td><td>Place (drag to paint walls) / select</td></tr>
+            <tr><td><kbd>X</kbd></td><td>Sell mode</td></tr>
+            <tr><td>Right click / <kbd>Esc</kbd></td><td>Cancel</td></tr>
+            <tr><td>Right drag</td><td>Rotate camera</td></tr>
+            <tr><td>Middle drag / <kbd>WASD</kbd></td><td>Pan camera</td></tr>
+            <tr><td>Wheel</td><td>Zoom</td></tr>
+            <tr><td><kbd>Space</kbd></td><td>Start the next wave now</td></tr>
+            <tr><td><kbd>P</kbd> / <kbd>F</kbd></td><td>Pause / Change speed</td></tr>
+          </table>
+          <button id="help-close" class="primary">Got it</button>
+        </div>
+      </div>
+
+      <div id="gameover" class="overlay" hidden>
+        <div class="panel dialog">
+          <h2>The Town Hall has fallen</h2>
+          <p id="gameover-stats"></p>
+          <button id="restart" class="primary">Play again <kbd>R</kbd></button>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

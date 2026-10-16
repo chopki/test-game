@@ -1,0 +1,21 @@
+{
+  "name": "hold-the-hall",
+  "version": "0.1.0",
+  "description": "A 3D browser tower-defence / survival game: wall in your Town Hall, raise towers, survive the waves.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "three": "^0.186.1"
+  },
+  "devDependencies": {
+    "vite": "^5.4.21",
+    "vitest": "^2.1.9"
+  }
+}
