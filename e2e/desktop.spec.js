@@ -153,9 +153,14 @@ test('graphics presets apply live, persist across reloads, and pause the game wh
   expect(await page.evaluate(() => window.game.paused)).toBe(true);
 
   await settingButton(page, 'Preset', 'Low').click();
-  expect(await graphicsState(page)).toMatchObject({ preset: 'low', fpsCap: 30, shadowsOn: false, pixelRatio: 0.75 });
+  expect(await graphicsState(page)).toMatchObject({ preset: 'low', fpsCap: 30, resolution: 'auto', shadowsOn: true, shadowSize: 1024 });
   await expect(settingButton(page, 'Preset', 'Low')).toHaveClass(/active/);
-  await expect(settingButton(page, 'Shadows', 'Off')).toHaveClass(/active/);
+  await expect(settingButton(page, 'Shadows', 'Low')).toHaveClass(/active/);
+  await expect(settingButton(page, 'Render scale', 'Auto')).toHaveClass(/active/);
+  // A fixed render scale is applied directly.
+  await settingButton(page, 'Render scale', '50%').click();
+  expect(await graphicsState(page)).toMatchObject({ preset: 'custom', pixelRatio: 0.5 });
+  await settingButton(page, 'Render scale', 'Auto').click();
 
   await page.getByRole('button', { name: 'Done' }).click();
   await expect(page.locator('#settings')).toBeHidden();
@@ -163,7 +168,7 @@ test('graphics presets apply live, persist across reloads, and pause the game wh
 
   await page.reload();
   await page.waitForFunction(() => window.game?.world);
-  expect(await graphicsState(page)).toMatchObject({ preset: 'low', shadowsOn: false });
+  expect(await graphicsState(page)).toMatchObject({ preset: 'low', shadowsOn: true });
 });
 
 test('overriding one setting marks the preset Custom; FPS counter and frame cap work', async ({ page }) => {
@@ -182,7 +187,7 @@ test('overriding one setting marks the preset Custom; FPS counter and frame cap 
   await settingButton(page, 'Frame rate cap', '30').click();
   await page.getByRole('button', { name: 'Done' }).click();
   await expect(page.locator('#fps')).toBeVisible();
-  await expect(page.locator('#fps')).toHaveText(/^\d+ FPS$/);
+  await expect(page.locator('#fps')).toHaveText(/^\d+ FPS · \d+%$/);
   await page.waitForTimeout(1500);
   expect(await page.evaluate(() => window.game.fps)).toBeLessThanOrEqual(32);
 });
@@ -231,4 +236,38 @@ test('walls reshape to join their neighbours and towers', async ({ page }) => {
   await expect.poll(() => wallKey(11, 10)).toBe('-e-w'); // joined onto the tower
   await page.evaluate(() => window.game.world.place('wall', 9, 11));
   await expect.poll(() => wallKey(9, 10)).toBe('-es-'); // now a corner
+});
+
+test('draw calls stay flat as walls and enemies are added (instancing)', async ({ page }) => {
+  await openGame(page);
+  const calls = () => page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(window.game.renderer.renderer.info.render.calls)))));
+  const addWalls = (z) =>
+    page.evaluate((z) => {
+      const w = window.game.world;
+      w.economy.earn(1000);
+      for (let x = 4; x <= 35; x++) w.place('wall', x, z);
+    }, z);
+  await addWalls(6);
+  const withSomeWalls = await calls();
+  await addWalls(9);
+  await addWalls(30);
+  expect(await page.evaluate(() => [...window.game.world.buildings.values()].filter((b) => b.type === 'wall').length)).toBe(96);
+  // Same wall shapes, three times as many walls: no extra draw calls.
+  expect(await calls()).toBeLessThanOrEqual(withSomeWalls + 2);
+
+  // 40 enemies of four types (half damaged, so they show health bars).
+  await page.evaluate(() => {
+    const w = window.game.world;
+    w.phase = 'wave';
+    ['grunt', 'runner', 'orc', 'brute'].forEach((type) => {
+      for (let i = 0; i < 10; i++) {
+        w._spawnEnemy({ type, side: 'north', hpMult: 1, elite: false });
+        const e = w.enemies.at(-1);
+        e.def = { ...e.def, speed: 0 };
+        if (i % 2) e.hp = e.maxHp / 2;
+      }
+    });
+  });
+  // Each enemy type is ~5 instanced draw calls; bars and blob shadows are 3 more in total.
+  expect(await calls()).toBeLessThanOrEqual(withSomeWalls + 30);
 });

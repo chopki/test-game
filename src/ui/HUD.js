@@ -122,7 +122,9 @@ export class HUD {
     this._updateInfo();
     this._updateConfirm();
     this._updateBuildTag();
-    if (!this.el.fps.hidden) this._set('fps', `${this.game.fps} FPS`);
+    if (!this.el.fps.hidden) {
+      this._set('fps', `${this.game.fps} FPS · ${Math.round(this.game.renderer.effectiveScale * 100)}%`);
+    }
   }
 
   // Desktop: cost of the wall being dragged, next to the cursor.

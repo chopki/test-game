@@ -3,7 +3,8 @@ import { World } from '../sim/World.js';
 import { Renderer } from '../render/Renderer.js';
 import { HUD } from '../ui/HUD.js';
 import { SettingsMenu } from '../ui/SettingsMenu.js';
-import { loadSettings, saveSettings, stepDown } from '../render/graphicsSettings.js';
+import { AUTO_RESOLUTION, loadSettings, saveSettings, stepDown } from '../render/graphicsSettings.js';
+import { DynamicResolution } from '../render/dynamicResolution.js';
 import { BuildController } from './BuildController.js';
 
 const SPEEDS = [1, 2, 3];
@@ -17,6 +18,7 @@ export class Game {
     // Settings fixed when the WebGL context was created (anti-aliasing); used to flag "reload to apply".
     this.startupGraphics = { ...this.graphics };
     this.renderer = new Renderer(container, this.graphics);
+    this._syncDynamicResolution();
     this.contextLost = false;
     // If the GPU resets, the canvas goes blank. Pause the game and tell the player instead of
     // silently showing a white screen; three.js re-creates its GPU resources on restore.
@@ -75,7 +77,21 @@ export class Game {
     this.graphics = settings;
     saveSettings(settings);
     this.renderer.applySettings(settings);
+    this._syncDynamicResolution();
     this.hud.setFpsVisible(settings.showFps);
+  }
+
+  // 'auto' resolution: a controller that nudges the render scale to hold the target frame rate.
+  _syncDynamicResolution() {
+    if (this.graphics.resolution !== 'auto') {
+      this.dynamicResolution = null;
+    } else if (!this.dynamicResolution) {
+      this.dynamicResolution = new DynamicResolution({
+        min: AUTO_RESOLUTION.min,
+        max: Math.min(AUTO_RESOLUTION.max, window.devicePixelRatio || 1),
+        start: this.renderer.renderScale,
+      });
+    }
   }
 
   togglePause() {
@@ -144,7 +160,8 @@ export class Game {
       requestAnimationFrame((t) => this._frame(t));
       return;
     }
-    const dt = Math.min(0.1, (now - this._last) / 1000);
+    const interval = now - this._last;
+    const dt = Math.min(0.1, interval / 1000);
     this._last = now;
 
     this._fpsFrames++;
@@ -157,6 +174,11 @@ export class Game {
     if (this.contextLost) {
       requestAnimationFrame((t) => this._frame(t));
       return;
+    }
+
+    if (this.dynamicResolution) {
+      const scale = this.dynamicResolution.sample(interval, 1000 / (cap > 0 ? cap : 60));
+      if (scale !== null) this.renderer.setRenderScale(scale);
     }
 
     if (!this.paused) {

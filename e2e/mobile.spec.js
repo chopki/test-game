@@ -16,8 +16,8 @@ test('defaults to the Low graphics preset and the HUD fits the screen', async ({
     buttons: [...document.querySelectorAll('.build-btn')].map((b) => b.getBoundingClientRect().toJSON()),
   }));
   expect(r.preset).toBe('low');
-  expect(r.pixelRatio).toBe(0.75);
-  expect(r.shadows).toBe(false);
+  expect(r.pixelRatio).toBeLessThanOrEqual(0.75); // 'auto' starts at 75% on touch screens and adapts
+  expect(r.shadows).toBe(true); // static shadows are cheap enough for Low
   expect(r.overflowX).toBe(false);
   expect(r.topbarBottom).toBeLessThan(915 * 0.3);
   const vp = page.viewportSize();

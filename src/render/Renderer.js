@@ -1,16 +1,10 @@
 import * as THREE from 'three';
 import { MapControls } from 'three/addons/controls/MapControls.js';
 import { GRID } from '../sim/config.js';
-import { SCENERY_COUNT, SHADOW_MAP_SIZE } from './graphicsSettings.js';
+import { AUTO_RESOLUTION, SCENERY_COUNT, SHADOW_MAP_SIZE } from './graphicsSettings.js';
 import { dirtTexture, grassTexture } from './textures.js';
-import {
-  createBuildingModel,
-  createEnemyModel,
-  createHealthBar,
-  createProjectileModel,
-  createScenery,
-  setHealthBar,
-} from './models.js';
+import { createBuildingModel, createEnemyModel, createProjectileModel, createScenery } from './models.js';
+import { BlobShadowBatch, HealthBarBatch, KeyedBatches } from './batches.js';
 
 const SKY = 0xa9d3ee;
 
@@ -22,11 +16,23 @@ const NEIGHBOURS = [
   ['s', 0, 1],
   ['w', -1, 0],
 ];
+const ENEMY_BAR_WIDTH = { grunt: 0.6, runner: 0.6, orc: 0.75, brute: 0.9 };
+const ENEMY_BLOB_RADIUS = { grunt: 0.28, runner: 0.24, orc: 0.38, brute: 0.6 };
+
+/** Wall connection key ('n-s-' etc.) back to { n, e, s, w }. */
+const connectionsFromKey = (key) => Object.fromEntries(NEIGHBOURS.map(([dir], i) => [dir, key[i] === dir]));
 
 /**
  * Owns the Three.js scene and mirrors a sim World into it every frame.
  * The renderer never mutates the world: it reads entity state, keeps one
- * view object per entity id, and spawns short-lived effects from world events.
+ * view per entity id, and spawns short-lived effects from world events.
+ *
+ * Performance (mainly for phones):
+ * - Walls and ordinary enemies are drawn with instancing (one draw call per wall shape or enemy
+ *   type per material), and all health bars and unit blob-shadows are one batch each.
+ * - The shadow map is only re-rendered when buildings change. Things that move (enemies,
+ *   projectiles, turrets) don't cast shadow-map shadows; units get a soft blob shadow instead.
+ * - Render scale can be fixed or driven by the game's DynamicResolution ('auto').
  *
  * Sim coordinates (tile units, origin at the grid corner) map to scene
  * coordinates with the grid centred on the origin.
@@ -51,7 +57,12 @@ export class Renderer {
       powerPreference: graphics.preset === 'low' ? 'low-power' : 'default',
     });
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
+    // Shadows are redrawn only when something static changes (see _shadowsDirty).
+    this.renderer.shadowMap.autoUpdate = false;
+    this._shadowsDirty = true;
+    this.renderScale = 1;
     container.appendChild(this.renderer.domElement);
+    this.renderer.domElement.addEventListener('webglcontextrestored', () => (this._shadowsDirty = true));
 
     this.controls = new MapControls(this.camera, this.renderer.domElement);
     // Left mouse is reserved for building; right rotates, middle pans, wheel zooms.
@@ -71,6 +82,17 @@ export class Renderer {
     this.scene.add(this.entityLayer, this.overlayLayer);
 
     this.views = { buildings: new Map(), enemies: new Map(), projectiles: new Map() };
+    this.wallBatches = new KeyedBatches(this.entityLayer, (key) => createBuildingModel('wall', { connections: connectionsFromKey(key) }));
+    this.enemyBatches = new KeyedBatches(this.entityLayer, (type) => createEnemyModel(type), { castShadow: false });
+    this.healthBars = new HealthBarBatch(this.overlayLayer);
+    this.blobShadows = new BlobShadowBatch(this.entityLayer);
+    this._wallSignature = '';
+    this._m = new THREE.Matrix4();
+    this._m2 = new THREE.Matrix4();
+    this._v = new THREE.Vector3();
+    this._q = new THREE.Quaternion();
+    this._e = new THREE.Euler();
+    this._one = new THREE.Vector3(1, 1, 1);
     this.effects = [];
     this._unsubscribe = [];
     this._raycaster = new THREE.Raycaster();
@@ -175,6 +197,7 @@ export class Renderer {
     }
     this.scenery = createScenery(spots);
     this.scene.add(this.scenery);
+    this._shadowsDirty = true;
   }
 
   /**
@@ -184,8 +207,9 @@ export class Renderer {
   applySettings(graphics) {
     const prev = this.graphics;
     this.graphics = { ...graphics };
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, graphics.resolution));
-    this._resize();
+    if (graphics.resolution !== 'auto') this.setRenderScale(graphics.resolution);
+    else if (!prev || prev.resolution !== 'auto') this.setRenderScale(defaultAutoScale());
+    this._shadowsDirty = true;
 
     const size = SHADOW_MAP_SIZE[graphics.shadows];
     const enabled = size > 0;
@@ -206,6 +230,18 @@ export class Renderer {
     if (!prev || prev.scenery !== graphics.scenery) this._buildScenery(SCENERY_COUNT[graphics.scenery]);
   }
 
+  /** Pixels drawn per CSS pixel, capped at the screen's real pixel ratio. */
+  setRenderScale(scale) {
+    this.renderScale = scale;
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, scale));
+    this._resize();
+  }
+
+  /** The render scale actually in use (after the device cap). */
+  get effectiveScale() {
+    return this.renderer.getPixelRatio();
+  }
+
   _resize() {
     const w = this.container.clientWidth || window.innerWidth;
     const h = this.container.clientHeight || window.innerHeight;
@@ -222,6 +258,9 @@ export class Renderer {
       for (const view of map.values()) this._removeView(view);
       map.clear();
     }
+    this.wallBatches.clear();
+    this._wallSignature = '';
+    this._shadowsDirty = true;
     for (const fx of this.effects) this.scene.remove(fx.obj);
     this.effects = [];
 
@@ -284,10 +323,19 @@ export class Renderer {
   update(dt) {
     this._time += dt;
     const world = this.world;
+    this.controls.update();
     if (world) {
+      this.healthBars.begin(this.camera.quaternion);
+      this.blobShadows.begin();
+      this.enemyBatches.begin();
+      this._wallParts = [];
       this._sync(this.views.buildings, world.buildings.values(), (b) => this._createBuildingView(b), (v, b) => this._updateBuildingView(v, b));
+      this._updateWalls();
       this._sync(this.views.enemies, world.enemies, (e) => this._createEnemyView(e), (v, e) => this._updateEnemyView(v, e));
       this._sync(this.views.projectiles, world.projectiles, (p) => this._createProjectileView(p), (v, p) => this._updateProjectileView(v, p));
+      this.enemyBatches.end();
+      this.blobShadows.end();
+      this.healthBars.end();
     }
 
     for (const fx of this.effects) {
@@ -304,12 +352,11 @@ export class Renderer {
       return false;
     });
 
-    this.controls.update();
-    // Billboard health bars toward the camera.
-    for (const bar of this.overlayLayer.children) bar.quaternion.copy(this.camera.quaternion);
   }
 
   render() {
+    if (this._shadowsDirty && this.renderer.shadowMap.enabled) this.renderer.shadowMap.needsUpdate = true;
+    this._shadowsDirty = false;
     this.renderer.render(this.scene, this.camera);
   }
 
@@ -333,11 +380,8 @@ export class Renderer {
   }
 
   _removeView(view) {
-    this.entityLayer.remove(view.obj);
-    if (view.bar) {
-      this.overlayLayer.remove(view.bar);
-      view.bar.userData.fg.material.dispose();
-    }
+    if (view.obj) this.entityLayer.remove(view.obj);
+    if (view.static) this._shadowsDirty = true;
   }
 
   /** Which orthogonal neighbours of a wall hold a building, as { n, e, s, w } plus a key. */
@@ -352,27 +396,45 @@ export class Renderer {
   }
 
   _createBuildingView(b) {
-    const wall = b.type === 'wall' ? this._wallConnections(b) : null;
-    const obj = createBuildingModel(b.type, wall ?? undefined);
+    this._shadowsDirty = true;
+    if (b.type === 'wall') return { obj: null, static: true, wallKey: null }; // drawn by wallBatches
+    const obj = createBuildingModel(b.type);
     this.toScene(b.cx, 0, b.cz, obj.position);
+    // Animated parts would leave stale shadows (the shadow map isn't redrawn every frame).
+    for (const key of ['turret', 'flag', 'crystal', 'arm']) obj.userData[key]?.traverse((o) => (o.castShadow = false));
     this.entityLayer.add(obj);
-    const bar = createHealthBar(Math.min(2.4, 0.8 * b.size + 0.2));
-    this.overlayLayer.add(bar);
-    return { obj, bar, wallKey: wall?.key, phase: Math.random() * Math.PI * 2 };
+    return { obj, static: true, phase: Math.random() * Math.PI * 2 };
   }
 
   _updateBuildingView(view, b) {
-    // Walls re-shape when neighbours are built or destroyed, so runs, corners and tower joins connect.
     if (b.type === 'wall') {
-      const wall = this._wallConnections(b);
-      if (wall.key !== view.wallKey) {
-        this.entityLayer.remove(view.obj);
-        view.obj = createBuildingModel('wall', wall);
-        this.toScene(b.cx, 0, b.cz, view.obj.position);
-        this.entityLayer.add(view.obj);
-        view.wallKey = wall.key;
-      }
+      view.wallKey = this._wallConnections(b).key;
+      this._wallParts.push(b, view.wallKey);
+    } else {
+      this._animateBuilding(view, b);
     }
+    if (b.hp < b.maxHp || b.type === 'townHall') {
+      this.healthBars.add(this.toScene(b.cx, b.def.height + 0.6, b.cz, this._v), Math.min(2.4, 0.8 * b.size + 0.2), b.hp / b.maxHp);
+    }
+  }
+
+  /** Re-fill the wall instances when any wall is added, removed or changes shape. */
+  _updateWalls() {
+    let signature = '';
+    for (let i = 0; i < this._wallParts.length; i += 2) signature += `${this._wallParts[i].id}${this._wallParts[i + 1]},`;
+    if (signature === this._wallSignature) return;
+    this._wallSignature = signature;
+    this._shadowsDirty = true;
+    this.wallBatches.begin();
+    for (let i = 0; i < this._wallParts.length; i += 2) {
+      const b = this._wallParts[i];
+      this._m.makeTranslation(this.toScene(b.cx, 0, b.cz, this._v));
+      this.wallBatches.push(this._wallParts[i + 1], this._m);
+    }
+    this.wallBatches.end();
+  }
+
+  _animateBuilding(view, b) {
     const ud = view.obj.userData;
     if (ud.turret) ud.turret.rotation.y = b.aim;
     if (ud.flag) ud.flag.rotation.y = Math.sin(this._time * 2.5 + view.phase) * 0.25;
@@ -387,45 +449,56 @@ export class Renderer {
       ud.arm.rotation.x = THREE.MathUtils.lerp(1.9, -0.35, wind);
       ud.ammo.visible = reload > 0.75;
     }
-    const damaged = b.hp < b.maxHp;
-    view.bar.visible = damaged || b.type === 'townHall';
-    if (view.bar.visible) {
-      this.toScene(b.cx, b.def.height + 0.6, b.cz, view.bar.position);
-      setHealthBar(view.bar, b.hp / b.maxHp);
-    }
   }
 
   _createEnemyView(e) {
-    const obj = createEnemyModel(e.type, e.elite);
-    this.entityLayer.add(obj);
-    const bar = createHealthBar(e.type === 'brute' ? 0.9 : e.type === 'orc' ? 0.75 : 0.6);
-    this.overlayLayer.add(bar);
-    return { obj, bar, phase: Math.random() * Math.PI * 2 };
+    // Ordinary enemies are drawn by enemyBatches; rare elites get their own model (crown, scale).
+    let obj = null;
+    if (e.elite) {
+      obj = createEnemyModel(e.type, true);
+      obj.traverse((o) => (o.castShadow = false));
+      this.entityLayer.add(obj);
+    }
+    return { obj, phase: Math.random() * Math.PI * 2 };
   }
 
   _updateEnemyView(view, e) {
-    this.toScene(e.x, 0, e.z, view.obj.position);
-    view.obj.rotation.y = e.heading;
-    const body = view.obj.userData.body;
+    // Walk bob or attack lunge, applied to the body.
     const t = this._time * e.def.speed * 6 + view.phase;
+    let by = 0;
+    let bz = 0;
+    let tilt = 0;
     if (e.moving) {
-      body.position.y = Math.abs(Math.sin(t)) * 0.08;
-      body.position.z = 0;
-      body.rotation.x = 0.1;
+      by = Math.abs(Math.sin(t)) * 0.08;
+      tilt = 0.1;
     } else if (e.attackTargetId !== null) {
-      body.position.y = 0;
-      body.position.z = Math.max(0, Math.sin(this._time * 8 + view.phase)) * 0.15;
-      body.rotation.x = 0.25;
+      bz = Math.max(0, Math.sin(this._time * 8 + view.phase)) * 0.15;
+      tilt = 0.25;
     }
-    view.bar.visible = e.hp < e.maxHp;
-    if (view.bar.visible) {
-      this.toScene(e.x, e.def.height * (e.elite ? 1.3 : 1) + 0.25, e.z, view.bar.position);
-      setHealthBar(view.bar, e.hp / e.maxHp);
+    const pos = this.toScene(e.x, 0, e.z, this._v);
+    const scale = e.elite ? 1.3 : 1;
+    if (view.obj) {
+      view.obj.position.copy(pos);
+      view.obj.rotation.y = e.heading;
+      const body = view.obj.userData.body;
+      body.position.set(0, by, bz);
+      body.rotation.x = tilt;
+    } else {
+      this._q.setFromEuler(this._e.set(0, e.heading, 0));
+      this._m.compose(pos, this._q, this._one);
+      this._q.setFromEuler(this._e.set(tilt, 0, 0));
+      this._m2.compose(this._v.set(0, by, bz), this._q, this._one);
+      this.enemyBatches.push(e.type, this._m.multiply(this._m2));
+    }
+    this.blobShadows.add(this.toScene(e.x, 0.025, e.z, this._v), (ENEMY_BLOB_RADIUS[e.type] ?? 0.3) * scale);
+    if (e.hp < e.maxHp) {
+      this.healthBars.add(this.toScene(e.x, e.def.height * scale + 0.25, e.z, this._v), ENEMY_BAR_WIDTH[e.type] ?? 0.6, e.hp / e.maxHp);
     }
   }
 
   _createProjectileView(p) {
     const obj = createProjectileModel(p.kind);
+    obj.traverse((o) => (o.castShadow = false));
     this.toScene(p.x, p.y, p.z, obj.position);
     this.entityLayer.add(obj);
     return { obj };
@@ -464,4 +537,9 @@ export class Renderer {
     this.scene.add(obj);
     this.effects.push({ obj, age: 0, life, size: radius, ring: true });
   }
+}
+
+function defaultAutoScale() {
+  const touch = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+  return touch ? AUTO_RESOLUTION.startTouch : AUTO_RESOLUTION.startDesktop;
 }

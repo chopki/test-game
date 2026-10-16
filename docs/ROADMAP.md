@@ -20,6 +20,15 @@ Rough order, with each milestone playable on its own. Checkboxes track progress.
 - [x] Art pass: procedural sandstone/clay/timber textures, new Town Hall and tower models, connecting walls,
       goblin/orc/troll enemies, varied scenery, merged meshes for performance
 - [x] Magic Spire (area pulse + slow) and Catapult (long-range siege with minimum range); Orc Warrior enemy
+- [x] Mobile art/performance pass 1: static shadow map + blob shadows (shadows on Low), automatic render scale,
+      instanced walls/enemies/health bars
+
+## Mobile look, pass 2 (planned)
+
+- [ ] Cheaper Lambert/toon materials on Low (a painted look that also suits the art reference)
+- [ ] Baked depth: darker bases and lighter top edges in textures/vertex colours, contact shading at the ground
+- [ ] Steeper, near-isometric default camera like the reference (also less sky and distant scenery to draw)
+- [ ] Parchment/wood UI reskin with a medieval display font
 
 ## v0.2: Defence depth
 

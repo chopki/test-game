@@ -1,8 +1,8 @@
 // Graphics quality presets and the player's saved choice. No three.js here, so it can be unit-tested.
 
 export const PRESETS = {
-  low: { resolution: 0.75, antialias: false, shadows: 'off', fpsCap: 30, scenery: 'low', effects: true },
-  medium: { resolution: 1, antialias: false, shadows: 'low', fpsCap: 60, scenery: 'medium', effects: true },
+  low: { resolution: 'auto', antialias: false, shadows: 'low', fpsCap: 30, scenery: 'low', effects: true },
+  medium: { resolution: 'auto', antialias: false, shadows: 'low', fpsCap: 60, scenery: 'medium', effects: true },
   high: { resolution: 1.5, antialias: true, shadows: 'high', fpsCap: 0, scenery: 'high', effects: true },
 };
 
@@ -11,6 +11,7 @@ export const PRESET_ORDER = ['low', 'medium', 'high'];
 /** Allowed values for each setting, with labels, in display order. Used by the settings menu. */
 export const OPTIONS = {
   resolution: [
+    ['auto', 'Auto'],
     [0.5, '50%'],
     [0.75, '75%'],
     [1, '100%'],
@@ -46,6 +47,12 @@ export const OPTIONS = {
     [true, 'On'],
   ],
 };
+
+/**
+ * Bounds for automatic render scale ('auto' resolution). The upper bound is also capped at the
+ * screen's real pixel ratio. Touch devices start lower and work up.
+ */
+export const AUTO_RESOLUTION = { min: 0.5, max: 1.5, startTouch: 0.75, startDesktop: 1 };
 
 /** Shadow-map resolution for each shadow setting (0 = shadows disabled). */
 export const SHADOW_MAP_SIZE = { off: 0, low: 1024, high: 2048 };

@@ -75,6 +75,15 @@ including the Town Hall.
   (`userData.turret`, `flag`, `arm`/`ammo` on the catapult, `crystal` on the spire) stay separate. Walls take
   `{ connections: { n, e, s, w } }` and are rebuilt by the renderer whenever a neighbouring tile changes.
   Scenery uses `InstancedMesh` (one draw call per part type for every tree, bush and rock).
+- `batches.js`: instanced drawing. `KeyedBatches` draws every wall of the same connection shape and every
+  ordinary enemy of the same type as one `InstancedMesh` per material. `HealthBarBatch` draws all health bars in
+  two draw calls, and `BlobShadowBatch` draws all unit shadows in one. Elite enemies, towers and projectiles are
+  still individual objects. Draw calls stay roughly flat however many walls or enemies there are (e2e-tested).
+- Shadows: `shadowMap.autoUpdate` is off. The renderer sets `_shadowsDirty` when buildings, walls, scenery or
+  settings change, and the shadow map is redrawn only then. Moving or animated things (enemies, projectiles,
+  turrets, the catapult arm, flags, the spire crystal) don't cast shadow-map shadows.
+- `dynamicResolution.js`: the 'auto' render-scale controller (no three.js, unit-tested). `Game` feeds it the time
+  between rendered frames and applies its result with `renderer.setRenderScale()`.
 - `textures.js`: procedural canvas textures (sandstone, roof tiles, wood, half-timbering, grass, dirt). Each texture
   tiles once per world unit, and the geometry helpers in `models.js` scale UVs to each primitive's real size. Geometries and materials are cached and shared.
 

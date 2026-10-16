@@ -79,9 +79,14 @@ Open **⚙** in the top bar. The game pauses while the menu is open.
 
 | Preset | Render scale | Anti-aliasing | Shadows | Frame-rate cap | Scenery |
 | ------ | ------------ | ------------- | ------- | -------------- | ------- |
-| Low (phone/tablet default) | 75% | off | off | 30 fps | low |
-| Medium | 100% | off | low (1024) | 60 fps | medium |
+| Low (phone/tablet default) | Auto | off | low (1024) | 30 fps | low |
+| Medium | Auto | off | low (1024) | 60 fps | medium |
 | High (desktop default) | 150% | on | high (2048) | unlimited | high |
+
+**Auto** render scale adjusts itself (50%–150%, capped at the screen's pixel density) to hold the frame-rate
+cap: it drops as soon as frames slow down and creeps back up after a few smooth seconds. Shadows are cheap
+because the shadow map is only redrawn when buildings change; moving units get soft blob shadows instead.
+The FPS counter also shows the current render scale.
 
 You can override any setting on top of a preset; the preset then shows as **Custom**. There are also toggles for
 effects and an FPS counter. Changes apply immediately, except anti-aliasing, which needs a reload. Render scale is
