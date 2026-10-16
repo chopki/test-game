@@ -50,6 +50,30 @@ Pre-rendered sprites on a fixed isometric camera (see ARCHITECTURE.md), working 
 - [x] Hand-drawn look baked into every sprite (ink outlines and inner lines, banded warm shading, hatching)
       and drifting cloud shadows
 - [x] Step 4: animated units (8 directions × 6 walk, 4 attack and 4 death frames, baked from posable rigs)
+- [x] Towers built into walls: snapping (mid-run or corner) and dedicated in-wall models (log bastion + stubs)
+- [x] Flowing water (streams flow off the map round their bends; ripples, foam streaks, shore foam), faster
+      cloud shadows
+- [x] Grass after the reference: straw-olive, fine grain, faint tile grid, inked edges, sparse clumps
+- [x] Stage 1 palisade touch-ups: light tan ragged logs, one rail on the far face, props, grassy foot
+- [x] Settings: New map button (shows the map number)
+
+### Visual backlog (ideas agreed for later)
+
+- [ ] **Wall-walk from Stage 2 walls up**: walls stay one tile thick, with the palisade or parapet on the outer edge
+      and a raised plank walkway on the side facing the Town Hall (somewhere for troops to stand in v0.4). Needs
+      each wall tile to know its inside (from the Town Hall direction, including inside and outside corners),
+      which roughly doubles the wall sprites
+- [ ] Plank-style "Wooden Wall" from the reference's asset sheet (flat boards, square posts, mossy base) as an
+      alternative or a Stage 2 look
+- [ ] In-wall tower models for T-junctions (today they keep the free-standing model with joint posts)
+- [ ] Combat effects: arrow trails, cannon smoke, dust bursts when walls are hit, smoke and fire on damaged
+      buildings (baked damaged variants), debris when a building falls
+- [ ] Tree sway (a small vertex wobble on tree sprites)
+- [ ] Sharper sprites on High (a double-resolution atlas only High loads) and WebP atlas pages to cut the
+      download (6.1 MB of PNG today)
+- [ ] Ground marks: worn earth round buildings, scorch marks where boulders land, bridges at fords
+- [ ] Rivers more often (about half of maps have one today), or a map option to ask for one
+- [ ] Warm colour grade and a soft glow on crystals and fire (High only)
 
 ## v0.2: Defence depth
 
@@ -92,7 +116,7 @@ Pre-rendered sprites on a fixed isometric camera (see ARCHITECTURE.md), working 
 ## Later / ideas
 
 - Save/load and continue run
-- Map variety: more terrain (cliffs and raised ground, bridges), map size options, a seed picker in the menu
+- Map variety: more terrain (cliffs and raised ground, bridges), map size options, typing in a seed in the menu
 - Day/night cycle tied to the build/wave phases
 - Sound and music
 - Performance: instanced meshes for walls and enemies once counts get large
