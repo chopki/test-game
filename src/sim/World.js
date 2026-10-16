@@ -17,7 +17,7 @@ import { planWall } from './wallPlanner.js';
  * → back to 'build' when the wave is cleared, or 'gameover' when the Town Hall falls.
  *
  * Events emitted: goldChanged, buildingPlaced, buildingSold, buildingDestroyed,
- * enemySpawned, enemyKilled, projectileFired, projectileImpact, waveStarted,
+ * enemySpawned, enemyKilled, projectileFired, projectileImpact, towerPulse, waveStarted,
  * waveCleared, gameOver.
  */
 export class World {
@@ -214,23 +214,43 @@ export class World {
     const attack = b.def.attack;
     b.cooldown = Math.max(0, b.cooldown - dt);
     if (b.cooldown > 0) return;
-    const target = this._pickTarget(b.cx, b.cz, attack.range);
+    const target = this._pickTarget(b.cx, b.cz, attack.range, attack.minRange ?? 0);
     if (!target) return;
     b.cooldown = attack.cooldown;
     b.aim = Math.atan2(target.x - b.cx, target.z - b.cz);
-    this._fire(b, target);
+    if (attack.kind === 'pulse') this._pulse(b);
+    else this._fire(b, target);
+  }
+
+  // Area pulse (Magic Spire): damage and slow every enemy in range.
+  _pulse(b) {
+    const a = b.def.attack;
+    const r2 = a.range * a.range;
+    for (const e of this.enemies) {
+      if (!e.alive || (e.x - b.cx) ** 2 + (e.z - b.cz) ** 2 > r2) continue;
+      if (a.slow) this._slowEnemy(e, a.slow);
+      this._damageEnemy(e, a.damage);
+    }
+    this.events.emit('towerPulse', { building: b, x: b.cx, z: b.cz, radius: a.range });
+  }
+
+  _slowEnemy(e, { factor, duration }) {
+    e.slowFactor = Math.min(e.slowFactor, factor);
+    e.slowUntil = Math.max(e.slowUntil, this.time + duration);
   }
 
   // Towers shoot the enemy in range that is closest to reaching the Town Hall.
-  _pickTarget(x, z, range) {
+  _pickTarget(x, z, range, minRange = 0) {
     let best = null;
     let bestScore = Infinity;
     const r2 = range * range;
+    const min2 = minRange * minRange;
     for (const e of this.enemies) {
       if (!e.alive) continue;
       const dx = e.x - x;
       const dz = e.z - z;
-      if (dx * dx + dz * dz > r2) continue;
+      const d2 = dx * dx + dz * dz;
+      if (d2 > r2 || d2 < min2) continue;
       const score = this.flow.distanceAt(e.tx, e.tz);
       if (score < bestScore) {
         bestScore = score;
@@ -260,6 +280,7 @@ export class World {
       target: homing ? target : null,
       damage: a.damage,
       splash: a.splash,
+      slow: a.slow ?? null,
       arc: a.arc,
       t: 0,
       flightTime: Math.max(0.05, Math.hypot(target.x - b.cx, target.z - b.cz) / a.projectileSpeed),
@@ -289,6 +310,7 @@ export class World {
         if (e.alive && (e.x - p.x) ** 2 + (e.z - p.z) ** 2 <= r2) this._damageEnemy(e, p.damage);
       }
     } else if (p.target?.alive) {
+      if (p.slow) this._slowEnemy(p.target, p.slow);
       this._damageEnemy(p.target, p.damage);
     }
     this.events.emit('projectileImpact', { x: p.x, y: p.y, z: p.z, kind: p.kind, splash: p.splash });
@@ -334,6 +356,8 @@ export class World {
       offZ: this.rng.range(-0.22, 0.22),
       heading: 0,
       moving: false,
+      slowFactor: 1,
+      slowUntil: 0,
       alive: true,
     };
     this.enemies.push(e);
@@ -378,7 +402,8 @@ export class World {
     const dx = gx - e.x;
     const dz = gz - e.z;
     const dist = Math.hypot(dx, dz);
-    const step = e.def.speed * dt;
+    if (e.slowUntil <= this.time) e.slowFactor = 1;
+    const step = e.def.speed * e.slowFactor * dt;
     e.moving = true;
     if (dist > 1e-6) e.heading = Math.atan2(dx, dz);
     if (dist <= step) {

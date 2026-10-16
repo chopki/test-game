@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { MapControls } from 'three/addons/controls/MapControls.js';
 import { GRID } from '../sim/config.js';
 import { SCENERY_COUNT, SHADOW_MAP_SIZE } from './graphicsSettings.js';
+import { dirtTexture, grassTexture } from './textures.js';
 import {
   createBuildingModel,
   createEnemyModel,
@@ -14,6 +15,13 @@ import {
 const SKY = 0xa9d3ee;
 
 const BURST_GEOMETRY = new THREE.SphereGeometry(1, 12, 8);
+const RING_GEOMETRY = new THREE.RingGeometry(0.85, 1, 48).rotateX(-Math.PI / 2);
+const NEIGHBOURS = [
+  ['n', 0, -1],
+  ['e', 1, 0],
+  ['s', 0, 1],
+  ['w', -1, 0],
+];
 
 /**
  * Owns the Three.js scene and mirrors a sim World into it every frame.
@@ -83,8 +91,9 @@ export class Renderer {
   // ---------------------------------------------------------------- setup
 
   _setupLights() {
-    this.scene.add(new THREE.HemisphereLight(0xe8f4ff, 0x4a5a35, 1.4));
-    const sun = new THREE.DirectionalLight(0xfff1dc, 2.6);
+    // Warm afternoon light to suit the sandstone and clay palette.
+    this.scene.add(new THREE.HemisphereLight(0xfff4e0, 0x5a6a3a, 1.5));
+    const sun = new THREE.DirectionalLight(0xffe2b8, 2.7);
     sun.position.set(18, 34, 12);
     this.sun = sun;
     const s = Math.max(GRID.width, GRID.height) * 0.65;
@@ -98,9 +107,15 @@ export class Renderer {
     const H = GRID.height;
     const m = GRID.spawnMargin;
 
+    const tiled = (tex, repeat) => {
+      const t = tex.clone();
+      t.repeat.set(repeat, repeat);
+      t.needsUpdate = true;
+      return t;
+    };
     const outer = new THREE.Mesh(
       new THREE.PlaneGeometry(400, 400),
-      new THREE.MeshStandardMaterial({ color: 0x4f7a36, roughness: 1 }),
+      new THREE.MeshStandardMaterial({ map: tiled(grassTexture(), 400 / 6), color: 0xc4d6a8, roughness: 1 }),
     );
     outer.rotation.x = -Math.PI / 2;
     outer.position.y = -0.03;
@@ -108,7 +123,7 @@ export class Renderer {
     this.scene.add(outer);
 
     // Spawn zone ring (dirt) and the buildable field (grass) on top of it.
-    const dirt = new THREE.Mesh(new THREE.PlaneGeometry(W, H), new THREE.MeshStandardMaterial({ color: 0x8f7b55, roughness: 1 }));
+    const dirt = new THREE.Mesh(new THREE.PlaneGeometry(W, H), new THREE.MeshStandardMaterial({ map: tiled(dirtTexture(), W / 2), roughness: 1 }));
     dirt.rotation.x = -Math.PI / 2;
     dirt.position.y = -0.01;
     dirt.receiveShadow = true;
@@ -116,17 +131,20 @@ export class Renderer {
 
     const grass = new THREE.Mesh(
       new THREE.PlaneGeometry(W - 2 * m, H - 2 * m),
-      new THREE.MeshStandardMaterial({ color: 0x67a046, roughness: 1 }),
+      new THREE.MeshStandardMaterial({ map: tiled(grassTexture(), (W - 2 * m) / 6), roughness: 1 }),
     );
     grass.rotation.x = -Math.PI / 2;
     grass.receiveShadow = true;
     this.scene.add(grass);
 
-    const grid = new THREE.GridHelper(W, W, 0x2b4a1c, 0x2b4a1c);
+    // Tile grid, shown only while building (BuildController toggles it).
+    const grid = new THREE.GridHelper(W - 2 * m, W - 2 * m, 0x2b4a1c, 0x2b4a1c);
     grid.material.transparent = true;
-    grid.material.opacity = 0.18;
+    grid.material.opacity = 0.22;
     grid.position.y = 0.01;
+    grid.visible = false;
     this.scene.add(grid);
+    this.grid = grid;
 
     this.scenery = null;
   }
@@ -144,14 +162,15 @@ export class Renderer {
       const x = Math.cos(a) * r;
       const z = Math.sin(a) * r;
       if (Math.abs(x) < half + 1.5 && Math.abs(z) < half + 1.5) continue;
-      const tree = Math.random() < 0.85;
+      const roll = Math.random();
+      const kind = roll < 0.45 ? 'oak' : roll < 0.75 ? 'pine' : roll < 0.88 ? 'bush' : 'rock';
       spots.push({
-        kind: tree ? 'tree' : 'rock',
+        kind,
         x,
         z,
-        scale: tree ? 0.8 + Math.random() * 0.8 : 0.6 + Math.random() * 1.2,
+        scale: kind === 'rock' ? 0.7 + Math.random() * 1.1 : 0.8 + Math.random() * 0.7,
         rot: Math.random() * Math.PI * 2,
-        dark: Math.random() < 0.5,
+        variant: Math.floor(Math.random() * 3),
       });
     }
     this.scenery = createScenery(spots);
@@ -211,7 +230,9 @@ export class Renderer {
     this._unsubscribe = [
       ev.on('projectileImpact', (p) => {
         if (p.kind === 'cannonball') this._spawnBurst(p.x, 0.2, p.z, 0xffa040, p.splash, 0.35);
+        if (p.kind === 'boulder') this._spawnBurst(p.x, 0.2, p.z, 0xb59a70, p.splash, 0.5);
       }),
+      ev.on('towerPulse', ({ x, z, radius }) => this._spawnRing(x, z, radius, 0xa66bff, 0.55)),
       ev.on('enemyKilled', ({ enemy }) => this._spawnBurst(enemy.x, 0.5, enemy.z, 0x9a8f80, 0.5, 0.4)),
       ev.on('buildingDestroyed', ({ building }) =>
         this._spawnBurst(building.cx, 0.6, building.cz, 0x8a7f70, building.size * 0.9, 0.7),
@@ -272,7 +293,8 @@ export class Renderer {
     for (const fx of this.effects) {
       fx.age += dt;
       const t = fx.age / fx.life;
-      fx.obj.scale.setScalar(fx.size * (0.3 + t));
+      if (fx.ring) fx.obj.scale.set(fx.size * (0.2 + 0.8 * t), 1, fx.size * (0.2 + 0.8 * t));
+      else fx.obj.scale.setScalar(fx.size * (0.3 + t));
       fx.obj.material.opacity = 0.7 * (1 - t);
     }
     this.effects = this.effects.filter((fx) => {
@@ -318,20 +340,53 @@ export class Renderer {
     }
   }
 
+  /** Which orthogonal neighbours of a wall hold a building, as { n, e, s, w } plus a key. */
+  _wallConnections(b) {
+    const c = {};
+    let key = '';
+    for (const [dir, dx, dz] of NEIGHBOURS) {
+      c[dir] = this.world.grid.get(b.x + dx, b.z + dz) !== null;
+      key += c[dir] ? dir : '-';
+    }
+    return { connections: c, key };
+  }
+
   _createBuildingView(b) {
-    const obj = createBuildingModel(b.type);
+    const wall = b.type === 'wall' ? this._wallConnections(b) : null;
+    const obj = createBuildingModel(b.type, wall ?? undefined);
     this.toScene(b.cx, 0, b.cz, obj.position);
     this.entityLayer.add(obj);
     const bar = createHealthBar(Math.min(2.4, 0.8 * b.size + 0.2));
     this.overlayLayer.add(bar);
-    return { obj, bar };
+    return { obj, bar, wallKey: wall?.key, phase: Math.random() * Math.PI * 2 };
   }
 
   _updateBuildingView(view, b) {
-    const turret = view.obj.userData.turret;
-    if (turret) turret.rotation.y = b.aim;
-    const flag = view.obj.userData.flag;
-    if (flag) flag.rotation.y = Math.sin(this._time * 2.5) * 0.25;
+    // Walls re-shape when neighbours are built or destroyed, so runs, corners and tower joins connect.
+    if (b.type === 'wall') {
+      const wall = this._wallConnections(b);
+      if (wall.key !== view.wallKey) {
+        this.entityLayer.remove(view.obj);
+        view.obj = createBuildingModel('wall', wall);
+        this.toScene(b.cx, 0, b.cz, view.obj.position);
+        this.entityLayer.add(view.obj);
+        view.wallKey = wall.key;
+      }
+    }
+    const ud = view.obj.userData;
+    if (ud.turret) ud.turret.rotation.y = b.aim;
+    if (ud.flag) ud.flag.rotation.y = Math.sin(this._time * 2.5 + view.phase) * 0.25;
+    if (ud.crystal) {
+      ud.crystal.rotation.y = this._time * 1.5;
+      ud.crystal.position.y = 3.35 + Math.sin(this._time * 2 + view.phase) * 0.12;
+    }
+    if (ud.arm) {
+      // Catapult: the arm is thrown forward when it fires, then winched back down while reloading.
+      const reload = 1 - b.cooldown / b.def.attack.cooldown; // 0 just fired → 1 ready
+      const wind = THREE.MathUtils.smoothstep(reload, 0.05, 0.75);
+      ud.arm.rotation.x = THREE.MathUtils.lerp(1.9, -0.35, wind);
+      ud.ammo.visible = reload > 0.75;
+    }
     const damaged = b.hp < b.maxHp;
     view.bar.visible = damaged || b.type === 'townHall';
     if (view.bar.visible) {
@@ -343,7 +398,7 @@ export class Renderer {
   _createEnemyView(e) {
     const obj = createEnemyModel(e.type, e.elite);
     this.entityLayer.add(obj);
-    const bar = createHealthBar(e.type === 'brute' ? 0.9 : 0.6);
+    const bar = createHealthBar(e.type === 'brute' ? 0.9 : e.type === 'orc' ? 0.75 : 0.6);
     this.overlayLayer.add(bar);
     return { obj, bar, phase: Math.random() * Math.PI * 2 };
   }
@@ -381,6 +436,9 @@ export class Renderer {
     this.toScene(p.x, p.y, p.z, view.obj.position);
     if (p.kind === 'arrow' && prev.distanceToSquared(view.obj.position) > 1e-8) {
       view.obj.lookAt(view.obj.position.clone().multiplyScalar(2).sub(prev));
+    } else if (p.kind === 'boulder') {
+      view.obj.rotation.x += 0.15;
+      view.obj.rotation.z += 0.1;
     }
   }
 
@@ -393,5 +451,17 @@ export class Renderer {
     this.toScene(x, y, z, obj.position);
     this.scene.add(obj);
     this.effects.push({ obj, age: 0, life, size });
+  }
+
+  // Expanding flat ring on the ground (Magic Spire pulse).
+  _spawnRing(x, z, radius, color, life) {
+    if (!this.graphics.effects) return;
+    const obj = new THREE.Mesh(
+      RING_GEOMETRY,
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.7, depthWrite: false, side: THREE.DoubleSide }),
+    );
+    this.toScene(x, 0.06, z, obj.position);
+    this.scene.add(obj);
+    this.effects.push({ obj, age: 0, life, size: radius, ring: true });
   }
 }

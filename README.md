@@ -1,8 +1,8 @@
 # Hold the Hall
 
 A 3D browser tower-defence / survival game. Raiders pour in from the edges of the map to tear down your
-**Town Hall**. Ring it with **castle walls**, raise **archer** and **cannon towers**, and survive as many
-waves as you can.
+**Town Hall**. Ring it with **castle walls**, raise **archer towers**, **cannon towers**, **magic spires** and
+**catapults**, and survive as many waves as you can against goblins, orcs and trolls.
 
 ![Screenshot](docs/screenshot.png)
 
@@ -54,7 +54,7 @@ Vercel or Cloudflare Pages.
 
 | Input                    | Action                                     |
 | ------------------------ | ------------------------------------------ |
-| `1` / `2` / `3`          | Castle Wall / Archer Tower / Cannon Tower  |
+| `1` – `5`                | Castle Wall / Archer Tower / Cannon Tower / Magic Spire / Catapult |
 | Left click               | Place building · select building           |
 | Left drag (wall mode)    | Plan a wall line (straight or L), shows cost; release to build. Drag onto a tower to join it |
 | `X`                      | Sell mode                                  |

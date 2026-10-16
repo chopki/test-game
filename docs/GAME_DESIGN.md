@@ -45,7 +45,7 @@ When an enemy's cheapest next step is into a building, it stops and attacks that
 
 The flow field is recomputed whenever buildings change and every 0.5s during waves, to pick up HP changes.
 
-## Buildings (v0.1)
+## Buildings
 
 | Building     | Size | Cost | HP   | Attack                                   | Notes |
 | ------------ | ---- | ---- | ---- | ---------------------------------------- | ----- |
@@ -53,27 +53,39 @@ The flow field is recomputed whenever buildings change and every 0.5s during wav
 | Castle Wall  | 1×1  | 10   | 400  | none                                     | Drag to plan a line (straight or L); snaps onto towers |
 | Archer Tower | 2×2  | 75   | 300  | 14 dmg, range 7, 1.25 shots/s            | Homing arrows |
 | Cannon Tower | 2×2  | 150  | 500  | 40 dmg splash r1.6, range 6, 0.45 shots/s | Fires at the ground where the target stood, so it can miss fast enemies |
+| Magic Spire  | 2×2  | 125  | 350  | 12 dmg pulse to **all** enemies within 3.5, every 1.4s | Hit enemies are slowed to 60% speed for 1.5s. Best at chokepoints and wall breaches |
+| Catapult     | 2×2  | 180  | 300  | 55 dmg splash r1.8, range 10, min range 3, every 3.5s | Long-range siege; can't hit anything closer than 3 tiles, so protect it |
 
 Towers target the enemy in range that is **closest to the Town Hall** by path distance.
+Walls join visually with neighbouring walls and buildings (straight runs, corners and buttressed
+junctions), so a line of walls ending at a tower reads as one fortification.
 Selling refunds 50% of the cost × remaining HP fraction.
 
-## Enemies (v0.1)
+## Enemies
 
-| Enemy  | HP  | Speed (tiles/s) | Damage / hit | Hit every | Gold | Appears from |
-| ------ | --- | --------------- | ------------ | --------- | ---- | ------------ |
-| Raider | 60  | 1.6             | 8            | 1.0s      | 4    | wave 1 |
-| Scout  | 35  | 3.0             | 6            | 0.7s      | 3    | wave 2 |
-| Ogre   | 320 | 0.9             | 45           | 1.6s      | 15   | wave 4 |
+| Enemy        | HP  | Speed (tiles/s) | Damage / hit | Hit every | Gold | Threat | Appears from |
+| ------------ | --- | --------------- | ------------ | --------- | ---- | ------ | ------------ |
+| Goblin       | 60  | 1.6             | 8            | 1.0s      | 4    | 1      | wave 1 |
+| Goblin Scout | 35  | 3.0             | 6            | 0.7s      | 3    | 1      | wave 2 |
+| Orc Warrior  | 140 | 1.2             | 18           | 1.2s      | 8    | 2      | wave 3 |
+| Troll        | 320 | 0.9             | 45           | 1.6s      | 15   | 5      | wave 4 |
 
-**Elite Ogres** (gold crown, 1.3× size) join every 5th wave: ×1.5 HP, ×1.5 damage, ×3 gold.
+**Elite Trolls** (gold crown, 1.3× size) join every 5th wave: ×1.5 HP, ×1.5 damage, ×3 gold.
+(Internal ids: `grunt`, `runner`, `orc`, `brute`.)
 
 ## Waves
 
-- Each wave has a threat budget: `round(4 + 4n + 0.4n²)`. Raiders and Scouts cost 1, Ogres cost 5.
+- Each wave has a threat budget: `round(4 + 4n + 0.4n²)`. See the Threat column above.
 - Enemy HP scales by `+10%` per wave.
 - Attack sides: 1 side for waves 1–2, 2 for waves 3–5, 3 for waves 6–9, and all 4 from wave 10.
 - Spawns get closer together over time (gap ≈ `max(0.2, 1 − 0.04n)` seconds, ±40% jitter).
 - Wave clear bonus: `30 + 10n` gold.
+
+## Art direction
+
+Warm, storybook medieval: sandstone blocks, red clay roofs, half-timbered plaster, chunky crenellations,
+round leafy trees and pines, green goblins and orcs, grey trolls. Everything is built from code (procedural
+textures in `render/textures.js`, models in `render/models.js`), so there are no asset files to manage.
 
 ## Economy (v0.1)
 

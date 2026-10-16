@@ -17,13 +17,19 @@ Rough order, with each milestone playable on its own. Checkboxes track progress.
 - [x] Graphics settings: Low/Medium/High presets with per-setting overrides, FPS cap and counter, auto step-down
       after a GPU crash
 - [x] Touch placement with drag-to-position and ✓/✕ confirm; Playwright browser regression suite (manual in CI)
+- [x] Art pass: procedural sandstone/clay/timber textures, new Town Hall and tower models, connecting walls,
+      goblin/orc/troll enemies, varied scenery, merged meshes for performance
+- [x] Magic Spire (area pulse + slow) and Catapult (long-range siege with minimum range); Orc Warrior enemy
 
 ## v0.2: Defence depth
 
-- [ ] **Upgrades**: tower levels (damage/range/rate), wall tiers (wood → stone → reinforced) with distinct models
+- [ ] **Upgrades, 5 stages each** (per the art reference): Town Hall levels; Archer/Cannon/Spire/Catapult stages
+      that improve stats and change the model; wall stages wooden palisade → reinforced wood → dry stone →
+      stone battlements → heavy citadel wall
+- [ ] Gatehouse wall piece (wall-to-gatehouse connection from the art reference)
 - [ ] **Repair**: pay to restore HP between waves (or a slow auto-repair upgrade)
 - [ ] **Gates**: walls your future troops can pass through but enemies can't
-- [ ] More towers: mage (slow / damage over time), ballista (pierce)
+- [ ] More towers: ballista (pierce)
 - [ ] Ranged enemies that out-range walls, and siege enemies that prioritise towers
 - [ ] Balance pass against human play
 

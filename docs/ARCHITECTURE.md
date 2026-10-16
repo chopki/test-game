@@ -70,7 +70,13 @@ including the Town Hall.
   `Renderer.applySettings()` applies everything live except anti-aliasing, which is fixed when the WebGL context is
   created. The frame-rate cap is enforced in `Game._frame`, and the menu is `ui/SettingsMenu.js`. Touch devices
   default to Low; when the context is lost, `Game` drops one preset automatically.
-- `models.js`: procedural low-poly models. Scenery uses `InstancedMesh` (a few draw calls for every tree and rock). Geometries and materials are cached and shared.
+- `models.js`: procedural low-poly models. Each model is assembled from primitives with a `Parts` helper, which
+  merges them into one mesh per material, so a detailed building costs only 2–4 draw calls. Animated parts
+  (`userData.turret`, `flag`, `arm`/`ammo` on the catapult, `crystal` on the spire) stay separate. Walls take
+  `{ connections: { n, e, s, w } }` and are rebuilt by the renderer whenever a neighbouring tile changes.
+  Scenery uses `InstancedMesh` (one draw call per part type for every tree, bush and rock).
+- `textures.js`: procedural canvas textures (sandstone, roof tiles, wood, half-timbering, grass, dirt). Each texture
+  tiles once per world unit, and the geometry helpers in `models.js` scale UVs to each primitive's real size. Geometries and materials are cached and shared.
 
 The scene is centred on the grid: `scene = sim − (width/2, height/2)`. Use `renderer.toScene()` rather than doing
 the maths by hand.
@@ -91,8 +97,11 @@ the maths by hand.
 
 ### Add a building
 
-1. Add an entry to `BUILDINGS` in `config.js` (`buildable: true`, a `hotkey`, and optionally `attack`).
-2. Add a model function to `BUILDING_MODELS` in `render/models.js`. Put a `userData.turret` group on it if it should aim.
+1. Add an entry to `BUILDINGS` in `config.js` (`buildable: true`, a `hotkey`, and optionally `attack`). Attacks are
+   data: `kind: 'pulse'` hits everything in range (Magic Spire), `minRange` makes a siege weapon, `splash` gives
+   area damage, and `slow: { factor, duration }` slows what it hits.
+2. Add a model function to `BUILDING_MODELS` in `render/models.js`, built with `Parts`. Put a `userData.turret`
+   group on it if it should aim.
 
 The build bar button, hotkey, placement, targeting and health bar all follow automatically.
 

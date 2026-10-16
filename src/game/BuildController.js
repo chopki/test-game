@@ -375,6 +375,7 @@ export class BuildController {
     this.rangeRing.visible = false;
     if (this.ghost) this.ghost.visible = false;
     this.wallGhosts.visible = false;
+    this.game.renderer.grid.visible = this._buildMode;
 
     if (this.selectedId !== null && !this.selected) this.select(null);
 

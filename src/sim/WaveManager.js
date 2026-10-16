@@ -5,7 +5,7 @@ export const SIDES = ['north', 'east', 'south', 'west'];
 /**
  * Builds the spawn list for wave `n`. Waves are filled up to a "threat budget"
  * that grows with the wave number; enemies attack from more sides over time
- * and every few waves a group of elite Ogres joins in.
+ * and every few waves a group of elite Trolls joins in.
  */
 export function generateWave(n, rng) {
   const sideCount = n < 3 ? 1 : n < 6 ? 2 : n < 10 ? 3 : 4;

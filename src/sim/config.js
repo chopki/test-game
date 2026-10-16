@@ -34,7 +34,11 @@ export const PATHING = {
  * Building definitions.
  *  size      footprint in tiles (size x size)
  *  height    world height, used for projectile origin and health bar placement
- *  attack    optional; any building with an attack acts as a tower
+ *  attack    optional; any building with an attack acts as a tower:
+ *              kind      'projectile' (default) fires at one target; 'pulse' hits everything in range at once
+ *              minRange  enemies closer than this can't be targeted (siege weapons)
+ *              splash    radius of area damage where a projectile lands (0 = single target)
+ *              slow      { factor, duration }: speed multiplier applied to enemies hit
  */
 export const BUILDINGS = {
   townHall: {
@@ -103,6 +107,43 @@ export const BUILDINGS = {
       arc: 2.0,
     },
   },
+  magicSpire: {
+    name: 'Magic Spire',
+    description: 'Pulses arcane energy, damaging and slowing every enemy around it.',
+    size: 2,
+    maxHp: 350,
+    cost: 125,
+    buildable: true,
+    hotkey: '4',
+    height: 3.0,
+    attack: {
+      kind: 'pulse',
+      range: 3.5,
+      damage: 12,
+      cooldown: 1.4,
+      slow: { factor: 0.6, duration: 1.5 },
+    },
+  },
+  catapult: {
+    name: 'Catapult',
+    description: 'Lobs boulders a long way for heavy area damage, but cannot hit enemies close by.',
+    size: 2,
+    maxHp: 300,
+    cost: 180,
+    buildable: true,
+    hotkey: '5',
+    height: 1.6,
+    attack: {
+      range: 10,
+      minRange: 3,
+      damage: 55,
+      cooldown: 3.5,
+      projectile: 'boulder',
+      projectileSpeed: 8,
+      splash: 1.8,
+      arc: 4,
+    },
+  },
 };
 
 /**
@@ -114,7 +155,7 @@ export const BUILDINGS = {
  */
 export const ENEMIES = {
   grunt: {
-    name: 'Raider',
+    name: 'Goblin',
     maxHp: 60,
     speed: 1.6,
     damage: 8,
@@ -126,7 +167,7 @@ export const ENEMIES = {
     height: 1.1,
   },
   runner: {
-    name: 'Scout',
+    name: 'Goblin Scout',
     maxHp: 35,
     speed: 3.0,
     damage: 6,
@@ -137,8 +178,20 @@ export const ENEMIES = {
     minWave: 2,
     height: 0.9,
   },
+  orc: {
+    name: 'Orc Warrior',
+    maxHp: 140,
+    speed: 1.2,
+    damage: 18,
+    attackCooldown: 1.2,
+    reward: 8,
+    threat: 2,
+    weight: 2,
+    minWave: 3,
+    height: 1.4,
+  },
   brute: {
-    name: 'Ogre',
+    name: 'Troll',
     maxHp: 320,
     speed: 0.9,
     damage: 45,
@@ -156,6 +209,6 @@ export const WAVES = {
   budgetPerWave: 4,
   budgetQuadratic: 0.4,
   hpGrowthPerWave: 0.1, // +10% enemy HP per wave
-  bossEvery: 5, // every Nth wave adds elite Ogres
+  bossEvery: 5, // every Nth wave adds elite Trolls
   bossHpMultiplier: 1.5,
 };

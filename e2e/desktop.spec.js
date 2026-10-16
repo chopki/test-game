@@ -7,7 +7,7 @@ test('loads with the HUD and no errors', async ({ page }) => {
   const errors = await openGame(page);
   await expect(page.locator('#gold')).toHaveText('300');
   await expect(page.locator('#wave')).toHaveText('0');
-  await expect(page.locator('#buildbar .build-btn')).toHaveCount(4);
+  await expect(page.locator('#buildbar .build-btn')).toHaveCount(6);
   await expect(page.locator('#next-wave')).toContainText('Wave 1');
   expect(errors).toEqual([]);
 });
@@ -195,4 +195,40 @@ test('changing anti-aliasing offers a reload', async ({ page }) => {
   await expect(page.locator('#settings-reload-note')).toBeVisible();
   await settingButton(page, 'Anti-aliasing', 'On').click();
   await expect(page.locator('#settings-reload-note')).toBeHidden();
+});
+
+test('the Magic Spire and Catapult can be built with hotkeys 4 and 5', async ({ page }) => {
+  const errors = await openGame(page);
+  await page.evaluate(() => window.game.world.economy.earn(200)); // 500 gold
+  await page.keyboard.press('4');
+  let p = await tileToScreen(page, 10, 10);
+  await page.mouse.click(p.x, p.y);
+  await page.keyboard.press('5');
+  p = await tileToScreen(page, 26, 10);
+  await page.mouse.click(p.x, p.y);
+  await expect.poll(() => buildingAt(page, 10, 10)).toBe('magicSpire');
+  expect(await buildingAt(page, 26, 10)).toBe('catapult');
+  expect(await gold(page)).toBe(500 - 125 - 180);
+  expect(errors).toEqual([]);
+});
+
+test('walls reshape to join their neighbours and towers', async ({ page }) => {
+  await openGame(page);
+  const wallKey = (x, z) =>
+    page.evaluate(([x, z]) => {
+      // null until the renderer has drawn a frame with this wall (expect.poll then retries).
+      const b = window.game.world.buildingAt(x, z);
+      return window.game.renderer.views.buildings.get(b?.id)?.wallKey ?? null;
+    }, [x, z]);
+  await page.evaluate(() => {
+    const w = window.game.world;
+    w.place('archerTower', 12, 10); // covers 12–13
+    for (const x of [9, 10, 11]) w.place('wall', x, 10);
+  });
+  // Keys list n/e/s/w neighbours, '-' where empty.
+  await expect.poll(() => wallKey(9, 10)).toBe('-e--');
+  await expect.poll(() => wallKey(10, 10)).toBe('-e-w');
+  await expect.poll(() => wallKey(11, 10)).toBe('-e-w'); // joined onto the tower
+  await page.evaluate(() => window.game.world.place('wall', 9, 11));
+  await expect.poll(() => wallKey(9, 10)).toBe('-es-'); // now a corner
 });
