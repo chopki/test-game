@@ -135,5 +135,6 @@ SwiftShader so they work without a GPU (including on CI):
   one-finger pan and tap-to-select
 
 Tests drive the game through real input and read state through `window.game`, e.g. `game.renderer.toScreen()` to
-find where a tile is on screen. Shared helpers, including CDP-based touch drags, are in `e2e/helpers.js`. CI runs
-both suites and only deploys when both pass; on failure it uploads the Playwright report with screenshots and traces.
+find where a tile is on screen. Shared helpers, including CDP-based touch drags, are in `e2e/helpers.js`. On push,
+CI runs only the unit tests. The browser tests are slow, so they run on demand: locally, or via the manual
+"Browser tests (manual)" workflow, which uploads the Playwright report with screenshots and traces when a test fails.

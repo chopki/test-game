@@ -1,5 +1,8 @@
 name: Test & deploy to GitHub Pages
 
+# Unit tests + build on every push/PR; the default branch is then published to Pages.
+# The slower browser tests live in e2e.yml and only run when started manually.
+
 on:
   push:
   pull_request:
@@ -18,47 +21,26 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
       - run: npm ci
       - run: npm test
       - run: npm run build
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: dist
-
-  e2e:
-    # Browser regression tests (desktop + phone) against the production build.
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npx playwright install --with-deps chromium
-      - run: npx playwright test
-      - uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: playwright-report
-          path: |
-            playwright-report
-            test-results
-          retention-days: 14
 
   deploy:
     # Only the default branch is published; other branches and PRs just test + build.
     if: github.event_name != 'pull_request' && github.ref_name == github.event.repository.default_branch
-    needs: [build, e2e]
+    needs: build
     runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5

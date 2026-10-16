@@ -29,8 +29,9 @@ Requires Node 18+.
 
 ## Play in the browser (GitHub Pages)
 
-`.github/workflows/deploy.yml` runs both test suites and builds on every push, and publishes the default branch to
-GitHub Pages only if everything passes.
+`.github/workflows/deploy.yml` runs the unit tests and builds on every push, then publishes the default branch to
+GitHub Pages. The browser tests take a few minutes, so they're a separate, manual workflow: **Actions → "Browser tests
+(manual)" → Run workflow**.
 One-time setup: **Settings → Pages → Build and deployment → Source: GitHub Actions**. Then push (or run the
 workflow from the Actions tab). The game is served at `https://<owner>.github.io/<repo>/`.
 
