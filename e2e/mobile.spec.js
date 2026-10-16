@@ -47,6 +47,7 @@ test('dragging a tower moves it without moving the map, then ✓ builds it', { t
   await expect.poll(() => buildingAt(page, 15, 23)).toBe('archerTower');
   expect(await gold(page)).toBe(225);
   await expect(page.locator('#confirm')).toBeHidden();
+  expect(await page.evaluate(() => window.game.build.mode)).toBeNull(); // placing ends placement mode
   expect(errors).toEqual([]);
 });
 

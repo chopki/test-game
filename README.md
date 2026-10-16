@@ -65,7 +65,7 @@ Vercel or Cloudflare Pages.
 | Left click               | Place building · select building           |
 | Left drag (wall mode)    | Plan a wall line (straight or L), shows cost; release to build. Drag onto a tower to join it |
 | `X`                      | Sell mode                                  |
-| Right click / `Esc`      | Cancel build mode / deselect               |
+| Right click / `Esc`      | Cancel build mode / deselect (placing a tower also ends it; wall mode stays on) |
 | Right drag               | Pan camera (the iso view is fixed, like the art reference) |
 | Middle drag / `WASD` / arrows | Pan camera                            |
 | Mouse wheel              | Zoom                                       |
@@ -75,7 +75,8 @@ Vercel or Cloudflare Pages.
 
 **On phones and tablets:** tap a build button, then tap or drag on the map to position the building. The map stays
 still while you do; drag to the edge of the screen to scroll it. Lift your finger and tap **✓** to build or **✕** to
-cancel. You can drag the building again before confirming. Walls work the same way: drag out a line, adjust either
+cancel. You can drag the building again before confirming. Building a tower ends placement mode (pick it again
+to place another); wall mode stays on so you can draw several lines. Walls work the same way: drag out a line, adjust either
 end, then ✓. Dragging a wall end over a tower snaps it onto the tower's side. With no build mode
 selected, one finger pans; pinch with two fingers to zoom. Graphics settings are automatically lighter on touch
 devices.

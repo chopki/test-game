@@ -22,6 +22,9 @@ test('hotkey + click places an archer tower and spends gold', { tag: '@smoke' },
   await page.mouse.click(p.x, p.y);
   await expect.poll(() => buildingAt(page, 12, 12)).toBe('archerTower');
   expect(await gold(page)).toBe(225);
+  // Placing a tower ends placement mode.
+  await expect(page.getByRole('button', { name: /Archer Tower/ })).not.toHaveClass(/active/);
+  expect(await page.evaluate(() => window.game.build.mode)).toBeNull();
   expect(errors).toEqual([]);
 });
 

@@ -189,8 +189,14 @@ export class BuildController {
     if (!this.pending) return;
     const a = this.world.anchorFor(this.mode, this.pending.x, this.pending.z);
     const result = this.world.place(this.mode, a.x, a.z);
-    if (result.ok) this.pending = null;
+    if (result.ok) this._placed();
     else this.game.hud?.toast(result.reason, 'warn');
+  }
+
+  /** After a tower is built, leave placement mode (walls stay in wall mode, as lines are often drawn in turn). */
+  _placed() {
+    this.pending = null;
+    if (this.mode !== 'wall') this.setMode(null);
   }
 
   cancelPending() {
@@ -337,7 +343,8 @@ export class BuildController {
     if (this._buildMode) {
       const a = this.world.anchorFor(this.mode, tile.x, tile.z);
       const result = this.world.place(this.mode, a.x, a.z);
-      if (!result.ok) this.game.hud?.toast(result.reason, 'warn');
+      if (result.ok) this._placed();
+      else this.game.hud?.toast(result.reason, 'warn');
       return;
     }
     const b = this.world.buildingAt(tile.x, tile.z);
