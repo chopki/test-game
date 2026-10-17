@@ -285,6 +285,20 @@ test('walls reshape to join their neighbours and towers', async ({ page }) => {
   await expect.poll(() => wallKey(11, 10)).toBe('-e-w'); // joined onto the tower
   await page.evaluate(() => window.game.world.place('wall', 9, 11));
   await expect.poll(() => wallKey(9, 10)).toBe('-es-'); // now a corner
+
+  // A long run mixes the baked variants (stakes, shades, props, grass), and each tile keeps its own.
+  await page.evaluate(() => {
+    const w = window.game.world;
+    w.economy.earn(500);
+    for (let x = 6; x <= 17; x++) w.place('wall', x, 25);
+  });
+  const variants = () =>
+    page.evaluate(() => {
+      const w = window.game.world;
+      return Array.from({ length: 12 }, (_, i) => window.game.renderer.views.buildings.get(w.buildingAt(6 + i, 25).id)?.wallVariant);
+    });
+  await expect.poll(async () => new Set(await variants()).size).toBeGreaterThanOrEqual(3);
+  expect(await variants()).toEqual(await variants());
 });
 
 test('draw calls stay flat as walls and enemies are added (instancing)', { tag: '@smoke' }, async ({ page }) => {

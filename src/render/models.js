@@ -123,8 +123,17 @@ function townHall() {
 }
 
 /** Peeled logs, light brown like the reference's palisade. */
-/** Peeled logs, light tan like the reference's palisade. */
-const LOGS = ['#bb8d58', '#c69b66', '#ad8050'].map((c) => foliage(c));
+/** Peeled logs, light tan like the reference's palisade (lightest to darkest). */
+const LOGS = ['#cba46e', '#c69b66', '#bb8d58', '#ad8050', '#a0754a'].map((c) => foliage(c));
+/** Each wall variant leans towards its own few shades, so neighbouring tiles differ a little in tone. */
+const LOG_SETS = [
+  [LOGS[1], LOGS[2], LOGS[3]],
+  [LOGS[0], LOGS[1], LOGS[2]],
+  [LOGS[2], LOGS[3], LOGS[4]],
+  [LOGS[0], LOGS[2], LOGS[4]],
+];
+/** How many versions of each wall shape are baked (tiles pick one by position). */
+export const WALL_VARIANTS = LOG_SETS.length;
 const RAIL = std({ color: 0x9a6c3e });
 
 /**
@@ -138,11 +147,16 @@ function palisadeRun(p, rnd, dx, dz, a, b) {
   const at = (d, side) => ({ x: dx ? dx * d : side, z: dz ? dz * d : side });
   // The far face is the -x / -z side, away from the camera.
   p.add(box(dx ? len : 0.05, 0.08, dx ? 0.05 : len), RAIL, { ...at(mid, -0.085), y: 0.68 });
+  // Props here and there (not every half tile), each set and leaning a little differently.
   for (let d = a + 0.25; d < b; d += 0.5) {
-    p.add(box(0.055, 0.86, 0.055), RAIL, { ...at(d, -0.27), y: 0.39, rx: dx ? 0.42 : 0, rz: dx ? 0 : -0.42 });
+    if (rnd.next() < 0.35) continue;
+    const lean = rnd.range(0.32, 0.5);
+    const d2 = Math.min(b - 0.05, Math.max(a + 0.05, d + rnd.range(-0.12, 0.12)));
+    p.add(box(0.055, 0.86, 0.055), RAIL, { ...at(d2, -0.2 - lean * 0.17), y: 0.39, rx: dx ? lean : 0, rz: dx ? 0 : -lean });
   }
   p.add(box(dx ? len : 0.24, 0.04, dx ? 0.24 : len), M.dirt, { ...at(mid, 0), y: 0.02 });
-  for (let i = 0; i < Math.round(len * 7); i++) {
+  // Grass at the foot: none on some stretches, a thick fringe on others.
+  for (let i = 0, n = Math.round(len * rnd.pick([0, 3, 7, 12])); i < n; i++) {
     const d = a + rnd.next() * len;
     p.add(cone(0.035, rnd.range(0.12, 0.22), 4), rnd.next() < 0.5 ? M.grass : M.grassDark, {
       ...at(d, rnd.range(-0.15, 0.15)),
@@ -156,13 +170,16 @@ function palisadeRun(p, rnd, dx, dz, a, b) {
 /**
  * A wooden palisade tile that joins up with its neighbours. `connections` = { n, e, s, w } booleans: true where
  * the neighbouring tile has a wall, another building or rock. Logs sit on a 1/7-tile pitch, so runs of tiles
- * line up seamlessly.
+ * line up seamlessly. `variant` (0 to WALL_VARIANTS - 1) changes stake heights, lean and shades, props and grass,
+ * so long runs don't repeat.
  */
-function wall({ connections = {} } = {}) {
+function wall({ connections = {}, variant = 0 } = {}) {
   const M = MATERIALS;
   const p = new Parts();
   const key = ['n', 'e', 's', 'w'].map((d) => (connections[d] ? 1 : 0)).join('');
-  const rnd = rng(parseInt(key, 2) + 101);
+  const rnd = rng(parseInt(key, 2) * 7 + variant * 131 + 101);
+  const shades = LOG_SETS[variant % LOG_SETS.length];
+  const log = (x, z, opts) => palisadeLog(p, rnd, x, z, { shades, ...opts });
   const dirs = [
     ['e', 1, 0],
     ['w', -1, 0],
@@ -172,15 +189,15 @@ function wall({ connections = {} } = {}) {
   const PITCH = 1 / 7;
   const straight = dirs.length === 2 && dirs[0][1] === -dirs[1][1] && dirs[0][2] === -dirs[1][2];
   // Centre log: a thicker post where the wall turns, ends or branches.
-  if (straight) palisadeLog(p, rnd, 0, 0);
-  else palisadeLog(p, rnd, 0, 0, { r: 0.095, h: rnd.range(1.25, 1.4) });
+  if (straight) log(0, 0);
+  else log(0, 0, { r: 0.095, h: rnd.range(1.25, 1.4) });
   for (const [, dx, dz] of dirs) {
-    for (let i = 1; i <= 3; i++) palisadeLog(p, rnd, dx * i * PITCH, dz * i * PITCH);
+    for (let i = 1; i <= 3; i++) log(dx * i * PITCH, dz * i * PITCH);
     palisadeRun(p, rnd, dx, dz, 0, 0.5);
   }
   if (dirs.length === 0) {
     // A lone stretch of logs.
-    for (const i of [-2, -1, 1, 2]) palisadeLog(p, rnd, i * PITCH, 0);
+    for (const i of [-2, -1, 1, 2]) log(i * PITCH, 0);
     palisadeRun(p, rnd, 1, 0, -0.36, 0.36);
   }
   p.add(box(0.26, 0.04, 0.26), M.dirt, { y: 0.02 });
@@ -461,8 +478,8 @@ export const IN_WALL_SHAPES = ['we', 'ns', 'wn', 'ws', 'en', 'es'];
 const ARM = { n: [0, -1], e: [1, 0], s: [0, 1], w: [-1, 0] };
 
 /** One sharpened palisade log; heights, points and lean vary so the top line is ragged, as in the reference. */
-function palisadeLog(p, rnd, x, z, { r = 0.075, h = rnd.range(0.95, 1.28) } = {}) {
-  const mat = rnd.pick(LOGS);
+function palisadeLog(p, rnd, x, z, { r = 0.075, h = rnd.range(0.95, 1.28), shades = LOGS } = {}) {
+  const mat = rnd.pick(shades);
   const tilt = { rx: rnd.range(-0.06, 0.06), rz: rnd.range(-0.06, 0.06) };
   const point = rnd.range(0.15, 0.3);
   p.add(cyl(r, r * 1.05, h, 8), mat, { x, y: h / 2, z, ...tilt, ry: rnd.range(0, 3) });

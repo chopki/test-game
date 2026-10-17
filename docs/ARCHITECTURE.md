@@ -86,6 +86,9 @@ so the whole battlefield is ~15 draw calls and a few hundred triangles however d
   effects and the build ghost renderOrder 3.
 - Moving parts get their own sprites: 16 turret aim directions (cannon, catapult × 4 arm reload frames), the
   spire crystal (bobbed by offset).
+- Wall variants: each of the 16 wall shapes is baked in `WALL_VARIANTS` versions (`wall:<key>:<variant>`: stake
+  heights, lean and shades, props and grass differ; logs and rails stay on the shared grid so they still join), and
+  each tile picks one by a hash of its position (`wallVariant()` in Renderer.js), so long runs don't repeat.
 - Wall joints: where a wall touches a tower or the Town Hall, `Renderer._drawWallJoints()` adds a `join:<dir>`
   sprite (the `wallJoint` model: a palisade arm into the building's edge tile, ending at an anchor post).
   `wallSeat.js` (pure, unit-tested) decides whether a tower sits in a wall: a straight run ('we'/'ns') or a

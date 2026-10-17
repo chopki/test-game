@@ -76,7 +76,7 @@ Pre-rendered sprites on a fixed isometric camera (see ARCHITECTURE.md), working 
 - [ ] Ground marks: worn earth round buildings, scorch marks where boulders land, bridges at fords
 - [ ] Rivers more often (about half of maps have one today), or a map option to ask for one
 - [ ] Warm colour grade and a soft glow on crystals and fire (High only)
-- [ ] **Varied wall tiles**: today every wall tile of the same shape is the identical sprite, so long straight runs
+- [x] **Varied wall tiles**: previously every wall tile of the same shape was the identical sprite, so long straight runs
       repeat every tile. Bake 3–4 variants per wall shape (different stake heights, lean and shades, grass tufts
       present or not and in different places) and pick one per tile from its position, so runs look hand-built
 - [ ] **Living buildings**: flags and banners that wave in the wind, plus small idle animations on static

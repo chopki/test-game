@@ -1,5 +1,5 @@
 import { BUILDINGS, ENEMIES } from '../sim/config.js';
-import { createBuildingModel, createEnemyModel, createSceneryObject, ENEMY_ANIMS, IN_WALL_SHAPES, poseEnemy, SCENERY_TYPES, SCENERY_VARIANTS } from './models.js';
+import { createBuildingModel, createEnemyModel, createSceneryObject, ENEMY_ANIMS, IN_WALL_SHAPES, poseEnemy, SCENERY_TYPES, SCENERY_VARIANTS, WALL_VARIANTS } from './models.js';
 
 export { ENEMY_ANIMS };
 
@@ -21,7 +21,8 @@ export const spriteKeys = {
   /** A tower's base when built into a wall (`shape`: see IN_WALL_SHAPES in models.js). */
   inWall: (type, shape) => `bw:${type}:${shape}`,
   icon: (type) => `icon:${type}`,
-  wall: (connectionKey) => `wall:${connectionKey}`,
+  /** A wall tile: its connection key, and which of the WALL_VARIANTS versions. */
+  wall: (connectionKey, variant = 0) => `wall:${connectionKey}:${variant}`,
   /** The piece that ties a wall into a building's edge tile; `dir` points from the building to the wall. */
   wallJoint: (dir) => `join:${dir}`,
   turret: (type, aim, frame = 0) => `t:${type}:${angleIndex(aim, TURRET_DIRECTIONS)}:${frame}`,
@@ -149,7 +150,9 @@ export function spriteSpecs() {
 
   for (const key of WALL_KEYS) {
     const connections = Object.fromEntries(WALL_DIRS.map((d, i) => [d, key[i] === d]));
-    specs.push({ key: spriteKeys.wall(key), make: () => createBuildingModel('wall', { connections }) });
+    for (let v = 0; v < WALL_VARIANTS; v++) {
+      specs.push({ key: spriteKeys.wall(key, v), make: () => createBuildingModel('wall', { connections, variant: v }) });
+    }
   }
 
   for (const type of Object.keys(ENEMIES)) {

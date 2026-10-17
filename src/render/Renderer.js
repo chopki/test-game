@@ -9,7 +9,7 @@ import { cloudTexture } from './textures.js';
 import { wallSeat } from './wallSeat.js';
 import { waterFlow } from './waterFlow.js';
 import { waterTexture } from './waterTextures.js';
-import { createProjectileModel, SCENERY_VARIANTS } from './models.js';
+import { createProjectileModel, SCENERY_VARIANTS, WALL_VARIANTS } from './models.js';
 import { BlobShadowBatch, HealthBarBatch } from './batches.js';
 import { ISO_QUATERNION, isoDirection } from './iso.js';
 import { SpriteLayer } from './spriteLayer.js';
@@ -627,8 +627,11 @@ export class Renderer {
     const ground = this.toScene(b.cx + seat.dx, 0, b.cz + seat.dz, this._v);
     if (b.type === 'wall') {
       view.wallKey = this._wallConnections(b).key;
-      this.sprites.add(spriteKeys.wall(view.wallKey), ground);
-      this.shadowSprites.add(spriteKeys.wall(view.wallKey), ground);
+      // Each tile keeps the same variant (from its position), so long runs don't repeat.
+      view.wallVariant = wallVariant(b.x, b.z);
+      const key = spriteKeys.wall(view.wallKey, view.wallVariant);
+      this.sprites.add(key, ground);
+      this.shadowSprites.add(key, ground);
     } else {
       const key = seat.shape ? spriteKeys.inWall(b.type, seat.shape) : spriteKeys.building(b.type);
       if (seat.shape) this.inWallDrawn++;
@@ -776,6 +779,12 @@ export class Renderer {
  * Make a material draw like a ground decal: blended, but in the opaque pass with no depth test, so with
  * renderOrder 1 it lands after the ground and underneath every sprite.
  */
+/** Which baked version of a wall a tile uses: a stable hash of its position, so it never changes. */
+export function wallVariant(x, z) {
+  const h = Math.imul(x * 73856093 ^ z * 19349663, 0x9e3779b1) >>> 0;
+  return (h >>> 7) % WALL_VARIANTS;
+}
+
 export function underlay(material, opacity = 1) {
   material.transparent = false;
   material.depthTest = false;
