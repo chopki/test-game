@@ -210,15 +210,18 @@ export function woodTexture(base = '#8a5a34') {
  * lighter worn streaks and the odd strip of bark left on.
  */
 export function logTexture(base = '#bb8d58') {
-  return make(`log:${base}`, 128, (ctx, s, rnd) => {
+  // Logs are thin, so few texels wrap round each one: a high-resolution tile with hard-edged marks keeps the dark
+  // bits crisp once baked.
+  return make(`log:${base}`, 512, (ctx, s, rnd) => {
+    const k = s / 128;
     ctx.fillStyle = base;
     ctx.fillRect(0, 0, s, s);
     // Long grain: darker and lighter wavy lines up the log.
-    for (let g = 0; g < 26; g++) {
+    for (let g = 0; g < 30; g++) {
       const gx = rnd() * s;
-      ctx.strokeStyle = rnd() < 0.6 ? shade(base, -0.08 - rnd() * 0.06) : shade(base, 0.05);
-      ctx.lineWidth = 0.8 + rnd() * 1.2;
-      const wob = 1.5 + rnd() * 2.5;
+      ctx.strokeStyle = rnd() < 0.6 ? shade(base, -0.1 - rnd() * 0.06) : shade(base, 0.05);
+      ctx.lineWidth = (0.7 + rnd() * 0.9) * k;
+      const wob = (1.5 + rnd() * 2.5) * k;
       for (const ox of [0, -s, s]) {
         ctx.beginPath();
         ctx.moveTo(gx + ox, 0);
@@ -226,46 +229,50 @@ export function logTexture(base = '#bb8d58') {
         ctx.stroke();
       }
     }
-    // Bark left on in a strip or two.
-    for (let b = 0; b < 2; b++) {
-      if (rnd() < 0.4) continue;
+    // Bark left on in a sliver or two: ragged, tapering at both ends, with a hard dark edge.
+    for (let b = 0; b < 3; b++) {
+      if (rnd() < 0.35) continue;
       const bx = rnd() * s;
       const by = rnd() * s;
-      const bw = 5 + rnd() * 7;
-      const bh = 16 + rnd() * 26;
-      // A ragged sliver, tapering at both ends, only a little darker than the wood.
-      ctx.fillStyle = shade(base, -0.12);
+      const bw = (3 + rnd() * 4) * k;
+      const bh = (26 + rnd() * 30) * k;
       ctx.beginPath();
       ctx.moveTo(bx + bw / 2, by);
       ctx.quadraticCurveTo(bx + bw * 1.1, by + bh * 0.5, bx + bw / 2, by + bh);
       ctx.quadraticCurveTo(bx - bw * 0.1, by + bh * 0.5, bx + bw / 2, by);
+      ctx.fillStyle = shade(base, -0.19);
       ctx.fill();
-      ctx.fillStyle = shade(base, -0.18);
-      for (let i = 0; i < 4; i++) ctx.fillRect(bx + bw * (0.3 + rnd() * 0.4), by + bh * (0.15 + rnd() * 0.6), 1, 3 + rnd() * 5);
+      ctx.strokeStyle = shade(base, -0.3);
+      ctx.lineWidth = 0.9 * k;
+      ctx.stroke();
+      ctx.fillStyle = shade(base, -0.27);
+      for (let i = 0; i < 4; i++) ctx.fillRect(bx + bw * (0.3 + rnd() * 0.4), by + bh * (0.15 + rnd() * 0.6), 0.9 * k, (3 + rnd() * 5) * k);
     }
-    // Knots.
-    for (let k = 0; k < 3; k++) {
+    // Knots: a hard dark core inside a ring the grain swirls round.
+    for (let n = 0; n < 3; n++) {
       const kx = rnd() * s;
       const ky = rnd() * s;
-      ctx.strokeStyle = shade(base, -0.14);
-      ctx.lineWidth = 1;
+      ctx.strokeStyle = shade(base, -0.18);
+      ctx.lineWidth = 1 * k;
       ctx.beginPath();
-      ctx.ellipse(kx, ky, 4.5, 7, 0, 0, Math.PI * 2);
+      ctx.ellipse(kx, ky, 4.5 * k, 7 * k, 0, 0, Math.PI * 2);
       ctx.stroke();
-      ctx.fillStyle = shade(base, -0.2);
+      ctx.fillStyle = shade(base, -0.3);
       ctx.beginPath();
-      ctx.ellipse(kx, ky, 2.2, 3.2, 0, 0, Math.PI * 2);
+      ctx.ellipse(kx, ky, 2 * k, 3 * k, 0, 0, Math.PI * 2);
       ctx.fill();
     }
-    // A split.
+    // A split: a sharp dark line with a lit lip beside it.
     const sx = rnd() * s;
-    ctx.strokeStyle = shade(base, -0.32);
-    ctx.lineWidth = 1.2;
-    ctx.beginPath();
-    ctx.moveTo(sx, s * 0.1);
-    ctx.lineTo(sx + 1.5, s * 0.45);
-    ctx.lineTo(sx - 0.5, s * 0.7);
-    ctx.stroke();
+    for (const [dx, col] of [[0.9 * k, shade(base, 0.08)], [0, shade(base, -0.4)]]) {
+      ctx.strokeStyle = col;
+      ctx.lineWidth = 1.1 * k;
+      ctx.beginPath();
+      ctx.moveTo(sx + dx, s * 0.1);
+      ctx.lineTo(sx + dx + 1.5 * k, s * 0.45);
+      ctx.lineTo(sx + dx - 0.5 * k, s * 0.7);
+      ctx.stroke();
+    }
   });
 }
 
