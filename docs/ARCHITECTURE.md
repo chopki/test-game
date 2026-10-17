@@ -142,6 +142,11 @@ so the whole battlefield is ~15 draw calls and a few hundred triangles however d
 - Glow and colour (High, setting `glow`): `GlowBatch` (batches.js) draws additive halos at light sources (the
   spire's crystal, lit wall decorations via `DECOR_LIGHTS`, burning buildings), not depth-tested; the warm grade is
   a CSS filter on the canvas (`COLOUR_GRADE`), so it costs no render pass and leaves the HUD alone.
+- Living buildings: pennant cloths are left out of battlefield sprites (`withoutPennantCloth` in modelKit.js)
+  and drawn as `flag:<turn>:<frame>` sprites at the spots in `PENNANTS` (models.js) / `DECOR_PENNANTS`
+  (wallDecor.js). The watchtower's lookouts are a turret baked with the rest of the tower as an invisible
+  occluder (`userData.occluder`, see spriteBaker.js), so each frame holds only what shows under the roof.
+  Chimney smoke (`CHIMNEYS`) and crystal sparks are particles.
 - Combat effects: `particles.js` draws soft inked puffs (smoke, dust, flashes, arrow trails) and tumbling debris
   chunks as two InstancedMeshes, refilled each frame. The renderer spawns them from world events
   (`projectileFired`, `projectileImpact`, `buildingHit` with the blow's origin, `buildingDestroyed`, `enemyKilled`);

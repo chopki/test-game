@@ -454,10 +454,27 @@ export function banner(p, { x = 0, y, z = 0, ry = 0, w = 0.28, h = 0.55 }) {
   p.add(cyl(0.015, 0.015, w + 0.08, 6), MATERIALS.woodDark, { x: q.x, y, z: q.z, rz: Math.PI / 2, ry });
 }
 
-/** A pennant on a pole (top at y + h). */
+/**
+ * Whether pennant() includes the cloth. The sprite catalogue turns it off while baking battlefield sprites, whose
+ * pennants are drawn as separate waving sprites (see wavingPennant); UI portraits keep it.
+ */
+export const bakeFlags = { pennantCloth: true };
+
+/** Run `make` with pennant cloths left out (for baked sprites whose flags wave separately). */
+export function withoutPennantCloth(make) {
+  bakeFlags.pennantCloth = false;
+  try {
+    return make();
+  } finally {
+    bakeFlags.pennantCloth = true;
+  }
+}
+
+/** A pennant on a pole (top at y + h). The cloth hangs from y + h - 0.02 and flies along local +x (turned by ry). */
 export function pennant(p, { x = 0, y = 0, z = 0, h = 0.9, w = 0.42, ry = 0 }) {
   p.add(cyl(0.022, 0.026, h, 6), MATERIALS.woodDark, { x, y: y + h / 2, z });
   p.add(sphere(0.035, 6, 5), MATERIALS.gold, { x, y: y + h + 0.02, z });
+  if (!bakeFlags.pennantCloth) return;
   const plane = cached(`pennant:${w}`, () => {
     const s = new THREE.Shape();
     s.moveTo(0, 0);
@@ -467,6 +484,40 @@ export function pennant(p, { x = 0, y = 0, z = 0, h = 0.9, w = 0.42, ry = 0 }) {
     return new THREE.ShapeGeometry(s);
   });
   p.add(plane, MATERIALS.bannerRed, { x, y: y + h - 0.02, z, ry });
+}
+
+/** The size pennant cloths are baked at (wavingPennant); other sizes are drawn scaled. */
+export const PENNANT_W = 0.44;
+
+/**
+ * A pennant's cloth alone, rippling in the wind: `phase` (0..1) moves the ripple along it. Hangs from the origin
+ * and flies along +x (turned by `ry`). For baking the frames of a waving flag.
+ */
+export function wavingPennant(phase, ry = 0) {
+  const w = PENNANT_W;
+  const n = 10;
+  const pos = [];
+  const at = (t, edge) => {
+    // edge 0 = top, 1 = bottom; the pennant narrows from 0.24 deep at the pole to a point.
+    const x = t * w;
+    const yTop = -0.08 * t;
+    const y = yTop + (edge ? -(0.24 - 0.16 * t) * (1 - t) : 0);
+    const z = 0.07 * t * Math.sin((t * 1.3 - phase) * Math.PI * 2) + 0.03 * t * edge;
+    return [x, y, z];
+  };
+  for (let i = 0; i < n; i++) {
+    const [a, b] = [i / n, (i + 1) / n];
+    const [t0, b0, t1, b1] = [at(a, 0), at(a, 1), at(b, 0), at(b, 1)];
+    pos.push(...t0, ...b0, ...t1, ...t1, ...b0, ...b1);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.computeVertexNormals();
+  const mesh = new THREE.Mesh(geo, MATERIALS.bannerRed);
+  mesh.rotation.y = ry;
+  const g = new THREE.Group();
+  g.add(mesh);
+  return g;
 }
 
 /** A few grass tufts and pebbles around a footprint's edge, to sit buildings into the ground. */

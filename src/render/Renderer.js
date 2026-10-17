@@ -7,10 +7,10 @@ import { AUTO_RESOLUTION, GROUND_DETAIL, GROUND_PX, SCENERY_COUNT } from './grap
 import { OUTER_GROUND, outsideForest, paintTerrain } from './terrainPainter.js';
 import { cloudTexture } from './textures.js';
 import { wallSeat } from './wallSeat.js';
-import { WALL_DECOR_KINDS } from './wallDecor.js';
+import { DECOR_PENNANTS, WALL_DECOR_KINDS } from './wallDecor.js';
 import { waterFlow } from './waterFlow.js';
 import { waterTexture } from './waterTextures.js';
-import { createProjectileModel, IN_WALL_RADIUS, SCENERY_SWAY, SCENERY_VARIANTS, WALL_VARIANTS, wallArmOffset } from './models.js';
+import { CHIMNEYS, createProjectileModel, IN_WALL_RADIUS, PENNANTS, SCENERY_SWAY, SCENERY_VARIANTS, WALL_VARIANTS, wallArmOffset } from './models.js';
 import { BlobShadowBatch, GlowBatch, HealthBarBatch } from './batches.js';
 import { ISO_QUATERNION, isoDirection } from './iso.js';
 import { fordBridges } from './bridges.js';
@@ -18,7 +18,8 @@ import { damageAmount, damageStage } from './damage.js';
 import { GroundMarks, MARKS } from './groundMarks.js';
 import { Particles } from './particles.js';
 import { SpriteLayer } from './spriteLayer.js';
-import { CATAPULT_ARM_FRAMES, ENEMY_ANIMS, crystalHeight, spriteKeys, turretHeight } from './spriteCatalog.js';
+import { CATAPULT_ARM_FRAMES, ENEMY_ANIMS, FLAG_FRAMES, crystalHeight, spriteKeys, turretHeight } from './spriteCatalog.js';
+import { PENNANT_W } from './modelKit.js';
 
 const SKY = 0xa9d3ee;
 
@@ -139,6 +140,7 @@ export class Renderer {
     this._decorPos = new THREE.Vector3();
     this._armPos = new THREE.Vector3();
     this._fxPos = new THREE.Vector3();
+    this._flagPos = new THREE.Vector3();
     this._toCamera = isoDirection(new THREE.Vector3());
     this._unsubscribe = [];
     this._raycaster = new THREE.Raycaster();
@@ -699,6 +701,8 @@ export class Renderer {
         // Drawn from a point nudged towards the camera, so it's always in front of its own wall's logs.
         this.sprites.add(decorKey, this._decorPos.copy(ground).addScaledVector(this._toCamera, 0.3), 1, 0, 0, dmg);
         this.wallDecorDrawn++;
+        const flag = DECOR_PENNANTS[view.decor];
+        if (flag) this._drawFlag(view, b.cx, b.cz, flag, axis === 'z');
         const light = DECOR_LIGHTS[view.decor];
         if (light && this.graphics.glow) {
           const [lx, ly, lz, size] = light;
@@ -724,11 +728,17 @@ export class Renderer {
         const frame = Math.min(CATAPULT_ARM_FRAMES - 1, Math.floor(THREE.MathUtils.smoothstep(reload, 0.05, 0.75) * (CATAPULT_ARM_FRAMES - 1) + 0.5));
         this.sprites.add(spriteKeys.turret(b.type, b.aim, frame), ground, 1, lift, 0, turretDmg);
       } else if (lift) {
-        this.sprites.add(spriteKeys.turret(b.type, b.aim), ground, 1, lift, 0, turretDmg);
+        const aim = b.type === 'archerTower' ? this._lookoutAim(view, b) : b.aim;
+        this.sprites.add(spriteKeys.turret(b.type, aim), ground, 1, lift, 0, turretDmg);
       }
+      // Waving pennants, chimney smoke, crystal sparkles.
+      const turned = b.type === 'gatehouse' && seat.shape?.startsWith('ns');
+      for (const flag of PENNANTS[b.type] ?? []) this._drawFlag(view, b.cx + seat.dx, b.cz + seat.dz, flag, turned);
+      if (CHIMNEYS[b.type]) this._chimneySmoke(view, b, CHIMNEYS[b.type]);
       if (b.type === 'magicSpire') {
         const bob = Math.sin(this._time * 2 + view.phase) * 0.08;
         this.sprites.add(spriteKeys.crystal(), ground, 1, crystalHeight() + bob);
+        this._sparkle(view, b.cx + seat.dx, crystalHeight() + bob + 0.25, b.cz + seat.dz);
         if (this.graphics.glow) {
           const pulse = 0.5 + 0.15 * Math.sin(this._time * 3 + view.phase);
           this.glows.add(this.toScene(b.cx + seat.dx, crystalHeight() + bob + 0.3, b.cz + seat.dz, this._fxPos), 1.8, 0xa860ff, pulse);
@@ -739,6 +749,48 @@ export class Renderer {
     if (b.hp < b.maxHp || b.type === 'townHall') {
       this.healthBars.add(this.toScene(b.cx + seat.dx, b.def.height + 0.6, b.cz + seat.dz, this._v), Math.min(2.4, 0.8 * b.size + 0.2), b.hp / b.maxHp);
     }
+  }
+
+  /**
+   * A pennant flying from the pole top at `flag` (model coordinates; see PENNANTS) of the thing centred on (cx, cz),
+   * turned a quarter if `turned`. Each building's flags ripple at their own phase.
+   */
+  _drawFlag(view, cx, cz, flag, turned) {
+    const [ox, oz] = turned ? [flag.z, -flag.x] : [flag.x, flag.z];
+    const frame = Math.floor(this._time * 7 + view.phase * FLAG_FRAMES) % FLAG_FRAMES;
+    this.sprites.add(spriteKeys.flag(turned ? 1 : 0, frame), this.toScene(cx + ox, 0, cz + oz, this._flagPos), flag.w / PENNANT_W, flag.y);
+  }
+
+  /** Which way a watchtower's lookouts face: their target while shooting, otherwise slowly scanning round. */
+  _lookoutAim(view, b) {
+    if (b.cooldown > 0) {
+      view.look = b.aim;
+      view.idle = 0;
+      return b.aim;
+    }
+    view.idle = (view.idle ?? 0) + this._dt;
+    return (view.look ?? view.phase) + Math.sin(view.idle * 0.35 + view.phase) * 1.6;
+  }
+
+  /** A thin column of smoke from a chimney (model coordinates). */
+  _chimneySmoke(view, b, at) {
+    if (!this.graphics.effects) return;
+    view.chimney = (view.chimney ?? 0) - this._dt;
+    if (view.chimney > 0) return;
+    view.chimney += 0.45;
+    const p = this.toScene(b.cx + at.x, at.y, b.cz + at.z, this._fxPos);
+    this.particles.puff({ x: p.x, y: p.y, z: p.z, vx: 0.12 + rand(0.04), vy: 0.35, vz: -0.05 + rand(0.04), size: 0.12, grow: 0.7, life: 3, color: 0xd6d0c6, alpha: 0.4, rise: 0.05, drag: 0.6 });
+  }
+
+  /** Now and then a bright spark drifts up round a crystal. */
+  _sparkle(view, x, y, z) {
+    if (!this.graphics.effects) return;
+    view.sparkle = (view.sparkle ?? 0) - this._dt;
+    if (view.sparkle > 0) return;
+    view.sparkle += 0.18 + Math.random() * 0.2;
+    const a = Math.random() * Math.PI * 2;
+    const p = this.toScene(x + Math.cos(a) * 0.3, y + rand(0.2), z + Math.sin(a) * 0.3, this._fxPos);
+    this.particles.puff({ x: p.x, y: p.y, z: p.z, vy: 0.35, size: 0.07, grow: -0.04, life: 0.7, color: Math.random() < 0.5 ? 0xf3e2ff : 0xc89bff, alpha: 0.95, drag: 1 });
   }
 
   /** The wall arms of a tower built into a wall: one sprite each, centred on the arm so it sorts by its own depth. */

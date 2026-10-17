@@ -707,3 +707,37 @@ test('glow and colour (High only): halos round crystals and fires, a warm grade,
   expect(await page.evaluate(() => window.game.renderer.renderer.domElement.style.filter)).toBe('');
   expect(errors).toEqual([]);
 });
+
+test('living buildings: pennants wave, lookouts scan, the Town Hall chimney smokes, crystals sparkle (screenshot attached)', async ({ page }, testInfo) => {
+  const errors = await openGame(page, { fort: true });
+  await page.evaluate(() => {
+    const w = window.game.world;
+    w.economy.earn(1000);
+    w.place('magicSpire', 23, 15);
+  });
+  // Which flag frames and lookout directions are being drawn right now.
+  const drawn = () =>
+    page.evaluate(() => {
+      const r = window.game.renderer;
+      const keys = new Set();
+      for (const v of r.views.buildings.values()) if (v.look !== undefined) keys.add(`look:${Math.round(v.look * 100)}`);
+      const frames = [];
+      for (const p of r.sprites.layers) {
+        for (let i = 0; i < p.count; i++) {
+          const [u, v] = [p.rects.getX(i), p.rects.getY(i)];
+          for (const [key, f] of r.atlas.frames) if (key.startsWith('flag:') && Math.abs(f.u0 - u) < 1e-6 && Math.abs(f.v0 - v) < 1e-6) frames.push(key);
+        }
+      }
+      return frames.sort().join(',');
+    });
+  const first = await drawn();
+  expect(first).toContain('flag:'); // the Town Hall's and the gatehouse's pennants
+  await expect.poll(drawn, { timeout: 5000 }).not.toBe(first); // …and they ripple
+  // Chimney smoke and crystal sparkles are particles.
+  await expect.poll(() => page.evaluate(() => window.game.renderer.particles.count)).toBeGreaterThan(4);
+  const hall = await page.evaluate(() => ({ x: window.game.world.townHall.cx, z: window.game.world.townHall.cz }));
+  await zoomTo(page, hall.x, hall.z, 2.8);
+  await page.waitForTimeout(1500);
+  await testInfo.attach('living-buildings', { body: await page.screenshot({ path: testInfo.outputPath('living-buildings.png') }), contentType: 'image/png' });
+  expect(errors).toEqual([]);
+});

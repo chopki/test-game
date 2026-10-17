@@ -1,4 +1,6 @@
+import * as THREE from 'three';
 import { BUILDINGS, ENEMIES } from '../sim/config.js';
+import { wavingPennant, withoutPennantCloth } from './modelKit.js';
 import { createWallDecor, WALL_DECOR_KINDS } from './wallDecor.js';
 import { BRIDGE_PARTS, createBridgePiece, createBuildingModel, createEnemyModel, createSceneryObject, createWallArm, ENEMY_ANIMS, IN_WALL_RADIUS, IN_WALL_TYPES, poseEnemy, SCENERY_TYPES, SCENERY_VARIANTS, WALL_VARIANTS } from './models.js';
 
@@ -10,6 +12,8 @@ export { ENEMY_ANIMS };
 export const TURRET_DIRECTIONS = 16;
 export const ENEMY_DIRECTIONS = 8;
 export const CATAPULT_ARM_FRAMES = 4; // 0 = just thrown … 3 = wound back and loaded
+/** Frames of a waving pennant's ripple. */
+export const FLAG_FRAMES = 6;
 
 const WALL_DIRS = ['n', 'e', 's', 'w'];
 /** All 16 wall connection keys, in the renderer's 'nesw' / '-' format. */
@@ -26,6 +30,8 @@ export const spriteKeys = {
   inWall: (type, shape) => (type === 'gatehouse' && shape.startsWith('ns') ? `bw:${type}:ns` : `bw:${type}`),
   /** A piece of a ford's footbridge ('mid', 'start' or 'end') running along `axis` ('x' or 'z'). */
   bridge: (part, axis) => `bridge:${axis}:${part}`,
+  /** A frame of a waving pennant cloth; `turn` 1 for one turned a quarter (see PENNANTS in models.js). */
+  flag: (turn, frame) => `flag:${turn}:${frame}`,
   /** One wall arm of an in-wall tower (see createWallArm in models.js). */
   wallArm: (dir, from, straight) => `arm:${dir}:${from}:${straight ? 'run' : 'end'}`,
   icon: (type) => `icon:${type}`,
@@ -52,6 +58,7 @@ export const crystalHeight = () => (crystalY ??= createBuildingModel('magicSpire
 
 /** Which buildings have separately animated parts (and so extra sprites). */
 const BUILDING_PARTS = {
+  archerTower: { turret: true, occluded: true }, // the lookouts are partly hidden by the cabin and its roof
   cannonTower: { turret: true },
   catapult: { turret: true, arm: true },
   magicSpire: { crystal: true },
@@ -132,11 +139,18 @@ export function spriteSpecs() {
             make: () => {
               const m = createBuildingModel(type);
               const turret = m.userData.turret;
+              const pivot = turret.position.y;
               turret.removeFromParent();
               turret.position.set(0, 0, 0);
               turret.rotation.y = angle;
               if (m.userData.arm) poseArm(m.userData, f);
-              return turret;
+              if (!parts.occluded) return turret;
+              // The rest of the building, invisible, in place round the turret: it masks what it would hide.
+              const g = new THREE.Group();
+              m.position.y = -pivot;
+              m.userData.occluder = true;
+              g.add(m, turret);
+              return g;
             },
           });
         }
@@ -215,6 +229,18 @@ export function spriteSpecs() {
 
   for (const kind of SCENERY_TYPES) {
     for (let v = 0; v < SCENERY_VARIANTS; v++) specs.push({ key: spriteKeys.scenery(kind, v), make: () => createSceneryObject(kind, v) });
+  }
+  // Waving pennant cloths (left out of every battlefield sprite; UI portraits keep theirs): FLAG_FRAMES frames of
+  // the ripple, for cloths flying along x and turned a quarter.
+  for (const s of specs) {
+    if (s.key.startsWith('icon:')) continue;
+    const make = s.make;
+    s.make = () => withoutPennantCloth(make);
+  }
+  for (const turn of [0, 1]) {
+    for (let f = 0; f < FLAG_FRAMES; f++) {
+      specs.push({ key: spriteKeys.flag(turn, f), shadow: false, make: () => wavingPennant(f / FLAG_FRAMES, turn ? Math.PI / 2 : 0) });
+    }
   }
   return specs;
 }

@@ -149,7 +149,8 @@ bends (lakes glint but stay still), and trees sway in gusts of wind. Battles kic
 splinters where enemies strike, and debris when a building falls. Damaged buildings and walls show it: soot and cracks below 2/3 health,
 then holed roofs, broken stakes, smoke and flames below 1/3. Towers wear the ground bare round them, shots leave scorch marks and
 craters that fade, and plank footbridges cross the fords (decoration: wading speed is unchanged). On High, a warm colour
-grade and soft glows round crystals, torches and fires. Woods mix oaks, broad beeches, birch groves, pines
+grade and soft glows round crystals, torches and fires. Pennants wave, watchtower lookouts turn to
+face their targets, the Town Hall's chimney smokes and crystals sparkle. Woods mix oaks, broad beeches, birch groves, pines
 and tall spruces, with the odd dead tree.
 Enemies are animated: they walk with a stride matched to their speed, wind up and swing their weapons in time
 with their hits, and topple over when killed. Everything is built from code (procedural

@@ -143,7 +143,11 @@ export function bakeSprites(specs, { pxPerUnit = 64, supersample = 2, ink = true
       const object = make();
       scene.add(object);
       object.updateMatrixWorld(true);
-      box.setFromObject(object, true); // precise: tight around rotated parts, so frames stay small
+      // Precise: tight around rotated parts, so frames stay small. Occluders (see isOccluder) don't count.
+      box.makeEmpty();
+      object.traverse((o) => {
+        if (o.isMesh && !isOccluder(o)) box.expandByObject(o, true);
+      });
       if (box.isEmpty()) {
         scene.remove(object);
         continue;
@@ -200,7 +204,9 @@ export function bakeSprites(specs, { pxPerUnit = 64, supersample = 2, ink = true
       sun.castShadow = shadow;
       const meshes = [];
       object.traverse((o) => {
-        if (o.isMesh) {
+        if (o.isMesh && isOccluder(o)) {
+          o.material = depthOnly; // hides what's behind it in every pass, but draws nothing itself
+        } else if (o.isMesh) {
           o.castShadow = true;
           o.receiveShadow = true;
           meshes.push([o, o.material]);
@@ -265,6 +271,15 @@ export function bakeSprites(specs, { pxPerUnit = 64, supersample = 2, ink = true
 }
 
 /** Pack rendered sprites (and their shadows) onto pages, tallest first; trim the last page's height. */
+/**
+ * Part of a model that's there only to hide what's behind it (flag a group with userData.occluder): e.g. a tower
+ * baked invisibly round its turning lookouts, so their frames hold only what shows past its roof and boards.
+ */
+function isOccluder(o) {
+  for (let p = o; p; p = p.parent) if (p.userData.occluder) return true;
+  return false;
+}
+
 function packAtlas(atlas, rendered) {
   const rects = [];
   for (const item of rendered) {

@@ -88,9 +88,9 @@ Pre-rendered sprites on a fixed isometric camera (see ARCHITECTURE.md), working 
 - [x] **Wall decorations**: about 1 in 6 straight wall tiles carries a prop, picked from its position: pennant pole,
       hanging banner, torch, brazier, shields, spears, ladder, supplies, firewood, alarm bell, lantern, bow and
       quiver, a crow, water buckets (`wallDecor.js`, baked for both wall directions)
-- [ ] **Living buildings**: flags and banners that wave in the wind, plus small idle animations on static
-      buildings (smoke from the Town Hall chimney, a lookout turning in the watchtower, crystal sparkle), baked
-      as a few looping frames
+- [x] **Living buildings**: pennants wave (the cloth is a 6-frame sprite of its own on the Town Hall, the gatehouse
+      and pennant poles), the watchtower's lookouts turn to face their targets and scan the horizon when idle, the
+      Town Hall has a smoking chimney, and crystals give off sparks. (Hanging banners still hang still.)
 - [ ] **Weather and seasons**: rain (streaks, puddle ripples on water, darker grass), snow (white-dusted
       sprites and ground, snowfall), maybe autumn leaves; per map or changing between waves
 - [ ] **Wildlife**: birds flying over (and scattering when cannons fire), fish jumping in streams and lakes, deer

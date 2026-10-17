@@ -43,7 +43,7 @@ export class GroundMarks {
       uniforms: { map: { value: marksTexture() } },
       vertexShader: VERTEX,
       fragmentShader: FRAGMENT,
-      transparent: true,
+      // Blended, but kept in the opaque pass (not `transparent`), so renderOrder puts it under the sprites.
       depthTest: false,
       depthWrite: false,
       blending: THREE.CustomBlending,

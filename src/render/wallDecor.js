@@ -150,6 +150,9 @@ const DECOR = {
 
 export const WALL_DECOR_KINDS = Object.keys(DECOR);
 
+/** Decorations with a pennant (its cloth waves as a separate sprite): attachment point and length, as placed above. */
+export const DECOR_PENNANTS = { pennantPole: { x: 0, y: 1.75 - 0.02, z: 0.16, w: 0.5 } };
+
 /** One wall decoration (see DECOR), at a wall tile's centre. */
 export function createWallDecor(kind) {
   const p = new Parts();

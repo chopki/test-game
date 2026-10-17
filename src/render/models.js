@@ -19,6 +19,7 @@ import {
   groundDressing,
   merlonsRect,
   octa,
+  PENNANT_W,
   pennant,
   place,
   rbox,
@@ -65,6 +66,19 @@ function fence(p, { x0, z0, x1, z1, rnd, gapFrom = 2, gapTo = 2, h = 0.42 }) {
   }
 }
 
+/** Chimney tops (smoke rises from them in game), in the model's own coordinates. */
+export const CHIMNEYS = { townHall: { x: 0.36, y: 3.0, z: -0.62 } };
+
+/**
+ * Where each building's pennants fly (the waving cloth is a sprite of its own; see wavingPennant in modelKit.js):
+ * the attachment point at the top of the pole, the cloth's length, and `turn` 1 if it's turned a quarter (as the
+ * gatehouse is in a north–south wall). Model coordinates, matching the pennant() calls in the models.
+ */
+export const PENNANTS = {
+  townHall: [{ x: -0.62, y: 2.47 + 0.95 - 0.02, z: -0.7, w: PENNANT_W }],
+  gatehouse: [{ x: -0.95, y: 1.64 + 0.85 - 0.02, z: -0.1, w: 0.4 }],
+};
+
 function townHall() {
   const M = MATERIALS;
   const p = new Parts();
@@ -103,13 +117,17 @@ function townHall() {
   stoneBlocks(p, { x: kx, z: kz, y: top + 0.05, w: W + 0.18, d: W + 0.18, h: 0.16, rows: 1, rnd, minBlock: 0.3, maxBlock: 0.5 });
   merlonsRect(p, { x: kx, z: kz, y: top + 0.21, w: W + 0.18, d: W + 0.18, size: 0.22, height: 0.3, spacing: 0.38, rnd });
   p.add(box(W, 0.04, W), M.woodLight, { x: kx, y: top + 0.22, z: kz });
+  // A chimney stack on the roof (it smokes in game; see CHIMNEYS).
+  const ch = CHIMNEYS.townHall;
+  stoneBlocks(p, { x: ch.x, z: ch.z, y: top + 0.24, w: 0.24, d: 0.24, h: ch.y - top - 0.3, rows: 3, rnd, minBlock: 0.24, maxBlock: 0.24 });
+  p.add(box(0.3, 0.06, 0.3), M.capstone, { x: ch.x, y: ch.y - 0.03, z: ch.z });
   // Door, windows and a banner on the faces the camera sees.
   door(p, { x: kx, y: 0.23, z: kz + W / 2 + 0.01, w: 0.42, h: 0.66 });
   for (const x of [-0.42, 0.42]) windowFrame(p, { x: kx + x, y: 1.62, z: kz + W / 2 + 0.01, w: 0.2, h: 0.3, shutters: true });
   windowFrame(p, { x: kx + W / 2 + 0.01, y: 1.62, z: kz, ry: Math.PI / 2, w: 0.2, h: 0.3 });
   windowFrame(p, { x: kx + W / 2 + 0.01, y: 0.8, z: kz + 0.3, ry: Math.PI / 2, w: 0.16, h: 0.24, shutters: false });
   banner(p, { x: kx + W / 2 + 0.02, y: 1.05, z: kz - 0.35, ry: Math.PI / 2, w: 0.26, h: 0.55 });
-  pennant(p, { x: kx - 0.5, y: top + 0.22, z: kz - 0.5, h: 0.95, w: 0.44 });
+  pennant(p, { x: kx - 0.5, y: top + 0.22, z: kz - 0.5, h: 0.95, w: PENNANT_W });
   // A lean-to shed against the fence, and yard clutter.
   p.add(box(0.7, 0.5, 0.5), M.wood, { x: 0.95, y: 0.28, z: -0.95 });
   p.add(box(0.82, 0.05, 0.64), M.woodDark, { x: 0.95, y: 0.56, z: -0.92, rx: 0.25 });
@@ -286,12 +304,36 @@ function archerTower() {
     p.add(box(cab, 0.1, 0.06), M.wood, { x: (fx * cab) / 2, y: y0 + cabH - 0.05, z: (fz * cab) / 2, ry });
   }
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) p.add(box(0.09, cabH, 0.09), M.woodDark, { x: (sx * cab) / 2, y: y0 + cabH / 2, z: (sz * cab) / 2 });
-  archer(p, { x: 0.18, y: y0, z: 0.2, ry: Math.PI / 4 });
-  archer(p, { x: -0.22, y: y0, z: -0.15, ry: -Math.PI / 3 });
   p.add(cone(0.98, 0.78, 4), rnd.pick(ROOF_TILES), { y: y0 + cabH + 0.36, ry: Math.PI / 4 });
   p.add(box(0.08, 0.2, 0.08), M.woodDark, { y: y0 + cabH + 0.82 });
   groundDressing(p, { w: 1.72, d: 1.72, rnd, count: 9 });
-  return p.build();
+  const g = p.build();
+  // The lookouts turn to face what they shoot at (and scan the horizon when idle): a turret of their own.
+  const turret = lookouts(y0);
+  g.add(turret);
+  g.userData.turret = turret;
+  return g;
+}
+
+/**
+ * The watchtower's two lookouts, facing +z: only what shows above the cabin's boards (heads, hats and bows), so
+ * the turret sprite drawn over the tower never shows a body through the boards.
+ */
+function lookouts(y) {
+  const M = MATERIALS;
+  const t = new Parts({ yOffset: y });
+  for (const [x, z] of [
+    [-0.2, 0.06],
+    [0.2, -0.1],
+  ]) {
+    t.add(capsule(0.07, 0.06), M.clothBlue, { x, y: 0.3, z }); // shoulders
+    t.add(sphere(0.06, 8, 6), std({ color: 0xe2b48a }), { x, y: 0.42, z });
+    t.add(cone(0.075, 0.09, 8), M.leatherDark, { x, y: 0.49, z });
+    t.add(torus(0.1, 0.012, 10), M.woodDark, { x: x + 0.08, y: 0.36, z: z + 0.06, ry: Math.PI / 2, sx: 0.5 });
+  }
+  const turret = t.build();
+  turret.position.y = y;
+  return turret;
 }
 
 /** A cannon on a low, squat stone plinth. */
