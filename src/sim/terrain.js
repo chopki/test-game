@@ -32,15 +32,16 @@ export function openTerrain(width, height) {
 }
 
 /**
- * Generate terrain for a `width` × `height` map with the Town Hall at `hall` ({ x, z, size }).
- * Returns a Uint8Array of T values (index z * width + x). Deterministic for a given rng state.
+ * Generate terrain for a `width` × `height` map with the Town Hall at `hall` ({ x, z, size }). With `river`, the
+ * map always gets a stream. Returns a Uint8Array of T values (index z * width + x). Deterministic for a given rng
+ * state.
  */
-export function generateTerrain({ width, height, spawnMargin, hall, rng, params = TERRAIN }) {
+export function generateTerrain({ width, height, spawnMargin, hall, rng, params = TERRAIN, river = false }) {
   let density = 1;
   let best = null;
   for (let attempt = 0; attempt < 6; attempt++) {
     const map = new TerrainMap(width, height, spawnMargin, hall);
-    layFeatures(map, rng, params, density);
+    layFeatures(map, rng, params, density, river);
     repair(map, rng, params);
     const stats = analyzeTerrain(map.types, { width, height, spawnMargin, hall });
     if (!best || stats.openFraction > best.stats.openFraction) best = { types: map.types, stats };
@@ -88,14 +89,14 @@ class TerrainMap {
 
 // ---------------------------------------------------------------- features
 
-function layFeatures(map, rng, params, density) {
+function layFeatures(map, rng, params, density, river = false) {
   const { width: W, height: H } = map;
   const noise = createNoise(rng);
   const c = map.hallCentre();
   const clearR = params.clearingRadius + map.hall.size / 2;
 
   // Water first, so forests and rocks can grow up to the banks.
-  if (rng.next() < params.water.streamChance * Math.min(1, density + 0.2)) stream(map, rng, params, clearR);
+  if (river || rng.next() < params.water.streamChance * Math.min(1, density + 0.2)) stream(map, rng, params, clearR);
   else if (rng.next() < params.water.lakeChance * density) lake(map, rng, noise, clearR);
 
   // Forest: fractal noise above a threshold that drops towards the map edges (dense woods frame the map).
@@ -149,9 +150,11 @@ function stream(map, rng, params, clearR) {
   const across = vertical ? map.width : map.height;
   const centre = vertical ? map.hallCentre().x : map.hallCentre().z;
   const gap = clearR + 3;
-  const lowSide = rng.next() < 0.5;
-  const lo = lowSide ? map.spawnMargin + 4 : Math.ceil(centre + gap);
-  const hi = lowSide ? Math.floor(centre - gap) : across - map.spawnMargin - 6;
+  // Which side of the hall it runs; if the hall sits too near that edge for a stream to fit, the other side.
+  const range = (low) => (low ? [map.spawnMargin + 4, Math.floor(centre - gap)] : [Math.ceil(centre + gap), across - map.spawnMargin - 6]);
+  let lowSide = rng.next() < 0.5;
+  if (range(lowSide)[1] < range(lowSide)[0]) lowSide = !lowSide;
+  const [lo, hi] = range(lowSide);
   if (hi < lo) return;
   const base = rng.int(lo, hi);
   const amp = rng.range(1.5, 3.5);

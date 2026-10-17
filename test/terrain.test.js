@@ -179,3 +179,24 @@ describe('terrain generator', () => {
     expect(hit).toBe(true);
   });
 });
+
+describe('rivers', () => {
+  // A stream runs off the map at both ends, so it reaches two opposite edges of the map.
+  const hasStream = (world) => {
+    const g = world.grid;
+    const wet = (x, z) => [T.water, T.ford].includes(g.terrain[z * g.width + x]);
+    const row = (z) => Array.from({ length: g.width }, (_, x) => wet(x, z)).some(Boolean);
+    const col = (x) => Array.from({ length: g.height }, (_, z) => wet(x, z)).some(Boolean);
+    return (row(0) && row(g.height - 1)) || (col(0) && col(g.width - 1));
+  };
+
+  it('most generated maps have a stream', () => {
+    let streams = 0;
+    for (let seed = 1; seed <= 60; seed++) if (hasStream(new World({ seed, terrain: 'generate' }))) streams++;
+    expect(streams / 60).toBeGreaterThan(0.5);
+  });
+
+  it('asking for a river always gives one', () => {
+    for (let seed = 1; seed <= 40; seed++) expect(hasStream(new World({ seed, terrain: 'generate', river: true })), `seed ${seed}`).toBe(true);
+  });
+});

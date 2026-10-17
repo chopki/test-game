@@ -25,7 +25,7 @@ import { generateTerrain, spawnTilesBySide, T } from './terrain.js';
  * waveCleared, gameOver.
  */
 export class World {
-  constructor({ seed = Date.now(), terrain = 'open', fort = false } = {}) {
+  constructor({ seed = Date.now(), terrain = 'open', fort = false, river = false } = {}) {
     this.seed = seed >>> 0;
     this.rng = createRng(seed);
     this.events = new EventBus();
@@ -52,7 +52,7 @@ export class World {
     const mapInfo = { width: GRID.width, height: GRID.height, spawnMargin: GRID.spawnMargin, hall };
     if (terrain === 'generate') {
       // Its own random stream, so the map doesn't change the waves that follow.
-      this.grid.terrain = generateTerrain({ ...mapInfo, rng: createRng(this.seed ^ 0x9e3779b9) });
+      this.grid.terrain = generateTerrain({ ...mapInfo, rng: createRng(this.seed ^ 0x9e3779b9), river });
     } else if (terrain instanceof Uint8Array) {
       this.grid.terrain = Uint8Array.from(terrain);
     }

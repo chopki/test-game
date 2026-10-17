@@ -35,7 +35,7 @@ export const TERRAIN = {
   fordCost: 1.5, // extra pathing cost for entering a ford tile
   forest: { scale: 0.12, threshold: 0.62, edgeBoost: 0.3 },
   rock: { scale: 0.21, threshold: 0.75, ridges: [1, 3], ridgeLength: [3, 7] },
-  water: { streamChance: 0.55, lakeChance: 0.5, fords: [1, 2], fordWidth: 3 },
+  water: { streamChance: 0.8, lakeChance: 0.5, fords: [1, 2], fordWidth: 3 },
 };
 
 /**

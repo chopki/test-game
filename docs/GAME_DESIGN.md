@@ -63,6 +63,9 @@ the Battle Chronicle; `?seed=N` in the URL replays it). Values live in `TERRAIN`
 | Rock | blocked | no | outcrops and ridges; walls join onto them |
 | Forest | blocked | no | denser towards the map edge |
 
+About 62% of maps have a stream (crossed at 1–2 fords); the rest may have a lake. Settings → Rivers → Always gives
+every new map a stream.
+
 Enemies can't break terrain, so a full enclosure always includes some wall. Every generated map guarantees:
 
 - an open area of 6 tiles around the Town Hall;

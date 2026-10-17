@@ -8,7 +8,7 @@ const ROWS = [
   ['fpsCap', 'Frame rate cap', 'Fewer frames per second means less heat and battery use, and fewer crashes.'],
   ['antialias', 'Anti-aliasing', 'Smooths jagged edges. Costly on phones. Takes effect after a reload.'],
   ['scenery', 'Scenery', 'Trees and rocks around the map.'],
-  ['effects', 'Effects', 'Explosion and dust bursts.'],
+  ['effects', 'Effects', 'Smoke, dust and debris in battle, scorch marks, drifting cloud shadows and trees swaying in the wind.'],
   ['showFps', 'Show FPS', 'Frames per second and current render scale, in the top bar.'],
 ];
 
@@ -28,6 +28,17 @@ export class SettingsMenu {
     this.mapRow = this._row('Map', '', [this.mapButton]);
     this.body.appendChild(this.mapRow);
     this._confirmUntil = 0;
+    // Rivers: whether new maps always get a stream (applies from the next new map).
+    this.riverButtons = [
+      [false, 'Sometimes'],
+      [true, 'Always'],
+    ].map(([river, text]) =>
+      this._button(text, () => {
+        this.game.mapOptions.river = river;
+        this.refresh();
+      }),
+    );
+    this.body.appendChild(this._row('Rivers', 'For new maps: Always gives every map a stream to defend across (crossed at fords). Takes effect from the next new map.', this.riverButtons));
 
     this.presetButtons = PRESET_ORDER.map((preset) =>
       this._button(capitalize(preset), () => this.game.setGraphics(withPreset(this.game.graphics, preset))),
@@ -99,6 +110,7 @@ export class SettingsMenu {
     this.mapButton.textContent = confirming ? 'Tap again: this game ends' : 'New map';
     this.mapButton.classList.toggle('warn', confirming);
     this.mapRow.querySelector('small').textContent = `Map ${this.game.world.seed}. A new map starts a new game (woods, rocks and water are different every time).`;
+    this.riverButtons.forEach((b, i) => b.classList.toggle('active', this.game.mapOptions.river === (i === 1)));
     const g = this.game.graphics;
     PRESET_ORDER.forEach((preset, i) => this.presetButtons[i].classList.toggle('active', g.preset === preset));
     this.customTag.hidden = g.preset !== 'custom';

@@ -45,6 +45,8 @@ export class Game {
     this.speed = 1;
     this.paused = false;
     this.keys = new Set();
+    // Options for new maps (Settings → Rivers): `river` makes every new map have a stream. Lasts for the session.
+    this.mapOptions = { river: new URLSearchParams(location.search).get('river') === '1' };
 
     window.addEventListener('keydown', (e) => this._onKeyDown(e));
     window.addEventListener('keyup', (e) => this.keys.delete(e.key.toLowerCase()));
@@ -61,13 +63,14 @@ export class Game {
   /**
    * Start a game on a newly generated map. `seed` picks the map (and its waves); without it, the URL's `?seed=N`
    * is used if given (to replay a map), else a random one. `?map=open` starts without terrain (the browser tests
-   * use it to place buildings anywhere), and `?fort=0` without the starting fort.
+   * use it to place buildings anywhere), and `?fort=0` without the starting fort. With `mapOptions.river` (or
+   * `?river=1`), the map always has a stream.
    */
   newGame({ seed } = {}) {
     const params = new URLSearchParams(location.search);
     seed ??= params.has('seed') ? Number(params.get('seed')) : Math.floor(Math.random() * 1e6);
     const fort = params.get('fort') !== '0';
-    this.world = new World({ seed, terrain: params.get('map') === 'open' ? 'open' : 'generate', fort });
+    this.world = new World({ seed, terrain: params.get('map') === 'open' ? 'open' : 'generate', fort, river: this.mapOptions.river });
     this.renderer.attach(this.world);
     this.hud.attach(this.world);
     this.build.reset();

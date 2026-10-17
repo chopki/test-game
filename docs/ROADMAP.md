@@ -79,7 +79,7 @@ Pre-rendered sprites on a fixed isometric camera (see ARCHITECTURE.md), working 
 - [x] WebP atlas pages (6.1 MB of PNG → 1.5 MB) and an HD sprite set for desktops (2.5 MB), sharp when zoomed in
 - [x] Ground marks: worn earth round towers, scorch marks and craters where cannonballs and boulders land (fading
       after 45 s), plank footbridges across the fords (`groundMarks.js`, `bridges.js`; decoration only)
-- [ ] Rivers more often (about half of maps have one today), or a map option to ask for one
+- [x] Rivers more often (about 62% of maps, from 42%) and Settings → Rivers → Always for a stream on every new map
 - [ ] Warm colour grade and a soft glow on crystals and fire (High only)
 - [x] **Varied wall tiles**: previously every wall tile of the same shape was the identical sprite, so long straight runs
       repeat every tile. Bake 3–4 variants per wall shape (different stake heights, lean and shades, grass tufts

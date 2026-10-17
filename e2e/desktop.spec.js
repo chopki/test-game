@@ -488,6 +488,29 @@ test('settings: New map starts a fresh game on another map, asking first if one 
   expect(errors).toEqual([]);
 });
 
+test('settings: Rivers → Always gives the next new map a stream', async ({ page }) => {
+  const errors = await openGame(page, { map: 'terrain' });
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await expect(page.getByRole('button', { name: 'Sometimes' })).toHaveClass(/active/);
+  await page.getByRole('button', { name: 'Always' }).click();
+  await expect(page.getByRole('button', { name: 'Always' })).toHaveClass(/active/);
+  // A stream runs off the map at both ends.
+  const stream = () =>
+    page.evaluate(() => {
+      const g = window.game.world.grid;
+      const wet = (x, z) => [1, 2].includes(g.terrain[z * g.width + x]);
+      const edge = (fn) => Array.from({ length: g.width }, (_, i) => fn(i)).some(Boolean);
+      return (edge((x) => wet(x, 0)) && edge((x) => wet(x, g.height - 1))) || (edge((z) => wet(0, z)) && edge((z) => wet(g.width - 1, z)));
+    });
+  for (let i = 0; i < 3; i++) {
+    if (i > 0) await page.getByRole('button', { name: 'Settings' }).click();
+    await page.getByRole('button', { name: 'New map' }).click();
+    await expect(page.locator('#settings')).toBeHidden();
+    expect(await stream()).toBe(true);
+  }
+  expect(errors).toEqual([]);
+});
+
 test('long walls carry the odd decoration (flags, torches, shields…), sparsely and on both wall directions', async ({ page }, testInfo) => {
   const errors = await openGame(page);
   await page.evaluate(() => {
