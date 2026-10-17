@@ -10,6 +10,7 @@ const ROWS = [
   ['scenery', 'Scenery', 'Trees and rocks around the map.'],
   ['effects', 'Effects', 'Smoke, dust and debris in battle, scorch marks, drifting cloud shadows and trees swaying in the wind.'],
   ['glow', 'Glow and colour', 'A warm colour grade over the battlefield and a soft glow round crystals, torches and fires.'],
+  ['weather', 'Weather', 'Seasons (autumn leaves, winter snow) and rain or snowfall that can change between waves. Looks only: it never changes the battle.'],
   ['showFps', 'Show FPS', 'Frames per second and current render scale, in the top bar.'],
 ];
 

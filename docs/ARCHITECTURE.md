@@ -147,6 +147,12 @@ so the whole battlefield is ~15 draw calls and a few hundred triangles however d
   (wallDecor.js). The watchtower's lookouts are a turret baked with the rest of the tower as an invisible
   occluder (`userData.occluder`, see spriteBaker.js), so each frame holds only what shows under the roof.
   Chimney smoke (`CHIMNEYS`) and crystal sparks are particles.
+- Seasons and weather: `weather.js` (pure, unit-tested) picks a map's season and each wave's weather and turns
+  them into look amounts; the renderer eases between them. The sprite shader turns broadleaf foliage in autumn
+  (scenery passes `SPRITE_KIND.foliage` in the damage slot; units and flags pass `SPRITE_KIND.unit` to stay
+  clear of snow) and lays snow on top edges by sampling the atlas a few pixels above each pixel.
+  `weatherLayers.js` draws the ground cover (snow, wet, leaves; masked off the water) and the falling rain or
+  snow; the water shader adds rain rings; rain and winter light are CSS filters with the grade.
 - Combat effects: `particles.js` draws soft inked puffs (smoke, dust, flashes, arrow trails) and tumbling debris
   chunks as two InstancedMeshes, refilled each frame. The renderer spawns them from world events
   (`projectileFired`, `projectileImpact`, `buildingHit` with the blow's origin, `buildingDestroyed`, `enemyKilled`);

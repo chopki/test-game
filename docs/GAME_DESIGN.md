@@ -150,7 +150,8 @@ splinters where enemies strike, and debris when a building falls. Damaged buildi
 then holed roofs, broken stakes, smoke and flames below 1/3. Towers wear the ground bare round them, shots leave scorch marks and
 craters that fade, and plank footbridges cross the fords (decoration: wading speed is unchanged). On High, a warm colour
 grade and soft glows round crystals, torches and fires. Pennants wave, watchtower lookouts turn to
-face their targets, the Town Hall's chimney smokes and crystals sparkle. Woods mix oaks, broad beeches, birch groves, pines
+face their targets, the Town Hall's chimney smokes and crystals sparkle. Each map has a season (summer, autumn leaves, winter
+snow) and weather that can change between waves (rain, snowfall); it's looks only and never changes the battle. Woods mix oaks, broad beeches, birch groves, pines
 and tall spruces, with the odd dead tree.
 Enemies are animated: they walk with a stride matched to their speed, wind up and swing their weapons in time
 with their hits, and topple over when killed. Everything is built from code (procedural

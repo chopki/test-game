@@ -17,7 +17,9 @@ import { fordBridges } from './bridges.js';
 import { damageAmount, damageStage } from './damage.js';
 import { GroundMarks, MARKS } from './groundMarks.js';
 import { Particles } from './particles.js';
-import { SpriteLayer } from './spriteLayer.js';
+import { SPRITE_KIND, SpriteLayer } from './spriteLayer.js';
+import { seasonFor, SEASONS, weatherFor, WEATHERS, weatherLook } from './weather.js';
+import { GroundCover, Precipitation } from './weatherLayers.js';
 import { CATAPULT_ARM_FRAMES, ENEMY_ANIMS, FLAG_FRAMES, crystalHeight, spriteKeys, turretHeight } from './spriteCatalog.js';
 import { PENNANT_W } from './modelKit.js';
 
@@ -42,6 +44,11 @@ const rand = (r) => (Math.random() * 2 - 1) * r;
 const COLOUR_GRADE = 'sepia(0.08) saturate(1.04) contrast(1.04)';
 /** Wall decorations that give off light: [x, y, z, glow size], placed as on an east–west wall (see wallDecor.js). */
 const DECOR_LIGHTS = { torch: [0, 1.38, 0.2, 0.9], brazier: [0, 0.66, 0.24, 1.2], lantern: [0, 0.85, 0.36, 0.8] };
+/** The light in rain and in winter (CSS filters on the canvas, after the grade). */
+const RAIN_LIGHT = 'brightness(0.9) saturate(0.82)';
+const WINTER_LIGHT = 'saturate(0.88) brightness(1.02)';
+/** Broadleaf trees and bushes, whose leaves turn in autumn (conifers stay green). */
+const BROADLEAF = new Set(['oak', 'birch', 'beech', 'bush']);
 /** Scorch marks and craters: how long they last (seconds) and how many at once. */
 const SCORCH_LIFE = 45;
 const MAX_SCORCHES = 80;
@@ -135,6 +142,9 @@ export class Renderer {
     this.particles = new Particles(this.overlayLayer);
     this.groundMarks = new GroundMarks(this.groundLayer);
     this.glows = new GlowBatch(this.overlayLayer, ISO_QUATERNION);
+    this.precipitation = new Precipitation(this.overlayLayer);
+    this.weather = { season: 'summer', weather: 'clear' };
+    this._look = weatherLook('summer', 'clear');
     this.scorches = [];
     this.corpses = [];
     this._decorPos = new THREE.Vector3();
@@ -253,6 +263,8 @@ export class Renderer {
       obj.material.dispose();
     }
     this._ground = this._shimmer = this._blockedTint = null;
+    this._cover?.dispose();
+    this._cover = null;
     if (!world) return;
 
     const grid = world.grid;
@@ -272,6 +284,7 @@ export class Renderer {
     this.scene.add(this._ground);
 
     if (painted.hasWater) this._shimmer = this._createShimmer(painted);
+    this._cover = new GroundCover(this.scene, painted.tiles, painted.waterMask);
     this._blockedTint = this._createBlockedTint(grid);
     this.grid.add(this._blockedTint);
 
@@ -359,6 +372,7 @@ export class Renderer {
         mask: { value: mask },
         water: { value: waterTexture() },
         time: { value: 0 },
+        rain: { value: 0 },
         tileUv: { value: new THREE.Vector2(1 / TW, 1 / TH) }, // one tile, in mask UVs
       },
       vertexShader: /* glsl */ `
@@ -376,6 +390,7 @@ export class Renderer {
         uniform sampler2D mask;
         uniform sampler2D water;
         uniform float time;
+        uniform float rain;
         uniform vec2 tileUv;
         varying vec2 vUv;
         varying vec2 vWorld;
@@ -408,7 +423,18 @@ export class Renderer {
           float inner = min(min(maskAt(vec2(r, 0.0)), maskAt(vec2(-r, 0.0))), min(maskAt(vec2(0.0, r)), maskAt(vec2(0.0, -r))));
           float shore = (1.0 - inner) * (0.55 + 0.45 * sin(time * 1.7 + (p.x + p.y) * 2.3));
 
-          float light = max(max(crest * 0.22, streak * 0.38), max(glint * 0.3, shore * 0.5));
+          // Rain: small rings spreading where drops land (one per cell, each on its own beat).
+          float rings = 0.0;
+          if (rain > 0.0) {
+            vec2 cell = floor(p * 2.2);
+            vec2 f = fract(p * 2.2);
+            float h = fract(sin(dot(cell, vec2(41.3, 289.1))) * 43758.5);
+            vec2 at = vec2(fract(h * 7.1), fract(h * 13.7)) * 0.6 + 0.2;
+            float t = fract(time * 0.9 + h);
+            float d = length(f - at);
+            rings = (1.0 - smoothstep(0.0, 0.05, abs(d - t * 0.35))) * (1.0 - t) * rain;
+          }
+          float light = max(max(max(crest * 0.22, streak * 0.38), max(glint * 0.3 * (1.0 - rain * 0.8), shore * 0.5)), rings * 0.6);
           float dark = trough * 0.1 * (1.0 - light);
           vec3 color = mix(vec3(0.12, 0.3, 0.45), vec3(0.95, 0.98, 1.0), light / max(light + dark, 0.0001));
           gl_FragColor = vec4(color, max(light, dark) * m);
@@ -442,7 +468,8 @@ export class Renderer {
   }
 
   _scenerySpot(kind, variant, pos, scale) {
-    return { key: spriteKeys.scenery(kind, variant), pos, scale, sway: (SCENERY_SWAY[kind] ?? 0) * TREE_SWAY };
+    const kindFlag = BROADLEAF.has(kind) ? SPRITE_KIND.foliage : 0;
+    return { key: spriteKeys.scenery(kind, variant), pos, scale, sway: (SCENERY_SWAY[kind] ?? 0) * TREE_SWAY, kind: kindFlag };
   }
 
   /** Scatter decorative trees, bushes and rocks in the woods outside the map. */
@@ -476,7 +503,8 @@ export class Renderer {
     // Glow and colour (High): halos round lights, and a warm grade over the canvas (a CSS filter, so it costs
     // no render pass and leaves the HUD alone).
     this.glows.mesh.visible = graphics.glow;
-    this.renderer.domElement.style.filter = graphics.glow ? COLOUR_GRADE : '';
+    this._applyFilter();
+    if (prev && prev.weather !== graphics.weather) this._look = this._targetLook(); // the setting applies at once
   }
 
   /**
@@ -521,6 +549,11 @@ export class Renderer {
 
     this.world = world;
     this._buildTerrain();
+    // This map's season, and its weather before the first wave (?season= / ?weather= override them).
+    const params = new URLSearchParams(location.search);
+    const season = SEASONS.includes(params.get('season')) ? params.get('season') : seasonFor(world.seed);
+    this.setWeather(season, this._weatherFor(0, season));
+    this._look = this._targetLook();
     const ev = world.events;
     this._unsubscribe = [
       ev.on('projectileFired', ({ projectile }) => this._fxFired(projectile)),
@@ -531,6 +564,7 @@ export class Renderer {
         this.corpses.push({ type: enemy.type, elite: enemy.elite, heading: enemy.heading, x: enemy.x, z: enemy.z, age: 0 });
       }),
       ev.on('buildingHit', (hit) => this._fxHit(hit)),
+      ev.on('waveStarted', ({ wave }) => this.setWeather(this.weather.season, this._weatherFor(wave, this.weather.season))),
       ev.on('buildingDestroyed', ({ building }) => this._fxCollapse(building)),
     ];
   }
@@ -595,10 +629,11 @@ export class Renderer {
     const wind = this.graphics.effects ? 1 : 0;
     for (const spots of [this.terrainSpots, this.scenerySpots]) {
       for (const s of spots) {
-        this.sprites.add(s.key, s.pos, s.scale, 0, s.sway * wind);
+        this.sprites.add(s.key, s.pos, s.scale, 0, s.sway * wind, s.kind ?? 0);
         this.shadowSprites.add(s.key, s.pos, s.scale);
       }
     }
+    this._updateWeather(dt);
     if (this._shimmer) this._shimmer.material.uniforms.time.value = this._time;
     this._clouds.material.uniforms.time.value = this._time;
     if (world) {
@@ -737,7 +772,7 @@ export class Renderer {
       if (CHIMNEYS[b.type]) this._chimneySmoke(view, b, CHIMNEYS[b.type]);
       if (b.type === 'magicSpire') {
         const bob = Math.sin(this._time * 2 + view.phase) * 0.08;
-        this.sprites.add(spriteKeys.crystal(), ground, 1, crystalHeight() + bob);
+        this.sprites.add(spriteKeys.crystal(), ground, 1, crystalHeight() + bob, 0, SPRITE_KIND.unit);
         this._sparkle(view, b.cx + seat.dx, crystalHeight() + bob + 0.25, b.cz + seat.dz);
         if (this.graphics.glow) {
           const pulse = 0.5 + 0.15 * Math.sin(this._time * 3 + view.phase);
@@ -751,6 +786,54 @@ export class Renderer {
     }
   }
 
+  // ---------------------------------------------------------------- seasons and weather (weather.js)
+
+  /**
+   * Set the season and weather (cosmetic; also for tests and the dev console). The look eases over a few seconds,
+   * or changes at once with `instant`.
+   */
+  setWeather(season, weather, { instant = false } = {}) {
+    this.weather = { season, weather };
+    this._applyFilter();
+    if (instant) this._look = this._targetLook();
+  }
+
+  _weatherFor(wave, season) {
+    const asked = new URLSearchParams(location.search).get('weather');
+    return WEATHERS.includes(asked) ? asked : weatherFor(this.world.seed, wave, season);
+  }
+
+  /** The look to ease towards: none with the Weather setting off (summer, clear). */
+  _targetLook() {
+    return this.graphics.weather === false ? weatherLook('summer', 'clear') : weatherLook(this.weather.season, this.weather.weather);
+  }
+
+  _updateWeather(dt) {
+    const target = this._targetLook();
+    const step = Math.min(1, dt * 0.4);
+    for (const k of Object.keys(target)) this._look[k] += (target[k] - this._look[k]) * step;
+    const look = this._look;
+    this.sprites.setSeason(look.autumn, look.snowCover);
+    this._cover?.set(look);
+    if (this._shimmer) this._shimmer.material.uniforms.rain.value = look.rain;
+    // Falling rain and snow are effects (off with the Effects setting).
+    const falling = this.graphics.effects ? look : { rain: 0, snowfall: 0 };
+    this.precipitation.update(dt, this.controls.target, falling, this._time);
+  }
+
+  /** The canvas's CSS filter: the warm grade (Glow and colour) and the weather's light (dimmer in rain). */
+  _applyFilter() {
+    const parts = [];
+    if (this.graphics?.glow) parts.push(COLOUR_GRADE);
+    if (this.graphics?.weather !== false) {
+      if (this.weather?.weather === 'rain') parts.push(RAIN_LIGHT);
+      else if (this.weather?.season === 'winter') parts.push(WINTER_LIGHT);
+    }
+    const el = this.renderer.domElement;
+    el.style.transition = 'filter 3s';
+    el.style.filter = parts.join(' ');
+  }
+
   /**
    * A pennant flying from the pole top at `flag` (model coordinates; see PENNANTS) of the thing centred on (cx, cz),
    * turned a quarter if `turned`. Each building's flags ripple at their own phase.
@@ -758,7 +841,7 @@ export class Renderer {
   _drawFlag(view, cx, cz, flag, turned) {
     const [ox, oz] = turned ? [flag.z, -flag.x] : [flag.x, flag.z];
     const frame = Math.floor(this._time * 7 + view.phase * FLAG_FRAMES) % FLAG_FRAMES;
-    this.sprites.add(spriteKeys.flag(turned ? 1 : 0, frame), this.toScene(cx + ox, 0, cz + oz, this._flagPos), flag.w / PENNANT_W, flag.y);
+    this.sprites.add(spriteKeys.flag(turned ? 1 : 0, frame), this.toScene(cx + ox, 0, cz + oz, this._flagPos), flag.w / PENNANT_W, flag.y, 0, SPRITE_KIND.unit);
   }
 
   /** Which way a watchtower's lookouts face: their target while shooting, otherwise slowly scanning round. */
@@ -868,7 +951,7 @@ export class Renderer {
       key = spriteKeys.enemy(type, heading, false, anim, frame);
       spriteScale = 1.3;
     }
-    this.sprites.add(key, ground, spriteScale);
+    this.sprites.add(key, ground, spriteScale, 0, 0, SPRITE_KIND.unit);
   }
 
   /** Killed enemies play their death frames, lie still a moment, then vanish. */

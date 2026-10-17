@@ -741,3 +741,25 @@ test('living buildings: pennants wave, lookouts scan, the Town Hall chimney smok
   await testInfo.attach('living-buildings', { body: await page.screenshot({ path: testInfo.outputPath('living-buildings.png') }), contentType: 'image/png' });
   expect(errors).toEqual([]);
 });
+
+test('seasons and weather: winter snow, autumn leaves and rain, and the Weather setting turns them off (screenshots attached)', async ({ page }, testInfo) => {
+  const errors = await openGame(page, { map: 'terrain', fort: true, query: 'season=winter&weather=snow' });
+  expect(await page.evaluate(() => window.game.renderer.weather)).toEqual({ season: 'winter', weather: 'snow' });
+  await expect.poll(() => page.evaluate(() => window.game.renderer.precipitation.drawn)).toBeGreaterThan(300); // snowfall
+  expect(await page.evaluate(() => window.game.renderer._cover.mesh.visible)).toBe(true); // snow on the ground
+  expect(await minCanvasAlpha(page)).toBe(255);
+  const hall = await page.evaluate(() => ({ x: window.game.world.townHall.cx, z: window.game.world.townHall.cz }));
+  await zoomTo(page, hall.x + 2, hall.z + 1, 1.5);
+  await testInfo.attach('winter', { body: await page.screenshot({ path: testInfo.outputPath('winter.png') }), contentType: 'image/png' });
+  // Autumn rain (the look eases over a few seconds).
+  await page.evaluate(() => window.game.renderer.setWeather('autumn', 'rain'));
+  await expect.poll(() => page.evaluate(() => window.game.renderer._look.autumn)).toBeGreaterThan(0.1); // easing in
+  await page.evaluate(() => window.game.renderer.setWeather('autumn', 'rain', { instant: true }));
+  expect(await page.evaluate(() => window.game.renderer._look)).toMatchObject({ autumn: 1, snowCover: 0, rain: 1 });
+  await page.waitForTimeout(1000);
+  await testInfo.attach('autumn-rain', { body: await page.screenshot({ path: testInfo.outputPath('autumn-rain.png') }), contentType: 'image/png' });
+  // Weather off: back to a clear summer look, nothing falling.
+  await page.evaluate(() => window.game.setGraphics({ ...window.game.graphics, weather: false }));
+  await expect.poll(() => page.evaluate(() => window.game.renderer.precipitation.drawn), { timeout: 15000 }).toBe(0);
+  expect(errors).toEqual([]);
+});

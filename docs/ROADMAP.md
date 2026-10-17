@@ -91,8 +91,12 @@ Pre-rendered sprites on a fixed isometric camera (see ARCHITECTURE.md), working 
 - [x] **Living buildings**: pennants wave (the cloth is a 6-frame sprite of its own on the Town Hall, the gatehouse
       and pennant poles), the watchtower's lookouts turn to face their targets and scan the horizon when idle, the
       Town Hall has a smoking chimney, and crystals give off sparks. (Hanging banners still hang still.)
-- [ ] **Weather and seasons**: rain (streaks, puddle ripples on water, darker grass), snow (white-dusted
-      sprites and ground, snowfall), maybe autumn leaves; per map or changing between waves
+- [x] **Weather and seasons**: each map has a season (summer, autumn, winter) and weather that can change as each
+      wave starts (clear or rain; clear or snowfall in winter). Autumn turns broadleaf woods orange, rust and gold
+      and scatters leaves; winter lays patchy snow and settles it on every roof and treetop; rain falls in streaks,
+      rings the water and darkens the ground and light. Looks only (`weather.js`, `weatherLayers.js`, sprite
+      shader); Settings → Weather turns it off; `?season=` / `?weather=` force it. Ideas left: bare trees in winter,
+      frozen lakes, puddles
 - [ ] **Wildlife**: birds flying over (and scattering when cannons fire), fish jumping in streams and lakes, deer
       or rabbits at the woods' edge; decoration only, never in the way
 - [ ] **Models from our drawings (image-to-3D trial)**: send crops of `docs/reference/art-style.jpg` (Town Hall,

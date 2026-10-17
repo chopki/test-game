@@ -7,13 +7,14 @@ export const TERRAIN_SEED = 8;
  * Open the game, wait until it's running, and pause the simulation so the wave timer
  * can't fire mid-test. Returns an array that collects page errors; tests assert it's empty.
  * `map: 'open'` (the default) starts without terrain so tests can build anywhere; `map: 'terrain'` loads the
- * generated map for TERRAIN_SEED, as players see it. The starting fort is left out unless `fort: true`.
+ * generated map for TERRAIN_SEED, as players see it. The starting fort is left out unless `fort: true`. `query`
+ * adds URL parameters (e.g. 'season=winter&weather=snow').
  */
-export async function openGame(page, { paused = true, map = 'open', fort = false } = {}) {
+export async function openGame(page, { paused = true, map = 'open', fort = false, query = '' } = {}) {
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
-  const params = `seed=${TERRAIN_SEED}${map === 'open' ? '&map=open' : ''}${fort ? '' : '&fort=0'}`;
+  const params = `seed=${TERRAIN_SEED}${map === 'open' ? '&map=open' : ''}${fort ? '' : '&fort=0'}${query ? `&${query}` : ''}`;
   await page.goto(`/?${params}`);
   await page.waitForFunction(() => window.game?.world && window.game.renderer.renderer.info.render.frame > 2);
   if (paused) await page.evaluate(() => window.game.togglePause());
