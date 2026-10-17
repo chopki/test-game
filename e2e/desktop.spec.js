@@ -639,3 +639,27 @@ test('damage states: buildings and walls look more battered as health drops, and
   await testInfo.attach('damage-states', { body: await page.screenshot({ path: testInfo.outputPath('damage-states.png') }), contentType: 'image/png' });
   expect(errors).toEqual([]);
 });
+
+test('ground marks: footbridges over fords, worn earth round towers, scorch marks where shots land (screenshot attached)', async ({ page }, testInfo) => {
+  const errors = await openGame(page, { map: 'terrain' });
+  const bridges = await page.evaluate(() => window.game.renderer.terrainSpots.filter((s) => s.key.startsWith('bridge:')).map((s) => s.key));
+  expect(bridges.filter((k) => k.endsWith(':mid')).length).toBeGreaterThan(0);
+  expect(bridges.some((k) => k.endsWith(':start') || k.endsWith(':end'))).toBe(true);
+  // Worn earth under each tower, and a scorch mark where a cannonball lands (until it fades).
+  const ford = await nearestTerrainTile(page, 'ford');
+  const marks = await page.evaluate(({ x, z }) => {
+    const w = window.game.world;
+    w.economy.earn(1000);
+    const before = window.game.renderer.groundMarks.count;
+    let placed = 0;
+    for (const [tx, tz] of [[14, 14], [23, 14], [14, 23], [23, 23]]) if (w.place('archerTower', tx, tz).ok) placed++; // in the clearing round the hall
+    w.events.emit('projectileImpact', { x: x + 0.5, y: 0.2, z: z + 2.5, kind: 'cannonball', splash: 1.6 });
+    return { before, placed };
+  }, ford);
+  expect(marks.placed).toBeGreaterThan(0);
+  await expect.poll(() => page.evaluate(() => window.game.renderer.groundMarks.count)).toBeGreaterThanOrEqual(marks.before + marks.placed + 1);
+  await zoomTo(page, ford.x + 0.5, ford.z + 0.5, 2.4);
+  expect(await minCanvasAlpha(page)).toBe(255); // the decals leave the canvas opaque
+  await testInfo.attach('ground-marks', { body: await page.screenshot({ path: testInfo.outputPath('ground-marks.png') }), contentType: 'image/png' });
+  expect(errors).toEqual([]);
+});

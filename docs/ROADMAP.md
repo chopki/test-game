@@ -77,7 +77,8 @@ Pre-rendered sprites on a fixed isometric camera (see ARCHITECTURE.md), working 
 - [x] Mixed woods: birch, spruce, beech and dead trees join the oaks and pines; pine woods and broadleaf woods by
       region, birch groves, a ragged mix where they meet; stumps and birches among the scenery outside the map
 - [x] WebP atlas pages (6.1 MB of PNG → 1.5 MB) and an HD sprite set for desktops (2.5 MB), sharp when zoomed in
-- [ ] Ground marks: worn earth round buildings, scorch marks where boulders land, bridges at fords
+- [x] Ground marks: worn earth round towers, scorch marks and craters where cannonballs and boulders land (fading
+      after 45 s), plank footbridges across the fords (`groundMarks.js`, `bridges.js`; decoration only)
 - [ ] Rivers more often (about half of maps have one today), or a map option to ask for one
 - [ ] Warm colour grade and a soft glow on crystals and fire (High only)
 - [x] **Varied wall tiles**: previously every wall tile of the same shape was the identical sprite, so long straight runs

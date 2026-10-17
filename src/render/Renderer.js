@@ -13,7 +13,9 @@ import { waterTexture } from './waterTextures.js';
 import { createProjectileModel, IN_WALL_RADIUS, SCENERY_SWAY, SCENERY_VARIANTS, WALL_VARIANTS, wallArmOffset } from './models.js';
 import { BlobShadowBatch, HealthBarBatch } from './batches.js';
 import { ISO_QUATERNION, isoDirection } from './iso.js';
+import { fordBridges } from './bridges.js';
 import { damageAmount, damageStage } from './damage.js';
+import { GroundMarks, MARKS } from './groundMarks.js';
 import { Particles } from './particles.js';
 import { SpriteLayer } from './spriteLayer.js';
 import { CATAPULT_ARM_FRAMES, ENEMY_ANIMS, crystalHeight, spriteKeys, turretHeight } from './spriteCatalog.js';
@@ -35,6 +37,9 @@ const DEBRIS = {
   earth: [0x8a6f48, 0x6f5638, 0x9a8158],
 };
 const rand = (r) => (Math.random() * 2 - 1) * r;
+/** Scorch marks and craters: how long they last (seconds) and how many at once. */
+const SCORCH_LIFE = 45;
+const MAX_SCORCHES = 80;
 
 const RING_GEOMETRY = new THREE.RingGeometry(0.85, 1, 48).rotateX(-Math.PI / 2);
 const NEIGHBOURS = [
@@ -123,6 +128,8 @@ export class Renderer {
     this.blobShadows = new BlobShadowBatch(this.groundLayer);
     this.effects = [];
     this.particles = new Particles(this.overlayLayer);
+    this.groundMarks = new GroundMarks(this.groundLayer);
+    this.scorches = [];
     this.corpses = [];
     this._decorPos = new THREE.Vector3();
     this._armPos = new THREE.Vector3();
@@ -277,6 +284,10 @@ export class Renderer {
         }
         this.terrainSpots.push(this._scenerySpot(treeKind(painted.noise, x, z, rnd), variant, pos, rnd.range(0.85, 1.18)));
       }
+    }
+    // Footbridges across the fords (decoration: fords stay fords for the sim).
+    for (const b of fordBridges(grid, waterFlow(grid))) {
+      this.terrainSpots.push({ key: spriteKeys.bridge(b.part, b.axis), pos: this.toScene(b.x + 0.5, 0, b.z + 0.5), scale: 1, sway: 0 });
     }
     this._buildScenery(SCENERY_COUNT[scenery]);
   }
@@ -494,6 +505,7 @@ export class Renderer {
     for (const fx of this.effects) this.scene.remove(fx.obj);
     this.effects = [];
     this.particles.clear();
+    this.scorches = [];
     this.corpses = [];
 
     this.world = world;
@@ -565,6 +577,8 @@ export class Renderer {
     this.shadowSprites.begin();
     this.healthBars.begin(this.camera.quaternion);
     this.blobShadows.begin();
+    this.groundMarks.begin();
+    this._drawScorches(dt);
     this.sprites.time = this._time;
     const wind = this.graphics.effects ? 1 : 0;
     for (const spots of [this.terrainSpots, this.scenerySpots]) {
@@ -584,6 +598,7 @@ export class Renderer {
     this.sprites.end();
     this.shadowSprites.end();
     this.blobShadows.end();
+    this.groundMarks.end();
     this.healthBars.end();
 
     this.particles.update(dt);
@@ -651,6 +666,10 @@ export class Renderer {
     const ground = this.toScene(b.cx + seat.dx, 0, b.cz + seat.dz, this._v);
     // Battered look by health (see damage.js): cracks and soot, then pieces missing, smoke and fire.
     view.damageStage = damageStage(b.hp, b.maxHp);
+    // Worn earth round towers (the Town Hall has its yard; walls their own grassy foot).
+    if (b.type !== 'wall' && b.type !== 'townHall') {
+      this.groundMarks.add(MARKS.earth[b.id % 2], ground, b.size * 1.5, b.id * 2.4, 0.9);
+    }
     const dmg = damageAmount(view.damageStage);
     if (view.damageStage === 2) this._smoulder(view, b, seat);
     if (b.type === 'wall') {
@@ -834,6 +853,11 @@ export class Renderer {
   /** Where a cannonball or boulder lands: a flash (cannon), a cloud of smoke or dust, and earth or rock thrown up. */
   _fxImpact(p) {
     if (!this.graphics.effects) return;
+    if (p.kind !== 'arrow') {
+      // A scorch mark (cannonball) or a crater of churned earth (boulder) that fades over a while.
+      if (this.scorches.length >= MAX_SCORCHES) this.scorches.shift();
+      this.scorches.push({ x: p.x, z: p.z, size: (p.splash || 0.6) * 1.5, angle: Math.random() * 6.3, cell: p.kind === 'boulder' ? MARKS.earth[1] : MARKS.scorch[Math.floor(Math.random() * 2)], age: 0 });
+    }
     const at = this.toScene(p.x, 0.15, p.z, this._fxPos);
     const P = this.particles;
     const r = p.splash || 0.5;
@@ -889,6 +913,14 @@ export class Renderer {
     if (b.type !== 'wall') {
       this.particles.puff({ x: at.x, y: at.y - 0.1, z: at.z, vy: 0.6, size: 0.18, grow: 0.05, life: 0.45, color: 0xffa23c, alpha: 0.9 });
       this.particles.puff({ x: at.x, y: at.y - 0.05, z: at.z, vy: 0.7, size: 0.1, grow: 0.02, life: 0.35, color: 0xffe08a, alpha: 0.95 });
+    }
+  }
+
+  _drawScorches(dt) {
+    this.scorches = this.scorches.filter((s) => (s.age += dt) < SCORCH_LIFE);
+    for (const s of this.scorches) {
+      const fade = Math.min(1, s.age * 6) * Math.min(1, (SCORCH_LIFE - s.age) / 8);
+      this.groundMarks.add(s.cell, this.toScene(s.x, 0, s.z, this._fxPos), s.size, s.angle, fade);
     }
   }
 

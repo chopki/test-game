@@ -1,6 +1,6 @@
 import { BUILDINGS, ENEMIES } from '../sim/config.js';
 import { createWallDecor, WALL_DECOR_KINDS } from './wallDecor.js';
-import { createBuildingModel, createEnemyModel, createSceneryObject, createWallArm, ENEMY_ANIMS, IN_WALL_RADIUS, IN_WALL_TYPES, poseEnemy, SCENERY_TYPES, SCENERY_VARIANTS, WALL_VARIANTS } from './models.js';
+import { BRIDGE_PARTS, createBridgePiece, createBuildingModel, createEnemyModel, createSceneryObject, createWallArm, ENEMY_ANIMS, IN_WALL_RADIUS, IN_WALL_TYPES, poseEnemy, SCENERY_TYPES, SCENERY_VARIANTS, WALL_VARIANTS } from './models.js';
 
 export { ENEMY_ANIMS };
 
@@ -24,6 +24,8 @@ export const spriteKeys = {
    * for every shape (the wall arms are sprites of their own), except that the gatehouse turns for north–south walls.
    */
   inWall: (type, shape) => (type === 'gatehouse' && shape.startsWith('ns') ? `bw:${type}:ns` : `bw:${type}`),
+  /** A piece of a ford's footbridge ('mid', 'start' or 'end') running along `axis` ('x' or 'z'). */
+  bridge: (part, axis) => `bridge:${axis}:${part}`,
   /** One wall arm of an in-wall tower (see createWallArm in models.js). */
   wallArm: (dir, from, straight) => `arm:${dir}:${from}:${straight ? 'run' : 'end'}`,
   icon: (type) => `icon:${type}`,
@@ -205,6 +207,10 @@ export function spriteSpecs() {
     for (const dir of ['n', 'e', 's', 'w']) {
       for (const straight of [true, false]) specs.push({ key: spriteKeys.wallArm(dir, from, straight), make: () => createWallArm(dir, from, straight) });
     }
+  }
+
+  for (const axis of ['x', 'z']) {
+    for (const part of BRIDGE_PARTS) specs.push({ key: spriteKeys.bridge(part, axis), make: () => createBridgePiece(part, axis) });
   }
 
   for (const kind of SCENERY_TYPES) {

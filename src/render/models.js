@@ -988,6 +988,61 @@ export function createProjectileModel(kind) {
     .build();
 }
 
+// ------------------------------------------------------------------ bridges
+// A narrow plank footbridge over a ford, in tile-long pieces: 'mid' over the water (log piers, stringers, a
+// planked deck and post-and-rail sides) and the two ends, 'start' (on the bank at the -x end) and 'end' (+x),
+// which ramp down onto the ground. Built along x; the catalogue turns it for bridges along z.
+
+const DECK = 0.3;
+
+function bridgePiece(part) {
+  const M = MATERIALS;
+  const p = new Parts();
+  const rnd = rng(['mid', 'start', 'end'].indexOf(part) * 19 + 3);
+  const half = 0.36; // half the deck's width
+  if (part === 'mid') {
+    for (const sz of [-1, 1]) {
+      p.add(cyl(0.06, 0.07, DECK + 0.25, 8), rnd.pick(LOGS), { x: 0, y: (DECK + 0.25) / 2 - 0.2, z: sz * (half - 0.04) }); // pier
+      p.add(box(1.0, 0.07, 0.07), M.woodDark, { y: DECK - 0.07, z: sz * (half - 0.08) }); // stringer
+    }
+    for (let i = 0; i < 7; i++) {
+      const x = -0.5 + (i + 0.5) / 7;
+      p.add(box(1 / 7 - 0.018, 0.04, 2 * half + rnd.range(-0.03, 0.03)), rnd.pick([M.wood, M.woodLight, M.wood]), { x, y: DECK, z: rnd.range(-0.015, 0.015), ry: rnd.range(-0.03, 0.03) });
+    }
+    for (const sz of [-1, 1]) {
+      for (const x of [-0.45, 0.05]) p.add(box(0.05, 0.36, 0.05), M.woodDark, { x, y: DECK + 0.18, z: sz * half });
+      p.add(box(1.0, 0.045, 0.04), M.wood, { y: DECK + 0.33, z: sz * half, rz: rnd.range(-0.03, 0.03) });
+    }
+  } else {
+    // A ramp from the deck down to the ground, over the bank tile; the high side faces the water.
+    const dir = part === 'start' ? 1 : -1; // where the water is
+    const n = 6;
+    for (let i = 0; i < n; i++) {
+      const t = (i + 0.5) / n; // 0 at the outer (low) end, 1 at the water
+      const x = dir * (-0.5 + t);
+      p.add(box(1 / n - 0.02, 0.04, 2 * half + rnd.range(-0.03, 0.03)), rnd.pick([M.wood, M.woodLight]), { x, y: 0.05 + t * (DECK - 0.05), z: rnd.range(-0.015, 0.015), rz: dir * 0.28 });
+    }
+    for (const sz of [-1, 1]) {
+      p.add(box(0.06, 0.5, 0.06), M.woodDark, { x: -dir * 0.45, y: 0.25, z: sz * half }); // end post, on the bank
+      p.add(box(0.95, 0.045, 0.04), M.wood, { x: 0, y: (0.45 + DECK + 0.33) / 2, z: sz * half, rz: dir * Math.atan2(DECK + 0.33 - 0.45, 0.95) });
+      p.add(box(0.06, 0.06, 0.12), M.woodDark, { x: -dir * 0.45, y: 0.03, z: sz * (half - 0.04) }); // sill
+    }
+    for (let i = 0; i < 3; i++) p.add(cone(0.035, rnd.range(0.12, 0.2), 4), M.grass, { x: -dir * rnd.range(0.1, 0.4), y: 0.07, z: (rnd.next() < 0.5 ? -1 : 1) * rnd.range(0.38, 0.48), rz: rnd.range(-0.4, 0.4) });
+  }
+  return p.build();
+}
+
+export const BRIDGE_PARTS = ['mid', 'start', 'end'];
+
+/** One piece of a footbridge running along `axis` ('x' or 'z'). */
+export function createBridgePiece(part, axis) {
+  const g = new THREE.Group();
+  const piece = bridgePiece(part);
+  if (axis === 'z') piece.rotation.y = -Math.PI / 2; // +x turns to +z, so 'start' stays at the low end
+  g.add(piece);
+  return g;
+}
+
 // ------------------------------------------------------------------ scenery
 
 // Scenery after the reference's "Environmental" sheet: chunky, blocky olive trees and big pale sandstone

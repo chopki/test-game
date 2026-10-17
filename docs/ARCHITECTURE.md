@@ -135,6 +135,10 @@ so the whole battlefield is ~15 draw calls and a few hundred triangles however d
 - Damage states: `damage.js` (pure) gives a building's stage from its health; the renderer passes it per sprite
   (`SpriteLayer.add(..., damage)`) and the sprite shader draws soot, cracks and knocked-out pieces from noise in
   the sprite's own world units, seeded by position. Badly damaged buildings also emit smoke and flame particles.
+- Ground marks: `groundMarks.js` draws flat decals (worn earth under towers, scorch marks and craters where shots
+  land) from one small painted atlas as an InstancedMesh between the ground and the shadows. Footbridges:
+  `bridges.js` (pure, unit-tested) finds each ford's middle line across the flow; the renderer adds the baked
+  `bridge:<axis>:<mid|start|end>` pieces to the terrain sprites. Fords stay fords for the sim.
 - Combat effects: `particles.js` draws soft inked puffs (smoke, dust, flashes, arrow trails) and tumbling debris
   chunks as two InstancedMeshes, refilled each frame. The renderer spawns them from world events
   (`projectileFired`, `projectileImpact`, `buildingHit` with the blow's origin, `buildingDestroyed`, `enemyKilled`);
