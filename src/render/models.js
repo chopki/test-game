@@ -471,10 +471,11 @@ function addCatapultTurret(g, y) {
 // ------------------------------------------------------------------ towers built into walls
 // A tower built into a wall is drawn on the wall line (see wallSeat.js) with a model of its own: the palisade
 // widens into a square log bastion around it, and wall stubs run out to where the neighbouring wall tiles begin.
-// `shape` names the arms: 'we' / 'ns' for a straight run, or a corner such as 'ws' (arms west and south).
-// Straight-run arms reach 1 tile from the tower's centre; corner arms 1.5 (the tower sits on the corner tile).
+// `shape` names the arms: 'we' / 'ns' for a straight run, a corner such as 'ws' (arms west and south), or a
+// T-junction such as 'wen' (a west–east run with a branch north). Straight-run arms reach 1 tile from the tower's
+// centre; corner and T-junction arms 1.5 (the tower sits on the corner or junction tile).
 
-export const IN_WALL_SHAPES = ['we', 'ns', 'wn', 'ws', 'en', 'es'];
+export const IN_WALL_SHAPES = ['we', 'ns', 'wn', 'ws', 'en', 'es', 'wen', 'wes', 'nsw', 'nse'];
 const ARM = { n: [0, -1], e: [1, 0], s: [0, 1], w: [-1, 0] };
 
 /** One sharpened palisade log; heights, points and lean vary so the top line is ragged, as in the reference. */
@@ -525,42 +526,74 @@ function bastion(p, rnd, { r, h = 1.15, deck = 0 }) {
   p.add(box(2 * r + 0.3, 0.05, 2 * r + 0.3), M.dirt, { y: 0.025 });
 }
 
-/** Palisade stubs from the bastion (half-width `from`) out along each arm of `shape`, on the wall's log grid. */
-function wallStubs(p, rnd, shape, from) {
-  const straight = shape === 'we' || shape === 'ns';
+/**
+ * One palisade arm from a bastion of half-width `from` out along `dir` ('n', 'e', 's' or 'w'), on the wall's log
+ * grid. `straight`: an arm of a straight run (reaches 1 tile from the tower's drawn centre, which sits on a tile
+ * edge) rather than of a corner or T-junction (1.5 tiles, the centre on a tile centre).
+ */
+function wallArm(p, rnd, dir, from, straight) {
   const len = straight ? 1 : 1.5;
   // Wall tiles put logs at (tile + (j + 0.5) / 7); measured from the tower's drawn centre, that grid is offset
-  // by 0 for a straight run (centre on a tile edge) and 0.5 for a corner (centre on a tile centre).
+  // by 0 for a straight run and 0.5 for a corner or T-junction.
   const shift = straight ? 0 : 0.5;
-  for (const dir of shape) {
-    const [dx, dz] = ARM[dir];
-    for (let j = 0; j < 14; j++) {
-      const d = (j + 0.5) / 7 - shift;
-      if (d > from + 0.03 && d < len) palisadeLog(p, rnd, dx * d, dz * d);
-    }
-    palisadeRun(p, rnd, dx, dz, from, len);
+  const [dx, dz] = ARM[dir];
+  for (let j = 0; j < 14; j++) {
+    const d = (j + 0.5) / 7 - shift;
+    if (d > from + 0.03 && d < len) palisadeLog(p, rnd, dx * d, dz * d);
   }
+  palisadeRun(p, rnd, dx, dz, from, len);
 }
 
-function inWallParts(shape, r, opts) {
+const isStraight = (shape) => shape === 'we' || shape === 'ns';
+
+/** Palisade stubs from the bastion (half-width `from`) out along each arm of `shape`. */
+function wallStubs(p, rnd, shape, from) {
+  for (const dir of shape) wallArm(p, rnd, dir, from, isStraight(shape));
+}
+
+/** Half-width of each in-wall model's bastion: where its wall arms start. */
+export const IN_WALL_RADIUS = { archerTower: 0.72, cannonTower: 0.74, magicSpire: 0.88, catapult: 0.8, gatehouse: 0.8 };
+
+/** Where an arm's middle sits, from the tower's drawn centre ([x, z] in tiles). */
+export function wallArmOffset(dir, from, straight) {
+  const mid = (from + (straight ? 1 : 1.5)) / 2;
+  return [ARM[dir][0] * mid, ARM[dir][1] * mid];
+}
+
+/**
+ * One wall arm on its own (for baking: the renderer draws a tower's bastion and its arms as separate sprites, so
+ * every shape shares one bastion sprite and each arm sorts in depth by itself). Centred on the arm's middle.
+ */
+export function createWallArm(dir, from, straight) {
   const p = new Parts();
-  const rnd = rng(IN_WALL_SHAPES.indexOf(shape) * 17 + Math.round(r * 100));
-  bastion(p, rnd, { r, ...opts });
-  wallStubs(p, rnd, shape, r);
+  wallArm(p, rng('nesw'.indexOf(dir) * 31 + Math.round(from * 100) + (straight ? 7 : 0)), dir, from, straight);
+  const inner = p.build();
+  const [ox, oz] = wallArmOffset(dir, from, straight);
+  inner.position.set(-ox, 0, -oz);
+  const g = new THREE.Group();
+  g.add(inner);
+  return g;
+}
+
+/** A bastion of half-width `r`, with the stubs of `shape` unless `stubs` is false. */
+function inWallParts(shape, r, opts, stubs = true) {
+  const p = new Parts();
+  bastion(p, rng(Math.round(r * 100)), { r, ...opts });
+  if (stubs) wallStubs(p, rng(IN_WALL_SHAPES.indexOf(shape) * 17 + Math.round(r * 100)), shape, r);
   return p.build();
 }
 
 const IN_WALL_MODELS = {
   // The watchtower's legs rise out of the bastion; its cabin looks out over the wall.
-  archerTower: (shape) => {
+  archerTower: (shape, stubs) => {
     const g = archerTower();
-    g.add(inWallParts(shape, 0.72, { h: 1.15 }));
+    g.add(inWallParts(shape, IN_WALL_RADIUS.archerTower, { h: 1.15 }, stubs));
     return g;
   },
   // The cannon stands on a raised log-and-earth rampart in the wall.
-  cannonTower: (shape) => {
+  cannonTower: (shape, stubs) => {
     const g = new THREE.Group();
-    g.add(inWallParts(shape, 0.74, { h: 1.0, deck: 0.98 }));
+    g.add(inWallParts(shape, IN_WALL_RADIUS.cannonTower, { h: 1.0, deck: 0.98 }, stubs));
     const balls = new Parts({ yOffset: 1.0 });
     for (const [x, z, y] of [
       [-0.5, 0.45, 0],
@@ -578,15 +611,15 @@ const IN_WALL_MODELS = {
     return g;
   },
   // The crystal mound sits inside a low bastion ring.
-  magicSpire: (shape) => {
+  magicSpire: (shape, stubs) => {
     const g = magicSpire();
-    g.add(inWallParts(shape, 0.88, { h: 0.72 }));
+    g.add(inWallParts(shape, IN_WALL_RADIUS.magicSpire, { h: 0.72 }, stubs));
     return g;
   },
   // The catapult works from a rampart platform in the wall.
-  catapult: (shape) => {
+  catapult: (shape, stubs) => {
     const g = new THREE.Group();
-    g.add(inWallParts(shape, 0.8, { h: 0.86, deck: 0.86 }));
+    g.add(inWallParts(shape, IN_WALL_RADIUS.catapult, { h: 0.86, deck: 0.86 }, stubs));
     const pile = new Parts({ yOffset: 0.9 });
     for (const [x, z, r] of [
       [-0.55, -0.5, 0.11],
@@ -677,11 +710,11 @@ function gatehouse(opts = {}) {
   const g = new THREE.Group();
   const body = gatehouseBody();
   // In a north–south wall the way through runs along x.
-  if (opts.inWall === 'ns') body.rotation.y = Math.PI / 2;
+  if (opts.inWall?.startsWith('ns')) body.rotation.y = Math.PI / 2;
   g.add(body);
-  if (opts.inWall) {
+  if (opts.inWall && opts.stubs !== false) {
     const p = new Parts();
-    wallStubs(p, rng(IN_WALL_SHAPES.indexOf(opts.inWall) * 13 + 5), opts.inWall, 0.8);
+    wallStubs(p, rng(IN_WALL_SHAPES.indexOf(opts.inWall) * 13 + 5), opts.inWall, IN_WALL_RADIUS.gatehouse);
     g.add(p.build());
   }
   return g;
@@ -693,11 +726,12 @@ export const IN_WALL_TYPES = [...Object.keys(IN_WALL_MODELS), 'gatehouse'];
 
 /**
  * `opts` is model-specific: walls take `{ connections }`, wall joints `{ dir }`, and towers `{ inWall: shape }`
- * for the version built into a wall (see IN_WALL_SHAPES).
+ * for the version built into a wall (see IN_WALL_SHAPES), with `stubs: false` for just the bastion (the baked
+ * sprites draw the wall arms separately; see createWallArm).
  */
 export function createBuildingModel(type, opts) {
   if (type === 'gatehouse') return gatehouse(opts);
-  if (opts?.inWall) return IN_WALL_MODELS[type](opts.inWall);
+  if (opts?.inWall) return IN_WALL_MODELS[type](opts.inWall, opts.stubs !== false);
   return BUILDING_MODELS[type](opts);
 }
 

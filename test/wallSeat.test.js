@@ -10,9 +10,20 @@ function worldWithWalls(tiles) {
 }
 
 describe('wallSeat (drawing towers on the walls they are built into)', () => {
-  it('a T-junction has no in-wall model (normal tower with joints)', () => {
+  it('a T-junction tower sits on the junction tile with a three-armed model', () => {
     // A west–east run along z = 8 with a branch south from x = 10; tower over (9..10, 8..9).
     const world = worldWithWalls([...[6, 7, 8, 9, 10, 11, 12].map((x) => [x, 8]), [10, 10], [10, 11]]);
+    expect(wallSeat(world, 'archerTower', 9, 8)).toEqual({ shape: 'wes', dx: 0.5, dz: -0.5 });
+  });
+
+  it('a north–south run with a branch east is a T-junction too', () => {
+    // Run down x = 8 (z 6..12), branch east along z = 9 from x = 10; tower over (8..9, 9..10).
+    const world = worldWithWalls([...[6, 7, 8, 9, 10, 11, 12].map((z) => [8, z]), [10, 9], [11, 9]]);
+    expect(wallSeat(world, 'archerTower', 8, 9)).toEqual({ shape: 'nse', dx: -0.5, dz: -0.5 });
+  });
+
+  it('a crossroads has no in-wall model (normal tower with joints)', () => {
+    const world = worldWithWalls([...[6, 7, 8, 9, 10, 11, 12].map((x) => [x, 8]), [10, 6], [10, 7], [10, 10], [10, 11]]);
     expect(wallSeat(world, 'archerTower', 9, 8).shape).toBeNull();
   });
 

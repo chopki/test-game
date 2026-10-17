@@ -1,6 +1,6 @@
 import { BUILDINGS, ENEMIES } from '../sim/config.js';
 import { createWallDecor, WALL_DECOR_KINDS } from './wallDecor.js';
-import { createBuildingModel, createEnemyModel, createSceneryObject, ENEMY_ANIMS, IN_WALL_SHAPES, IN_WALL_TYPES, poseEnemy, SCENERY_TYPES, SCENERY_VARIANTS, WALL_VARIANTS } from './models.js';
+import { createBuildingModel, createEnemyModel, createSceneryObject, createWallArm, ENEMY_ANIMS, IN_WALL_RADIUS, IN_WALL_TYPES, poseEnemy, SCENERY_TYPES, SCENERY_VARIANTS, WALL_VARIANTS } from './models.js';
 
 export { ENEMY_ANIMS };
 
@@ -19,8 +19,13 @@ const angleIndex = (angle, steps) => ((Math.round((angle / (Math.PI * 2)) * step
 
 export const spriteKeys = {
   building: (type) => `b:${type}`,
-  /** A tower's base when built into a wall (`shape`: see IN_WALL_SHAPES in models.js). */
-  inWall: (type, shape) => `bw:${type}:${shape}`,
+  /**
+   * A tower's base when built into a wall (`shape`: see IN_WALL_SHAPES in models.js): the bastion alone, the same
+   * for every shape (the wall arms are sprites of their own), except that the gatehouse turns for north–south walls.
+   */
+  inWall: (type, shape) => (type === 'gatehouse' && shape.startsWith('ns') ? `bw:${type}:ns` : `bw:${type}`),
+  /** One wall arm of an in-wall tower (see createWallArm in models.js). */
+  wallArm: (dir, from, straight) => `arm:${dir}:${from}:${straight ? 'run' : 'end'}`,
   icon: (type) => `icon:${type}`,
   /** A decoration on a straight wall: `axis` 'x' for an east–west wall, 'z' for north–south. */
   wallDecor: (kind, axis) => `decor:${kind}:${axis}`,
@@ -96,13 +101,13 @@ export function spriteSpecs() {
       },
     });
 
-    // The same base built into a wall, for each wall shape.
+    // The same base built into a wall: its bastion, without the wall arms (drawn separately, see below).
     if (IN_WALL_TYPES.includes(type)) {
-      for (const shape of IN_WALL_SHAPES) {
+      for (const shape of type === 'gatehouse' ? ['we', 'ns'] : ['we']) {
         specs.push({
           key: spriteKeys.inWall(type, shape),
           make: () => {
-            const base = createBuildingModel(type, { inWall: shape });
+            const base = createBuildingModel(type, { inWall: shape, stubs: false });
             base.userData.turret?.removeFromParent();
             base.userData.crystal?.removeFromParent();
             return base;
@@ -192,6 +197,13 @@ export function spriteSpecs() {
           }
         }
       }
+    }
+  }
+
+  // Wall arms for towers built into walls: each direction, for each bastion size, straight-run or corner length.
+  for (const from of new Set(Object.values(IN_WALL_RADIUS))) {
+    for (const dir of ['n', 'e', 's', 'w']) {
+      for (const straight of [true, false]) specs.push({ key: spriteKeys.wallArm(dir, from, straight), make: () => createWallArm(dir, from, straight) });
     }
   }
 

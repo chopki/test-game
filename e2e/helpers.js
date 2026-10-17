@@ -88,6 +88,22 @@ export const graphicsState = (page) =>
     };
   });
 
+/** Centre the camera on tile coordinates (x, z) at `zoom` (for close-up screenshots), and let a few frames draw. */
+export async function zoomTo(page, x, z, zoom = 2) {
+  await page.evaluate(
+    ({ x, z, zoom }) => {
+      const r = window.game.renderer;
+      const to = r.toScene(x, 0, z);
+      r.camera.position.add(to.clone().sub(r.controls.target));
+      r.controls.target.copy(to);
+      r.camera.zoom = zoom;
+      r.camera.updateProjectionMatrix();
+    },
+    { x, z, zoom },
+  );
+  await page.waitForTimeout(500);
+}
+
 export const cameraTarget = (page) => page.evaluate(() => window.game.renderer.controls.target.toArray());
 
 /** Raw touch input via the Chrome DevTools protocol (Playwright has tap() but no touch drag). */

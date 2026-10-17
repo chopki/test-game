@@ -65,7 +65,8 @@ Pre-rendered sprites on a fixed isometric camera (see ARCHITECTURE.md), working 
       which roughly doubles the wall sprites
 - [ ] Plank-style "Wooden Wall" from the reference's asset sheet (flat boards, square posts, mossy base) as an
       alternative or a Stage 2 look
-- [ ] In-wall tower models for T-junctions (today they keep the free-standing model with joint posts)
+- [x] In-wall tower models for T-junctions (three-armed); in-wall towers now bake one bastion per type plus shared
+      arm sprites, which halved the HD atlas (19 → 10 pages)
 - [ ] Combat effects: arrow trails, cannon smoke, dust bursts when walls are hit, debris when a building falls
 - [ ] **Damage states**: buildings and walls look more damaged the lower their health, in 3 baked stages per
       sprite (e.g. above 66%, 33–66%, under 33%): cracks and missing stones, broken or leaning stakes and gaps in

@@ -10,7 +10,7 @@ import { wallSeat } from './wallSeat.js';
 import { WALL_DECOR_KINDS } from './wallDecor.js';
 import { waterFlow } from './waterFlow.js';
 import { waterTexture } from './waterTextures.js';
-import { createProjectileModel, SCENERY_SWAY, SCENERY_VARIANTS, WALL_VARIANTS } from './models.js';
+import { createProjectileModel, IN_WALL_RADIUS, SCENERY_SWAY, SCENERY_VARIANTS, WALL_VARIANTS, wallArmOffset } from './models.js';
 import { BlobShadowBatch, HealthBarBatch } from './batches.js';
 import { ISO_QUATERNION, isoDirection } from './iso.js';
 import { SpriteLayer } from './spriteLayer.js';
@@ -107,6 +107,7 @@ export class Renderer {
     this.effects = [];
     this.corpses = [];
     this._decorPos = new THREE.Vector3();
+    this._armPos = new THREE.Vector3();
     this._toCamera = isoDirection(new THREE.Vector3());
     this._unsubscribe = [];
     this._raycaster = new THREE.Raycaster();
@@ -649,9 +650,12 @@ export class Renderer {
       }
     } else {
       const key = seat.shape ? spriteKeys.inWall(b.type, seat.shape) : spriteKeys.building(b.type);
-      if (seat.shape) this.inWallDrawn++;
       this.sprites.add(key, ground);
       this.shadowSprites.add(key, ground);
+      if (seat.shape) {
+        this.inWallDrawn++;
+        this._drawWallArms(b, seat);
+      }
       const lift = this._turretHeight(b.type, seat.shape);
       const attack = b.def.attack;
       if (b.type === 'catapult') {
@@ -669,6 +673,19 @@ export class Renderer {
     }
     if (b.hp < b.maxHp || b.type === 'townHall') {
       this.healthBars.add(this.toScene(b.cx + seat.dx, b.def.height + 0.6, b.cz + seat.dz, this._v), Math.min(2.4, 0.8 * b.size + 0.2), b.hp / b.maxHp);
+    }
+  }
+
+  /** The wall arms of a tower built into a wall: one sprite each, centred on the arm so it sorts by its own depth. */
+  _drawWallArms(b, seat) {
+    const from = IN_WALL_RADIUS[b.type];
+    const straight = seat.shape === 'we' || seat.shape === 'ns';
+    for (const dir of seat.shape) {
+      const [ox, oz] = wallArmOffset(dir, from, straight);
+      const at = this.toScene(b.cx + seat.dx + ox, 0, b.cz + seat.dz + oz, this._armPos);
+      const key = spriteKeys.wallArm(dir, from, straight);
+      this.sprites.add(key, at);
+      this.shadowSprites.add(key, at);
     }
   }
 

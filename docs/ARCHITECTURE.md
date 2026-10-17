@@ -91,10 +91,13 @@ so the whole battlefield is ~15 draw calls and a few hundred triangles however d
   each tile picks one by a hash of its position (`wallVariant()` in Renderer.js), so long runs don't repeat.
 - Wall joints: where a wall touches a tower or the Town Hall, `Renderer._drawWallJoints()` adds a `join:<dir>`
   sprite (the `wallJoint` model: a palisade arm into the building's edge tile, ending at an anchor post).
-  `wallSeat.js` (pure, unit-tested) decides whether a tower sits in a wall: a straight run ('we'/'ns') or a
-  corner ('wn', 'ws', 'en', 'es'), plus the half-tile draw offset that puts it on the wall line or junction. Those
-  towers use their in-wall model (`IN_WALL_MODELS` in models.js: a log bastion plus wall stubs on the walls' log
-  grid), baked as `bw:<type>:<shape>`; in-wall turrets sit at their own heights (`turretHeight(type, shape)`).
+  `wallSeat.js` (pure, unit-tested) decides whether a tower sits in a wall: a straight run ('we'/'ns'), a
+  corner ('wn', 'ws', 'en', 'es') or a T-junction ('wen', 'wes', 'nsw', 'nse'), plus the half-tile draw offset
+  that puts it on the wall line or junction. Those towers use their in-wall model (`IN_WALL_MODELS` in models.js:
+  a log bastion plus wall arms on the walls' log grid). For the atlas the two are baked apart: one bastion per type
+  (`bw:<type>`, whatever the shape) and small shared arm sprites (`arm:<dir>:<bastion radius>:run|end`, centred on
+  the arm so each sorts by its own depth), which `Renderer._drawWallArms()` lays out per shape. (Baking whole
+  towers per shape filled ~6 of the HD set's pages.) In-wall turrets sit at their own heights (`turretHeight(type, shape)`).
   The renderer and the build preview both use it; other towers touching walls get joint pieces.
 - **Animated enemies**: each enemy model is a rig (legs, body and arms as separate parts; see `models.js`) that
   `poseEnemy()` puts into baked frames: 6 walk, 4 attack and 4 death (`ENEMY_ANIMS`), for each of 8 headings.

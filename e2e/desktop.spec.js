@@ -1,5 +1,5 @@
 import { test } from '@playwright/test';
-import { buildingAt, buildShowcase, countBuildings, expect, gold, graphicsState, minCanvasAlpha, nearestTerrainTile, openGame, settingButton, tileToScreen } from './helpers.js';
+import { buildingAt, buildShowcase, countBuildings, expect, gold, graphicsState, minCanvasAlpha, nearestTerrainTile, openGame, settingButton, tileToScreen, zoomTo } from './helpers.js';
 
 // The Town Hall covers tiles 18–20 on both axes; tiles inside 2..37 are buildable.
 
@@ -417,6 +417,31 @@ test('a tower can be built into the middle of a wall line, and is drawn as part 
   expect(errors).toEqual([]);
 });
 
+test('a tower on a T-junction of walls is drawn with a three-armed in-wall model (screenshot attached)', async ({ page }, testInfo) => {
+  const errors = await openGame(page);
+  await page.evaluate(() => {
+    const w = window.game.world;
+    w.economy.earn(1000);
+    for (let x = 8; x <= 16; x++) w.place('wall', x, 12); // a west–east run…
+    for (let z = 13; z <= 16; z++) w.place('wall', 12, z); // …with a branch south from x = 12
+    for (let z = 20; z <= 28; z++) w.place('wall', 24, z); // a north–south run…
+    for (let x = 25; x <= 28; x++) w.place('wall', x, 24); // …with a branch east
+  });
+  await page.keyboard.press('2');
+  for (const [x, z] of [[12, 12], [24, 24]]) {
+    const p = await tileToScreen(page, x, z);
+    await page.mouse.click(p.x, p.y);
+    await page.keyboard.press('2');
+  }
+  await page.keyboard.press('Escape');
+  expect(await countBuildings(page, 'archerTower')).toBe(2);
+  await expect.poll(() => page.evaluate(() => window.game.renderer.inWallDrawn)).toBe(2);
+  expect(await page.evaluate(() => window.game.renderer.wallJointsDrawn)).toBe(0);
+  await zoomTo(page, 18, 18, 1.6);
+  await testInfo.attach('t-junctions', { body: await page.screenshot({ path: testInfo.outputPath('t-junctions.png') }), contentType: 'image/png' });
+  expect(errors).toEqual([]);
+});
+
 test('streams flow and cloud shadows drift (zoomed screenshot attached)', async ({ page }, testInfo) => {
   const errors = await openGame(page, { map: 'terrain' });
   const state = await page.evaluate(() => {
@@ -509,16 +534,8 @@ test('woods mix several kinds of tree, and the trees (not the rocks) sway in the
   await expect.poll(swaying).toBe(0);
   // A close look at a wood, for the report.
   const forest = await nearestTerrainTile(page, 'forest');
-  await page.evaluate(({ x, z }) => {
-    const r = window.game.renderer;
-    const to = r.toScene(x + 0.5, 0, z + 0.5);
-    r.camera.position.add(to.clone().sub(r.controls.target));
-    r.controls.target.copy(to);
-    r.camera.zoom = 2.5;
-    r.camera.updateProjectionMatrix();
-  }, forest);
   await page.evaluate(() => window.game.setGraphics({ ...window.game.graphics, effects: true }));
-  await page.waitForTimeout(500);
+  await zoomTo(page, forest.x + 0.5, forest.z + 0.5, 2.5);
   await testInfo.attach('woods', { body: await page.screenshot({ path: testInfo.outputPath('woods.png') }), contentType: 'image/png' });
   expect(errors).toEqual([]);
 });
@@ -553,16 +570,8 @@ test('a new game starts in a partly built fort: gatehouse and archer tower drawn
   expect(await countBuildings(page, 'gatehouse')).toBe(1);
   await page.keyboard.press('Escape');
   // A close look at the fort, for the report.
-  await page.evaluate(() => {
-    const r = window.game.renderer;
-    const hall = window.game.world.townHall;
-    const to = r.toScene(hall.cx + 1, 0, hall.cz + 1);
-    r.camera.position.add(to.clone().sub(r.controls.target));
-    r.controls.target.copy(to);
-    r.camera.zoom = 2;
-    r.camera.updateProjectionMatrix();
-  });
-  await page.waitForTimeout(500);
+  const hall = await page.evaluate(() => ({ x: window.game.world.townHall.cx, z: window.game.world.townHall.cz }));
+  await zoomTo(page, hall.x + 1, hall.z + 1, 2);
   await testInfo.attach('fort', { body: await page.screenshot({ path: testInfo.outputPath('fort.png') }), contentType: 'image/png' });
   expect(errors).toEqual([]);
 });

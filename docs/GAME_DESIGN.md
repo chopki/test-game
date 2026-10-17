@@ -78,11 +78,11 @@ Towers can be built **into a wall line**: the wall tiles under the tower are rep
 with an anchor post. Anything other than walls (another tower, the Town Hall) still blocks placement.
 Hovering a wall tile with a tower selected snaps it into the wall: across the middle of a straight run (the wall
 carries on from both sides), or onto a corner so both arms join it, preferring the side facing the Town Hall.
-A tower in a straight run or on a corner is drawn with its **in-wall model**: the palisade widens into a log
+A tower in a straight run, on a corner or on a T-junction is drawn with its **in-wall model**: the palisade widens into a log
 bastion around it (the watchtower rises out of it; the cannon and catapult stand on a planked rampart; the crystal
-mound sits in a low ring), drawn on the wall line or on the corner junction (towers are 2 tiles wide and walls 1, so
+mound sits in a low ring), drawn on the wall line or on the corner or T junction (towers are 2 tiles wide and walls 1, so
 it's drawn half a tile off its footprint; the footprint for the rules doesn't change). Other arrangements (a wall
-alongside, a T-junction) keep the normal tower with anchor posts where the walls meet it.
+alongside, a crossroads) keep the normal tower with anchor posts where the walls meet it.
 
 | Building     | Size | Cost | HP   | Attack                                   | Notes |
 | ------------ | ---- | ---- | ---- | ---------------------------------------- | ----- |

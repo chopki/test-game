@@ -10,7 +10,9 @@ import { BUILDINGS } from '../sim/config.js';
  *  - a corner (e.g. 'ws'): one wall comes in on a west/east side and one on a north/south side; the tower is
  *    drawn centred on the corner tile. (Its model's stubs reach 1.5 tiles; where an arm is shorter they overlap
  *    the next wall tile's logs exactly, as both use the same log grid.)
- * Anything else (no walls, a wall alongside, a T-junction…) returns shape null: the normal model, with joints.
+ *  - a T-junction (e.g. 'wen': a west–east run with a branch north): drawn centred on the junction tile, like a
+ *    corner, with three arms.
+ * Anything else (no walls, a wall alongside, a crossroads…) returns shape null: the normal model, with joints.
  *
  * Returns { shape, dx, dz }, with dx/dz in tiles (0 or ±0.5). Looks only at walls touching the footprint from
  * outside, so it gives the same answer for the build preview (before the walls under it go) as for the tower.
@@ -36,6 +38,16 @@ export function wallSeat(world, type, x, z) {
   }
   if (count(['w', 'e']) === 0 && joins.n.length === 1 && joins.s.length === 1 && joins.n[0] === joins.s[0]) {
     return { shape: 'ns', dx: joins.n[0] + 0.5 - centreX, dz: 0 };
+  }
+  const straightWE = joins.w.length === 1 && joins.e.length === 1 && joins.w[0] === joins.e[0];
+  const straightNS = joins.n.length === 1 && joins.s.length === 1 && joins.n[0] === joins.s[0];
+  if (straightWE && count(['n', 's']) === 1) {
+    const v = joins.n.length ? 'n' : 's';
+    return { shape: `we${v}`, dx: joins[v][0] + 0.5 - centreX, dz: joins.w[0] + 0.5 - centreZ };
+  }
+  if (straightNS && count(['w', 'e']) === 1) {
+    const h = joins.w.length ? 'w' : 'e';
+    return { shape: `ns${h}`, dx: joins.n[0] + 0.5 - centreX, dz: joins[h][0] + 0.5 - centreZ };
   }
   if (count(['w', 'e']) === 1 && count(['n', 's']) === 1) {
     const h = joins.w.length ? 'w' : 'e';
