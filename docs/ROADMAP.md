@@ -79,7 +79,7 @@ Pre-rendered sprites on a fixed isometric camera (see ARCHITECTURE.md), working 
 - [x] **Varied wall tiles**: previously every wall tile of the same shape was the identical sprite, so long straight runs
       repeat every tile. Bake 3–4 variants per wall shape (different stake heights, lean and shades, grass tufts
       present or not and in different places) and pick one per tile from its position, so runs look hand-built
-- [x] **Wall decorations**: about 1 in 9 straight wall tiles carries a prop, picked from its position: pennant pole,
+- [x] **Wall decorations**: about 1 in 6 straight wall tiles carries a prop, picked from its position: pennant pole,
       hanging banner, torch, brazier, shields, spears, ladder, supplies, firewood, alarm bell, lantern, bow and
       quiver, a crow, water buckets (`wallDecor.js`, baked for both wall directions)
 - [ ] **Living buildings**: flags and banners that wave in the wind, plus small idle animations on static

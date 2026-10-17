@@ -800,7 +800,7 @@ export function wallVariant(x, z) {
 }
 
 /** About one straight wall tile in nine carries a decoration; which tile and which kind come from its position. */
-export const WALL_DECOR_EVERY = 9;
+export const WALL_DECOR_EVERY = 6;
 export function wallDecorAt(x, z) {
   const h = Math.imul(x * 83492791 ^ z * 2654435761, 0x85ebca6b) >>> 0;
   if ((h >>> 3) % WALL_DECOR_EVERY) return null;
