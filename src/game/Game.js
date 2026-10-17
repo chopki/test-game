@@ -164,6 +164,9 @@ export class Game {
       case 'x':
         this.build.setMode(this.build.mode === 'sell' ? null : 'sell');
         break;
+      case 'u':
+        if (this.build.selected) this.world.upgrade(this.build.selected.id);
+        break;
       case 'escape':
         this.build.setMode(null);
         this.build.select(null);

@@ -38,6 +38,7 @@ to a fixed-timestep server, replays or AI opponents later.
 | ---------------- | -------------- |
 | `config.js`      | **All balance data**: grid (and the map sizes), economy, timings, building and enemy tables, wave tuning |
 | `World.js`       | Game state and rules: phases, placement, combat, enemy AI, projectiles, events |
+| `upgrades.js`    | Building stages: `stageDef(type, stage)` lays UPGRADES' stage changes over BUILDINGS (World swaps `b.def` on `upgrade`) |
 | `Grid.js`        | Tile occupancy (building id per cell), terrain per cell (`isBlocked`, `isBuildable`), footprints, spawn zone |
 | `terrain.js`     | Terrain types (incl. `sea`, `sand`, `cliff`, `ramp`) and the seeded map generator (`generateMap` → `{ types, levels }`, with an optional `coast` side and `hillsRng`; `generateTerrain` returns just the types); height helpers `tileCorners` / `groundHeight`: features, then repair passes; `analyzeTerrain` checks the map rules |
 | `noise.js`       | Seeded value noise and fBm for the generator (and the ground painter) |

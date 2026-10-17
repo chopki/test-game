@@ -19,6 +19,9 @@ export const ECONOMY = {
   startingGold: 300,
   // Fraction of the build cost returned when selling, scaled by remaining HP.
   sellRefund: 0.5,
+  // Repairing a building to full costs this fraction of all it cost (build plus upgrades), scaled by the damage.
+  repairCost: 0.4,
+  hallRepairWorth: 400, // the Town Hall cost nothing to build; repairs reckon it at this
   waveBonusBase: 30,
   waveBonusPerWave: 10,
 };
@@ -215,6 +218,61 @@ export const BUILDINGS = {
     cost: 0,
     buildable: false, // only comes with the starting fort
     height: 2.5,
+  },
+};
+
+/**
+ * Upgrades: every tower, wall and the Town Hall has five stages (after the reference's upgrade rows). `stages[type]`
+ * lists them from stage 1 (the building as built, BUILDINGS above) to 5; each later stage gives its upgrade `cost`
+ * and only the stats it changes (`maxHp`, `height`, and `attack` fields), the rest carry on from the stage before.
+ * No building may stand more than `aboveHall` stages above the Town Hall, so the hall's upgrades open the way.
+ */
+export const UPGRADES = {
+  maxStage: 5,
+  aboveHall: 1,
+  stages: {
+    townHall: [
+      { name: 'Timber Hall' },
+      { name: 'Stone Keep', cost: 200, maxHp: 3200, attack: { damage: 11 } },
+      { name: 'Fortified Keep', cost: 350, maxHp: 4000, attack: { damage: 14, range: 5.5 } },
+      { name: 'Castle', cost: 550, maxHp: 5000, attack: { damage: 18 } },
+      { name: 'Citadel', cost: 800, maxHp: 6200, attack: { damage: 24, range: 6 } },
+    ],
+    wall: [
+      { name: 'Wooden Palisade' },
+      { name: 'Reinforced Palisade', cost: 8, maxHp: 600 },
+      { name: 'Dry Stone Wall', cost: 14, maxHp: 900 },
+      { name: 'Stone Battlements', cost: 22, maxHp: 1300 },
+      { name: 'Citadel Wall', cost: 34, maxHp: 1800 },
+    ],
+    archerTower: [
+      { name: 'Watchtower' },
+      { name: 'Guard Tower', cost: 60, maxHp: 380, attack: { damage: 18 } },
+      { name: 'Stone Tower', cost: 100, maxHp: 480, attack: { damage: 22, range: 7.5 } },
+      { name: 'Arrow Keep', cost: 150, maxHp: 600, attack: { damage: 28, cooldown: 0.7 } },
+      { name: 'Royal Tower', cost: 220, maxHp: 760, attack: { damage: 36, range: 8 } },
+    ],
+    cannonTower: [
+      { name: 'Cannon Emplacement' },
+      { name: 'Gun Platform', cost: 110, maxHp: 620, attack: { damage: 52 } },
+      { name: 'Stone Battery', cost: 170, maxHp: 760, attack: { damage: 64, range: 6.5, splash: 1.8 } },
+      { name: 'Bombard Tower', cost: 240, maxHp: 920, attack: { damage: 80, cooldown: 2.0 } },
+      { name: 'Great Bastion', cost: 320, maxHp: 1100, attack: { damage: 100, range: 7, splash: 2.1 } },
+    ],
+    magicSpire: [
+      { name: 'Crystal Cairn' },
+      { name: 'Rune Circle', cost: 90, maxHp: 430, attack: { damage: 15 } },
+      { name: 'Mage Spire', cost: 140, maxHp: 520, attack: { damage: 19, range: 4 } },
+      { name: 'Arcane Tower', cost: 200, maxHp: 620, attack: { damage: 24, slow: { factor: 0.5, duration: 1.8 } } },
+      { name: 'Starfall Spire', cost: 280, maxHp: 740, attack: { damage: 30, range: 4.5 } },
+    ],
+    catapult: [
+      { name: 'Catapult' },
+      { name: 'Reinforced Catapult', cost: 130, maxHp: 370, attack: { damage: 70 } },
+      { name: 'Mangonel', cost: 200, maxHp: 450, attack: { damage: 88, range: 11 } },
+      { name: 'Trebuchet', cost: 280, maxHp: 540, attack: { damage: 110, splash: 2.1 } },
+      { name: 'Great Trebuchet', cost: 380, maxHp: 650, attack: { damage: 140, range: 12, cooldown: 3.1 } },
+    ],
   },
 };
 

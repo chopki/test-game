@@ -135,13 +135,15 @@ Pre-rendered sprites on a fixed isometric camera (see ARCHITECTURE.md), working 
 ## v0.2: Defence depth
 
 - [x] Build towers into wall lines (replacing the wall tiles they cover), with joint pieces tying the wall in
-- [ ] **Upgrades, 5 stages each** (per the art reference): Town Hall levels; Archer/Cannon/Spire/Catapult stages
-      that improve stats and change the model; wall stages wooden palisade → reinforced wood → dry stone →
-      stone battlements → heavy citadel wall
+- [x] **Upgrades, 5 stages each** (per the art reference): Town Hall, walls and every tower, capped at one stage
+      above the Town Hall; the Engineer's Codex shows the next stage's gains, with Upgrade (U), Repair (between
+      waves) and Upgrade the whole line for walls (`sim/upgrades.js`, `UPGRADES` in config.js)
+- [ ] A model for each stage: wall stages wooden palisade → reinforced wood → dry stone → stone battlements →
+      heavy citadel wall; towers and the hall growing in stone
 - [x] **Starting fort**: the game opens with a partly built palisade round the Town Hall, a log gatehouse (twin
       open-topped towers and a walkway over a wide gateway) and an archer tower built into the wall
 - [ ] Gatehouse as a buildable wall piece (today only the starting fort has one), and gates troops can use
-- [ ] **Repair**: pay to restore HP between waves (or a slow auto-repair upgrade)
+- [x] **Repair**: pay to restore HP between waves
 - [ ] **Gates**: walls your future troops can pass through but enemies can't
 - [ ] More towers: ballista (pierce)
 - [x] **Enemy redo**: a human army in squads (swordsmen, pikemen, archers, knights), battering rams and siege

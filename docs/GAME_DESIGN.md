@@ -117,7 +117,28 @@ alongside, a crossroads) keep the normal tower with anchor posts where the walls
 Towers target the enemy in range that is **closest to the Town Hall** by path distance.
 Walls join visually with neighbouring walls and buildings (straight runs, corners and buttressed
 junctions), so a line of walls ending at a tower reads as one fortification.
-Selling refunds 50% of the cost × remaining HP fraction.
+Selling refunds 50% of everything spent on the building (build plus upgrades) × remaining HP fraction (the
+starting fort was free, so only its upgrades count).
+
+### Upgrades
+
+Select a building and press **Upgrade** (or <kbd>U</kbd>): towers, walls and the Town Hall have **five stages**.
+Each costs gold and improves the stats below (unlisted stats carry on); a building keeps the damage it has taken
+and gains the extra health. **Nothing may stand more than one stage above the Town Hall**, so the hall's upgrades
+open the way. A selected wall offers **Upgrade the whole line**: every joined wall at the same stage, as far as the
+gold goes. **Repair** (between waves only) restores full health for 40% of all the building cost × the damage
+taken (the Town Hall is reckoned at 400).
+
+| Building | Stage 2 | Stage 3 | Stage 4 | Stage 5 |
+| -------- | ------- | ------- | ------- | ------- |
+| Town Hall | Stone Keep · 200 · 3200 HP, 11 dmg | Fortified Keep · 350 · 4000 HP, 14 dmg, range 5.5 | Castle · 550 · 5000 HP, 18 dmg | Citadel · 800 · 6200 HP, 24 dmg, range 6 |
+| Castle Wall | Reinforced Palisade · 8 · 600 HP | Dry Stone Wall · 14 · 900 HP | Stone Battlements · 22 · 1300 HP | Citadel Wall · 34 · 1800 HP |
+| Archer Tower | Guard Tower · 60 · 380 HP, 18 dmg | Stone Tower · 100 · 480 HP, 22 dmg, range 7.5 | Arrow Keep · 150 · 600 HP, 28 dmg, 1.4 shots/s | Royal Tower · 220 · 760 HP, 36 dmg, range 8 |
+| Cannon Tower | Gun Platform · 110 · 620 HP, 52 dmg | Stone Battery · 170 · 760 HP, 64 dmg, range 6.5, splash 1.8 | Bombard Tower · 240 · 920 HP, 80 dmg, every 2.0s | Great Bastion · 320 · 1100 HP, 100 dmg, range 7, splash 2.1 |
+| Magic Spire | Rune Circle · 90 · 430 HP, 15 dmg | Mage Spire · 140 · 520 HP, 19 dmg, range 4 | Arcane Tower · 200 · 620 HP, 24 dmg, slows to 50% for 1.8s | Starfall Spire · 280 · 740 HP, 30 dmg, range 4.5 |
+| Catapult | Reinforced Catapult · 130 · 370 HP, 70 dmg | Mangonel · 200 · 450 HP, 88 dmg, range 11 | Trebuchet · 280 · 540 HP, 110 dmg, splash 2.1 | Great Trebuchet · 380 · 650 HP, 140 dmg, range 12, every 3.1s |
+
+Stage 1 names: Timber Hall, Wooden Palisade, Watchtower, Cannon Emplacement, Crystal Cairn, Catapult.
 
 ## Enemies
 

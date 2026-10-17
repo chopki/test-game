@@ -674,7 +674,7 @@ kbd {
   position: absolute;
   right: 12px;
   bottom: 160px;
-  width: 270px;
+  width: 318px;
   padding: 0 12px 12px;
   overflow: hidden;
 }
@@ -2022,4 +2022,91 @@ body.menu-open #app canvas {
     width: 70px;
     height: 70px;
   }
+}
+
+/* ------------------------------------------------------------------ upgrades in the Engineer's Codex */
+
+.stage-pips {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  margin: 2px 0 4px;
+}
+
+.stage-pips i {
+  width: 16px;
+  height: 6px;
+  border-radius: 3px;
+  background: #d8c49c;
+}
+
+.stage-pips i.on {
+  background: var(--ink-red);
+}
+
+.stage-pips i.next {
+  background: #e0a89a;
+  outline: 1px dashed var(--ink-red);
+}
+
+.stage-pips span {
+  margin-left: 5px;
+  font-size: 0.78em;
+  font-weight: 700;
+  color: var(--ink-muted);
+}
+
+.codex-stat em .up,
+.codex-hp + em .up {
+  color: #3f7a34;
+  font-weight: 800;
+}
+
+.codex-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.codex-actions button {
+  flex: 1 1 0;
+  width: auto;
+  margin-top: 0;
+  padding-left: 6px;
+  padding-right: 6px;
+  white-space: nowrap;
+}
+
+.codex-actions button.primary {
+  flex: 1.5 1 0;
+}
+
+.codex-actions button {
+  font-size: 0.9em;
+}
+
+.codex button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.codex .line-btn {
+  width: 100%;
+  margin-top: 6px;
+  font-size: 0.85em;
+}
+
+.codex .maxed {
+  flex: 1.6 1 0;
+  align-self: center;
+  font-family: var(--fell);
+  color: var(--ink-muted);
+  text-align: center;
+}
+
+.codex-why {
+  margin: 6px 0 0;
+  font-size: 0.8em;
+  color: var(--ink-red);
+  text-align: center;
 }

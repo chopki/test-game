@@ -400,7 +400,7 @@ export class BuildController {
     const sel = this.selected;
     if (sel) {
       this._showFootprint(sel.cx, sel.cz, sel.size, 0xffe27a);
-      if (sel.def.attack) this._showRange(sel.cx, sel.cz, sel.def.attack.range);
+      if (sel.def.attack) this._showRange(sel.cx, sel.cz, this.world.rangeOf(sel));
     }
   }
 

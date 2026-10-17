@@ -1,4 +1,5 @@
-import { BUILDINGS, ECONOMY, ENEMIES, GRID, PATHING, START_FORT, TERRAIN, TIMING } from './config.js';
+import { BUILDINGS, ECONOMY, ENEMIES, GRID, PATHING, START_FORT, TERRAIN, TIMING, UPGRADES } from './config.js';
+import { nextUpgradeCost, stageDef } from './upgrades.js';
 import { createRng } from './rng.js';
 import { EventBus } from './EventBus.js';
 import { Grid } from './Grid.js';
@@ -199,8 +200,102 @@ export class World {
   }
 
   sellValue(building) {
-    if (building.starter) return 0; // the starting fort was free
-    return Math.floor(building.def.cost * ECONOMY.sellRefund * (building.hp / building.maxHp));
+    // What it cost (build plus upgrades; the starting fort was free), scaled by its health.
+    return Math.floor((building.spent ?? building.def.cost) * ECONOMY.sellRefund * (building.hp / building.maxHp));
+  }
+
+  // ---------------------------------------------------------------- upgrades and repairs
+
+  /**
+   * Whether `building` can go up a stage now: { ok, reason, cost, next } (`next`: the next stage's definition, or
+   * null at the last stage). Nothing may stand more than UPGRADES.aboveHall stages above the Town Hall.
+   */
+  upgradeCheck(building) {
+    const cost = building ? nextUpgradeCost(building.type, building.stage) : null;
+    if (cost === null) return { ok: false, reason: building && UPGRADES.stages[building.type] ? 'Fully upgraded' : 'Cannot be upgraded', cost: null, next: null };
+    const next = stageDef(building.type, building.stage + 1);
+    const fail = (reason) => ({ ok: false, reason, cost, next });
+    if (this.phase === 'gameover') return fail('The battle is over');
+    if (building.type !== 'townHall' && next.stage > this.townHall.stage + UPGRADES.aboveHall) return fail(`Needs the Town Hall at stage ${next.stage - UPGRADES.aboveHall}`);
+    if (!this.economy.canAfford(cost)) return fail('Not enough gold');
+    return { ok: true, reason: null, cost, next };
+  }
+
+  /** Upgrade building `id` a stage: it keeps the damage it has taken and gains the new stage's extra health. */
+  upgrade(id) {
+    const b = this.buildings.get(id);
+    const check = this.upgradeCheck(b);
+    if (!check.ok) return check;
+    this.economy.spend(check.cost);
+    b.stage = check.next.stage;
+    b.def = check.next;
+    b.hp += check.next.maxHp - b.maxHp;
+    b.maxHp = check.next.maxHp;
+    b.spent = (b.spent ?? 0) + check.cost;
+    this._flowDirty = true; // enemies weigh a wall's health when choosing a way through
+    this.events.emit('buildingUpgraded', { building: b, stage: b.stage });
+    return check;
+  }
+
+  /**
+   * The walls joined to wall `id` (along the four sides) that are at the same stage, nearest first: the line
+   * "Upgrade line" upgrades.
+   */
+  wallLine(id) {
+    const start = this.buildings.get(id);
+    if (start?.type !== 'wall') return [];
+    const line = [start];
+    const seen = new Set([start.id]);
+    for (let i = 0; i < line.length && line.length < 400; i++) {
+      const w = line[i];
+      for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const n = this.buildingAt(w.x + dx, w.z + dz);
+        if (n?.type === 'wall' && n.stage === start.stage && !seen.has(n.id)) {
+          seen.add(n.id);
+          line.push(n);
+        }
+      }
+    }
+    return line;
+  }
+
+  /** Upgrade every wall in wall `id`'s line (wallLine) that it can afford, nearest first. Returns how many. */
+  upgradeLine(id) {
+    let done = 0;
+    for (const w of this.wallLine(id)) if (this.upgrade(w.id).ok) done++;
+    return done;
+  }
+
+  /** What repairing `building` to full health costs (ECONOMY.repairCost of all it was worth, by the damage). */
+  repairCost(building) {
+    const worth = (building.type === 'townHall' ? ECONOMY.hallRepairWorth : building.def.cost) + this._upgradeSpend(building);
+    return Math.ceil(worth * ECONOMY.repairCost * (1 - building.hp / building.maxHp));
+  }
+
+  _upgradeSpend(building) {
+    let sum = 0;
+    for (let s = 2; s <= building.stage; s++) sum += stageDef(building.type, s).upgradeCost;
+    return sum;
+  }
+
+  /** Whether `building` can be repaired now (between waves, damaged, affordable): { ok, reason, cost }. */
+  repairCheck(building) {
+    if (!building || building.hp >= building.maxHp) return { ok: false, reason: 'Not damaged', cost: 0 };
+    const cost = this.repairCost(building);
+    if (this.phase !== 'build') return { ok: false, reason: 'Repairs wait until the wave is over', cost };
+    if (!this.economy.canAfford(cost)) return { ok: false, reason: 'Not enough gold', cost };
+    return { ok: true, reason: null, cost };
+  }
+
+  repair(id) {
+    const b = this.buildings.get(id);
+    const check = this.repairCheck(b);
+    if (!check.ok) return check;
+    this.economy.spend(check.cost);
+    b.hp = b.maxHp;
+    this._flowDirty = true;
+    this.events.emit('buildingRepaired', { building: b, cost: check.cost });
+    return check;
   }
 
   // ---------------------------------------------------------------- commands
@@ -269,11 +364,13 @@ export class World {
   // ---------------------------------------------------------------- buildings
 
   _addBuilding(type, x, z) {
-    const def = BUILDINGS[type];
+    const def = stageDef(type, 1);
     const b = {
       id: this._nextId++,
       type,
       def,
+      stage: 1,
+      spent: def.cost, // build plus upgrades, for the sell value
       x,
       z,
       size: def.size,
@@ -307,7 +404,7 @@ export class World {
         const wall = this.buildingAt(tx, tz);
         if (wall) this._removeBuilding(wall);
       }
-      this._addBuilding(type, x, z).starter = true;
+      Object.assign(this._addBuilding(type, x, z), { starter: true, spent: 0 });
     };
     for (const [x0, z0, x1, z1] of START_FORT.walls) {
       for (let x = Math.min(x0, x1); x <= Math.max(x0, x1); x++) {
@@ -357,12 +454,12 @@ export class World {
 
   /** A tower's reach: its attack range, plus TERRAIN.hills.rangePerLevel for each level it stands above the lowest. */
   rangeOf(b) {
-    return this.rangeAt(b.type, b.x, b.z);
+    return this.rangeAt(b.type, b.x, b.z, b.stage);
   }
 
-  /** The range a building of `type` would have with its top-left tile at (x, z) (for the build preview too). */
-  rangeAt(type, x, z) {
-    const attack = BUILDINGS[type].attack;
+  /** The range a building of `type` at `stage` would have with its top-left tile at (x, z) (the build preview too). */
+  rangeAt(type, x, z, stage = 1) {
+    const attack = stageDef(type, stage).attack;
     return attack ? attack.range + this.grid.levelAt(x, z) * TERRAIN.hills.rangePerLevel : 0;
   }
 

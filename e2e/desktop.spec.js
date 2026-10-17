@@ -122,6 +122,42 @@ test('a building can be selected and sold', async ({ page }) => {
   expect(await gold(page)).toBe(225 + 37);
 });
 
+test('upgrades: the selected tower goes up a stage (button or U), capped by the Town Hall; a wall line all at once', async ({ page }) => {
+  const errors = await openGame(page);
+  await page.keyboard.press('2');
+  const p = await tileToScreen(page, 12, 12);
+  await page.mouse.click(p.x, p.y);
+  await page.keyboard.press('Escape');
+  await page.mouse.click(p.x, p.y);
+  const info = page.locator('#info');
+  await expect(info).toContainText('Watchtower · stage 1 of 5');
+  await page.locator('#upgrade-selected').click();
+  await expect(info).toContainText('Guard Tower · stage 2 of 5');
+  expect(await gold(page)).toBe(225 - 60);
+  // Stage 3 needs the Town Hall at stage 2 first.
+  await expect(page.locator('#upgrade-selected')).toBeDisabled();
+  await expect(info).toContainText('Needs the Town Hall at stage 2');
+  await page.evaluate(() => {
+    const w = window.game.world;
+    w.economy.earn(1000);
+    w.upgrade(w.townHall.id);
+  });
+  await page.keyboard.press('u');
+  await expect(info).toContainText('Stone Tower · stage 3 of 5');
+
+  // A wall line: one press upgrades every joined wall.
+  await page.keyboard.press('Escape');
+  await page.evaluate(() => {
+    for (let x = 6; x <= 14; x++) window.game.world.place('wall', x, 20);
+  });
+  const q = await tileToScreen(page, 9, 20);
+  await page.mouse.click(q.x, q.y);
+  await expect(page.locator('#upgrade-line')).toContainText('9 walls');
+  await page.locator('#upgrade-line').click();
+  expect(await page.evaluate(() => [6, 10, 14].map((x) => window.game.world.buildingAt(x, 20).stage))).toEqual([2, 2, 2]);
+  expect(errors).toEqual([]);
+});
+
 test('right-click cancels build mode', async ({ page }) => {
   await openGame(page);
   await page.keyboard.press('3');

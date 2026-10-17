@@ -1,4 +1,4 @@
-import { BUILDINGS, TIMING } from '../sim/config.js';
+import { BUILDINGS, TIMING, UPGRADES } from '../sim/config.js';
 import { onPress } from './press.js';
 import { summarizeWave } from '../sim/WaveManager.js';
 import { frameToDataURL } from '../render/spriteBaker.js';
@@ -129,6 +129,9 @@ export class HUD {
       if (building.def.attack && building.type !== 'townHall') this.toast(`${building.def.name} destroyed!`, 'warn');
     });
     ev.on('gameOver', (stats) => this.showGameOver(stats));
+    ev.on('buildingUpgraded', ({ building }) => {
+      if (building.type !== 'wall') this.toast(`${building.def.name} upgraded: ${building.def.stageName}`, 'good');
+    });
   }
 
   // ---------------------------------------------------------------- per-frame
@@ -233,10 +236,14 @@ export class HUD {
     this.el[key].textContent = value;
   }
 
-  // The Engineer's Codex: details of the selected building.
+  // The Engineer's Codex: details of the selected building, its stage, and what upgrading it would bring.
   _updateInfo() {
     const b = this.game.build.selected;
-    const key = b ? `${b.id}:${Math.ceil(b.hp)}` : '';
+    const w = this.world;
+    const up = b && w.upgradeCheck(b);
+    const fix = b && w.repairCheck(b);
+    const line = b?.type === 'wall' && up.next ? w.wallLine(b.id) : [];
+    const key = b ? [b.id, Math.ceil(b.hp), b.stage, up.ok, up.reason, fix.ok, fix.cost, line.length, w.canSell(b) && w.sellValue(b)].join(':') : '';
     if (this._last.info === key) return;
     this._last.info = key;
     if (!b) {
@@ -244,14 +251,22 @@ export class HUD {
       return;
     }
     const a = b.def.attack;
-    const sellable = this.world.canSell(b);
+    const n = up.next;
+    const sellable = w.canSell(b);
     const segments = (value, max) => {
       const filled = Math.max(1, Math.round((value / max) * 5));
       return `<span class="segments">${Array.from({ length: 5 }, (_, i) => `<i class="${i < filled ? 'on' : ''}"></i>`).join('')}</span>`;
     };
-    const stat = (label, value, max, note) => `<div class="codex-stat"><span>${label}</span>${segments(value, max)}<em>${note}</em></div>`;
+    // A stat now, and (in green) what the next stage makes it.
+    const after = (now, next, fmt = (v) => v) => (next !== undefined && next !== now ? ` <b class="up">→ ${fmt(next)}</b>` : '');
+    const stat = (label, value, max, note, next) => `<div class="codex-stat"><span>${label}</span>${segments(value, max)}<em>${note}${next ?? ''}</em></div>`;
+    const stages = UPGRADES.stages[b.type];
+    const pips = stages
+      ? `<div class="stage-pips" aria-label="Stage ${b.stage} of ${stages.length}">${stages.map((_, i) => `<i class="${i < b.stage ? 'on' : i === b.stage ? 'next' : ''}"></i>`).join('')}<span>${b.def.stageName} · stage ${b.stage} of ${stages.length}</span></div>`
+      : '';
     const icon = this.icons[b.type];
     const hpRatio = b.hp / b.maxHp;
+    const rate = (c) => `${(1 / c).toFixed(1)}/s`;
     this.el.info.hidden = false;
     this.el.info.innerHTML = `
       <div class="codex-head">Engineer's Codex</div>
@@ -259,21 +274,37 @@ export class HUD {
         ${icon ? `<img class="codex-art" src="${icon}" alt="" />` : ''}
         <div>
           <h3>${b.def.name}</h3>
+          ${pips}
           <p class="desc">${b.def.description}</p>
         </div>
       </div>
-      <div class="codex-stat"><span>Health</span><span class="bar codex-hp"><span style="width:${hpRatio * 100}%"></span></span><em>${Math.ceil(b.hp)}/${b.maxHp}</em></div>
+      <div class="codex-stat"><span>Health</span><span class="bar codex-hp"><span style="width:${hpRatio * 100}%"></span></span><em>${Math.ceil(b.hp)}/${b.maxHp}${after(b.maxHp, n?.maxHp)}</em></div>
       ${
         a
-          ? stat('Damage', a.damage, STAT_MAX.damage, a.kind === 'pulse' ? `${a.damage} all` : a.splash ? `${a.damage} area` : `${a.damage}`) +
-            stat('Range', a.range, STAT_MAX.range, `${a.range}`) +
-            stat('Fire rate', 1 / a.cooldown, STAT_MAX.rate, `${(1 / a.cooldown).toFixed(1)}/s`)
+          ? stat('Damage', a.damage, STAT_MAX.damage, a.kind === 'pulse' ? `${a.damage} all` : a.splash ? `${a.damage} area` : `${a.damage}`, after(a.damage, n?.attack.damage)) +
+            stat('Range', w.rangeOf(b), STAT_MAX.range, `${w.rangeOf(b)}`, after(a.range, n?.attack.range, (r) => r + (w.rangeOf(b) - a.range))) +
+            stat('Fire rate', 1 / a.cooldown, STAT_MAX.rate, rate(a.cooldown), after(a.cooldown, n?.attack.cooldown, rate))
           : ''
       }
-      ${!sellable ? '' : `<button id="sell-selected" class="primary">Sell for <i class="coin"></i>${this.world.sellValue(b)}</button>`}`;
+      <div class="codex-actions">
+        ${
+          n
+            ? `<button id="upgrade-selected" class="primary" ${up.ok ? '' : 'disabled'} title="${up.ok ? `Upgrade to ${n.stageName} (U)` : up.reason}">Upgrade <i class="coin"></i>${up.cost}</button>`
+            : stages
+              ? '<span class="maxed">Fully upgraded</span>'
+              : ''
+        }
+        ${b.hp < b.maxHp ? `<button id="repair-selected" ${fix.ok ? '' : 'disabled'} title="${fix.ok ? 'Repair to full health' : fix.reason}">Repair <i class="coin"></i>${fix.cost}</button>` : ''}
+        ${!sellable ? '' : `<button id="sell-selected">Sell <i class="coin"></i>${w.sellValue(b)}</button>`}
+      </div>
+      ${line.length > 1 ? `<button id="upgrade-line" class="line-btn" ${up.ok ? '' : 'disabled'}>Upgrade the whole line: ${line.length} walls, <i class="coin"></i>${line.length * up.cost}</button>` : ''}
+      ${n && !up.ok ? `<p class="codex-why">${up.reason}</p>` : ''}`;
+    if (n) onPress($('upgrade-selected'), () => w.upgrade(b.id));
+    if (line.length > 1) onPress($('upgrade-line'), () => w.upgradeLine(b.id));
+    if (b.hp < b.maxHp) onPress($('repair-selected'), () => w.repair(b.id));
     if (sellable) {
       onPress($('sell-selected'), () => {
-        this.world.sell(b.id);
+        w.sell(b.id);
         this.game.build.select(null);
       });
     }
