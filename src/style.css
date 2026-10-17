@@ -1357,7 +1357,42 @@ kbd {
   gap: 10px;
 }
 
-/* Phones: the title band across the top, as in the reference. */
+/* The heart sits in a dark outline; the health bar ends in an arrow tip (iron frame round a dark track). */
+.heart-frame {
+  display: inline-flex;
+  flex-shrink: 0;
+  filter: drop-shadow(1.5px 0 0 #2a1208) drop-shadow(-1.5px 0 0 #2a1208) drop-shadow(0 1.5px 0 #2a1208) drop-shadow(0 -1.5px 0 #2a1208);
+}
+
+.hall-bar {
+  padding: 3px 11px 3px 3px;
+  border: none;
+  border-radius: 0;
+  background:
+    linear-gradient(#2a2420, #2a2420) content-box,
+    linear-gradient(180deg, #7c7e86, var(--iron) 55%, #222327) border-box;
+  clip-path: polygon(0 0, calc(100% - 9px) 0, 100% 50%, calc(100% - 9px) 100%, 0 100%);
+  box-shadow: none;
+}
+
+#hall-bar {
+  background: linear-gradient(180deg, #e0503c, #b0241a 55%, #7c140c);
+}
+
+.wave-num {
+  display: none;
+}
+
+.gear-icon {
+  width: 60%;
+  height: 60%;
+  vertical-align: middle;
+  fill: #3a2010;
+  filter: drop-shadow(0 1px 0 rgba(255, 240, 200, 0.55));
+}
+
+/* Phones: the top band as in docs/reference/ui-hud-phone.jpg. Title, an iron rail with a bracket in the middle,
+   then the hall, gold and wave on the same weathered parchment, torn along the bottom. */
 .hud-title {
   display: none;
 }
@@ -1369,69 +1404,172 @@ kbd {
     top: 0;
     left: 0;
     right: 0;
-    height: 104px;
-    padding-top: 5px;
+    height: 112px;
+    padding-top: 3px;
     text-align: center;
-    font-family: var(--title);
-    font-weight: 700;
-    font-size: 1.45em;
-    color: var(--ink);
-    background: var(--paper);
-    border-bottom: 3px solid var(--iron);
-    box-shadow: 0 1px 0 var(--iron-light), 0 4px 10px rgba(0, 0, 0, 0.45);
+    font-family: 'Alegreya', var(--display);
+    font-weight: 800;
+    font-size: 1.85em;
+    line-height: 1.15;
+    color: #24170c;
+    background:
+      radial-gradient(ellipse 30% 60% at 4% 30%, rgba(80, 50, 20, 0.28), transparent 70%),
+      radial-gradient(ellipse 26% 50% at 97% 20%, rgba(80, 50, 20, 0.3), transparent 70%),
+      radial-gradient(ellipse 40% 40% at 70% 95%, rgba(80, 50, 20, 0.18), transparent 70%),
+      var(--paper);
+    box-shadow: inset 0 3px 6px rgba(60, 36, 14, 0.45);
+    clip-path: polygon(0 0, 100% 0, 100% 97%, 94% 99%, 88% 96%, 80% 100%, 72% 97%, 63% 99%, 55% 96%, 46% 100%, 38% 97%, 29% 99%, 20% 96%, 12% 100%, 5% 97%, 0 99%);
+  }
+
+  /* The iron rail under the title, and the bracket hanging from its middle. */
+  .hud-title::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 40px;
+    height: 5px;
+    background: linear-gradient(180deg, #8a8c94, var(--iron) 50%, #1e1f23);
+    box-shadow: 0 2px 3px rgba(0, 0, 0, 0.45);
   }
 
   .hud-title::after {
-    /* The iron bracket hanging from the middle of the band. */
     content: '';
     position: absolute;
     left: 50%;
-    bottom: -14px;
-    width: 64px;
-    height: 12px;
-    margin-left: -32px;
-    background: linear-gradient(180deg, var(--iron-light), var(--iron));
-    clip-path: polygon(0 0, 100% 0, 70% 100%, 50% 60%, 30% 100%);
+    top: 38px;
+    width: 96px;
+    height: 22px;
+    margin-left: -48px;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 22'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' x2='0' y1='0' y2='1'%3E%3Cstop offset='0' stop-color='%238a8c94'/%3E%3Cstop offset='1' stop-color='%232a2b30'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M0 2 H96 C86 3 78 6 70 9 C62 12 56 13 52 16 L48 22 L44 16 C40 13 34 12 26 9 C18 6 10 3 0 2 Z' fill='url(%23g)' stroke='%2318191c' stroke-width='1'/%3E%3Ccircle cx='48' cy='8' r='2.4' fill='%23b4b6bc' stroke='%2318191c' stroke-width='0.8'/%3E%3C/svg%3E") center / contain no-repeat;
   }
 
   .topbar {
-    top: 36px;
+    top: 48px;
+    left: 8px;
+    right: 8px;
+    align-items: center;
+    gap: 8px;
   }
 
   /* Inside the band the plaques lose their frames. */
   .topbar .framed {
+    padding: 0;
     background: none;
     border: none;
     box-shadow: none;
   }
 
-  .next-wave {
-    top: 116px;
-  }
-
-  .wave-sign {
-    min-width: 0;
-    padding: 2px 8px 3px;
-    background: var(--paper);
+  .hud-hall {
+    gap: 0;
   }
 
   .hud-hall .heart {
+    width: 34px;
+    height: 31px;
     transform: none;
-    margin-right: 0;
+    margin: 0;
+    clip-path: path('M17 30 C 6 21, 0 15, 0 9 C 0 4, 4 0, 9 0 C 12.5 0, 15.5 2, 17 5 C 18.5 2, 21.5 0, 25 0 C 30 0, 34 4, 34 9 C 34 15, 28 21, 17 30 Z');
+    background: radial-gradient(circle at 35% 28%, #ff9a88, #d63a2a 45%, #8a180c);
   }
 
-  .hud-hall {
-    gap: 5px;
+  .hall-bar {
+    height: 20px;
+    margin-left: -6px;
+  }
+
+  .hud-gold {
+    gap: 3px;
+    align-items: center;
   }
 
   .gold-amount {
     white-space: nowrap;
-    font-size: 1.2em;
+    font-family: 'Alegreya', var(--display);
+    font-weight: 800;
+    font-size: 1.55em;
+    line-height: 1;
+    color: #24170c;
+  }
+
+  .gold-amount .coin {
+    width: 1em;
+    height: 1em;
+    vertical-align: -0.15em;
+  }
+
+  .wave-bar {
+    width: 84px;
+    height: 9px;
+  }
+
+  .hud-gold {
+    margin-right: 4px;
+  }
+
+  /* The wave plaque: a nailed square with the wave number, a ribbon hanging under it. */
+  .wave-sign {
+    position: relative;
+    min-width: 0;
+    width: 52px;
+    height: 44px;
+    margin-bottom: 14px;
+    padding: 0;
+    border-width: 2px;
+    border-color: #2a1c10;
+    outline: 1px solid rgba(58, 39, 23, 0.7);
+    outline-offset: -5px;
+    background:
+      radial-gradient(circle at 6px 6px, #2a1c10 0 2px, transparent 2.5px),
+      radial-gradient(circle at calc(100% - 6px) 6px, #2a1c10 0 2px, transparent 2.5px),
+      var(--paper);
+  }
+
+  .wave-title {
+    display: none;
+  }
+
+  .wave-num {
+    display: block;
+    font-family: 'Alegreya', var(--display);
+    font-weight: 800;
+    font-size: 1.85em;
+    line-height: 40px;
+    color: #24170c;
+  }
+
+  .wave-sub {
+    position: absolute;
+    top: 34px;
+    left: 50%;
+    width: 78px;
+    margin-left: -39px;
+    padding: 1px 6px 2px;
+    font-family: 'Alegreya', var(--display);
+    font-size: 0.72em;
+    font-weight: 700;
+    line-height: 1.05;
+    white-space: pre-line;
+    color: #24170c;
+    background: var(--paper);
+    border: 1px solid #3a2717;
+    clip-path: polygon(0 0, 100% 0, 92% 50%, 100% 100%, 0 100%, 8% 50%);
   }
 
   .square-btn {
-    width: 36px;
-    height: 36px;
+    width: 40px;
+    height: 40px;
+    font-family: 'Alegreya', var(--display);
+    font-size: 1.35em;
+  }
+
+  .hud-right {
+    align-items: center;
+    gap: 6px;
+  }
+
+  .next-wave {
+    top: 120px;
   }
 
   .cogs {

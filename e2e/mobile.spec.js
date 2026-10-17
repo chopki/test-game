@@ -216,3 +216,22 @@ test('render scale goes up to the screen: Native and 300% draw at the phone’s 
   expect(await ratio()).toBeCloseTo(Math.min(2, screen), 3);
   expect(errors).toEqual([]);
 });
+
+test('the top band: title over an iron rail, the hall, gold and the coming wave on a nailed plaque', async ({ page }) => {
+  const errors = await openGame(page);
+  await expect(page.locator('.hud-title')).toBeVisible();
+  await expect(page.locator('.hud-title')).toHaveText('Hold the Hall');
+  await expect(page.locator('#wave-num')).toHaveText('01');
+  await expect(page.locator('#phase')).toContainText('Next Wave');
+  // Everything in the band fits on the screen, and the band sits above the next-wave banner.
+  const box = (sel) => page.locator(sel).boundingBox();
+  const width = page.viewportSize().width;
+  for (const sel of ['.hud-hall', '.hud-gold', '.wave-sign', '#settings-btn', '#help-btn']) {
+    const b = await box(sel);
+    expect(b.x, sel).toBeGreaterThanOrEqual(0);
+    expect(b.x + b.width, sel).toBeLessThanOrEqual(width);
+  }
+  const band = await box('.hud-title');
+  expect((await box('#next-wave')).y).toBeGreaterThanOrEqual(band.y + band.height - 2);
+  expect(errors).toEqual([]);
+});

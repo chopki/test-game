@@ -6,7 +6,7 @@
     <title>Hold the Hall</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Cinzel+Decorative:wght@700;900&family=IM+Fell+English+SC&family=IM+Fell+English:ital@0;1&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Cinzel+Decorative:wght@700;900&family=IM+Fell+English+SC&family=Alegreya:wght@700;800&family=IM+Fell+English:ital@0;1&display=swap" rel="stylesheet" />
   </head>
   <body>
     <div id="app"></div>
@@ -15,7 +15,7 @@
       <div class="hud-title" aria-hidden="true">Hold the Hall</div>
       <div class="topbar">
         <div class="hud-hall framed" title="Town Hall health">
-          <span class="heart" aria-hidden="true"></span>
+          <span class="heart-frame" aria-hidden="true"><span class="heart"></span></span>
           <div class="bar hall-bar"><div id="hall-bar"></div></div>
           <span id="hall-hp" class="small"></span>
         </div>
@@ -26,10 +26,11 @@
         <div class="hud-right">
           <div class="wave-sign">
             <div class="wave-title">Wave <span id="wave">0</span></div>
+            <div id="wave-num" class="wave-num" aria-hidden="true">01</div>
             <div id="phase" class="wave-sub"></div>
           </div>
           <span id="fps" class="small fps" hidden></span>
-          <button id="settings-btn" class="square-btn" title="Graphics settings" aria-label="Settings">⚙</button>
+          <button id="settings-btn" class="square-btn" title="Graphics settings" aria-label="Settings"><svg class="gear-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M10.3 2h3.4l.5 2.6 1.6.7 2.2-1.5 2.4 2.4-1.5 2.2.7 1.6 2.4.5v3.4l-2.6.5-.7 1.6 1.5 2.2-2.4 2.4-2.2-1.5-1.6.7-.5 2.6h-3.4l-.5-2.6-1.6-.7-2.2 1.5-2.4-2.4 1.5-2.2-.7-1.6L2 13.7v-3.4l2.6-.5.7-1.6-1.5-2.2 2.4-2.4 2.2 1.5 1.6-.7z M12 8.2a3.8 3.8 0 1 0 0 7.6 3.8 3.8 0 0 0 0-7.6z" fill-rule="evenodd" /></svg></button>
           <button id="help-btn" class="square-btn" title="Help (H)" aria-label="Help">?</button>
         </div>
       </div>

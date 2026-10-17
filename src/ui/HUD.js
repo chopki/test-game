@@ -50,6 +50,7 @@ export class HUD {
     this.el = {
       gold: $('gold'),
       wave: $('wave'),
+      waveNum: $('wave-num'),
       hallBar: $('hall-bar'),
       hallHp: $('hall-hp'),
       phase: $('phase'),
@@ -137,6 +138,8 @@ export class HUD {
     const hall = w.townHall;
     this._set('gold', Math.floor(w.economy.gold));
     this._set('wave', w.waves.wave);
+    // The wave plaque on phones: the coming wave between waves, else the one being fought.
+    this._set('waveNum', String(w.phase === 'build' ? w.waves.wave + 1 : w.waves.wave).padStart(2, '0'));
     this._set('hallHp', `${Math.ceil(hall.hp)} / ${hall.maxHp}`);
     const ratio = hall.hp / hall.maxHp;
     if (this._last.hallRatio !== ratio) {
@@ -148,7 +151,7 @@ export class HUD {
     let phase = '';
     let progress = 0;
     if (w.phase === 'build') {
-      phase = `Next in ${Math.ceil(w.phaseTimer)}s`;
+      phase = `Next Wave\nin ${Math.ceil(w.phaseTimer)}s`; // two lines on the phone's wave plaque
       const total = w.waves.wave === 0 ? TIMING.firstBuildPhase : TIMING.buildPhase;
       progress = 1 - w.phaseTimer / total;
     } else if (w.phase === 'wave') {
