@@ -132,6 +132,10 @@ so the whole battlefield is ~15 draw calls and a few hundred triangles however d
   its shader draws ripple bands and soft foam streaks carried downstream (`waterTextures.js`: streaks in R, noise
   in G), sun glints, and foam lapping at the shoreline (from the painted water mask). Its quads must stay wound
   to face up, or they're culled.
+- Combat effects: `particles.js` draws soft inked puffs (smoke, dust, flashes, arrow trails) and tumbling debris
+  chunks as two InstancedMeshes, refilled each frame. The renderer spawns them from world events
+  (`projectileFired`, `projectileImpact`, `buildingHit` with the blow's origin, `buildingDestroyed`, `enemyKilled`);
+  off with the Effects setting.
 - Cloud shadows: `Renderer._createClouds()` draws one ground plane after the sprites that multiplies a drifting,
   tileable cloud mask (`cloudTexture()` in textures.js) into the frame. Shown with the Effects setting.
 - Tree sway: `SpriteLayer.add(..., sway)` shears a sprite's top sideways in the vertex shader on a gusting wave

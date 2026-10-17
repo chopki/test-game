@@ -13,12 +13,28 @@ import { waterTexture } from './waterTextures.js';
 import { createProjectileModel, IN_WALL_RADIUS, SCENERY_SWAY, SCENERY_VARIANTS, WALL_VARIANTS, wallArmOffset } from './models.js';
 import { BlobShadowBatch, HealthBarBatch } from './batches.js';
 import { ISO_QUATERNION, isoDirection } from './iso.js';
+import { Particles } from './particles.js';
 import { SpriteLayer } from './spriteLayer.js';
 import { CATAPULT_ARM_FRAMES, ENEMY_ANIMS, crystalHeight, spriteKeys, turretHeight } from './spriteCatalog.js';
 
 const SKY = 0xa9d3ee;
 
-const BURST_GEOMETRY = new THREE.SphereGeometry(1, 12, 8);
+/** Debris colours by what's breaking (logs, sandstone, rock, earth). */
+const LOG_CHIPS = [0xcba46e, 0xad8050, 0x8a6038, 0x6b4a2c];
+const STONE_CHIPS = [0xd2b688, 0xc5a878, 0xbb9e6e, 0x9c8462];
+const DEBRIS = {
+  wall: LOG_CHIPS,
+  gatehouse: LOG_CHIPS,
+  archerTower: LOG_CHIPS,
+  catapult: LOG_CHIPS,
+  townHall: STONE_CHIPS,
+  cannonTower: STONE_CHIPS,
+  magicSpire: [0xbca7d8, 0x9a7fc4, ...STONE_CHIPS],
+  rock: [0xdcc7a0, 0xcfb98e, 0xb7a27c],
+  earth: [0x8a6f48, 0x6f5638, 0x9a8158],
+};
+const rand = (r) => (Math.random() * 2 - 1) * r;
+
 const RING_GEOMETRY = new THREE.RingGeometry(0.85, 1, 48).rotateX(-Math.PI / 2);
 const NEIGHBOURS = [
   ['n', 0, -1],
@@ -105,9 +121,11 @@ export class Renderer {
     this.healthBars = new HealthBarBatch(this.overlayLayer);
     this.blobShadows = new BlobShadowBatch(this.groundLayer);
     this.effects = [];
+    this.particles = new Particles(this.overlayLayer);
     this.corpses = [];
     this._decorPos = new THREE.Vector3();
     this._armPos = new THREE.Vector3();
+    this._fxPos = new THREE.Vector3();
     this._toCamera = isoDirection(new THREE.Vector3());
     this._unsubscribe = [];
     this._raycaster = new THREE.Raycaster();
@@ -474,24 +492,22 @@ export class Renderer {
     }
     for (const fx of this.effects) this.scene.remove(fx.obj);
     this.effects = [];
+    this.particles.clear();
     this.corpses = [];
 
     this.world = world;
     this._buildTerrain();
     const ev = world.events;
     this._unsubscribe = [
-      ev.on('projectileImpact', (p) => {
-        if (p.kind === 'cannonball') this._spawnBurst(p.x, 0.2, p.z, 0xffa040, p.splash, 0.35);
-        if (p.kind === 'boulder') this._spawnBurst(p.x, 0.2, p.z, 0xb59a70, p.splash, 0.5);
-      }),
+      ev.on('projectileFired', ({ projectile }) => this._fxFired(projectile)),
+      ev.on('projectileImpact', (p) => this._fxImpact(p)),
       ev.on('towerPulse', ({ x, z, radius }) => this._spawnRing(x, z, radius, 0xa66bff, 0.55)),
       ev.on('enemyKilled', ({ enemy }) => {
-        this._spawnBurst(enemy.x, 0.5, enemy.z, 0x9a8f80, 0.5, 0.4);
+        this._fxDust(enemy.x, 0.25, enemy.z, 3, 0.35);
         this.corpses.push({ type: enemy.type, elite: enemy.elite, heading: enemy.heading, x: enemy.x, z: enemy.z, age: 0 });
       }),
-      ev.on('buildingDestroyed', ({ building }) =>
-        this._spawnBurst(building.cx, 0.6, building.cz, 0x8a7f70, building.size * 0.9, 0.7),
-      ),
+      ev.on('buildingHit', (hit) => this._fxHit(hit)),
+      ev.on('buildingDestroyed', ({ building }) => this._fxCollapse(building)),
     ];
   }
 
@@ -569,6 +585,7 @@ export class Renderer {
     this.blobShadows.end();
     this.healthBars.end();
 
+    this.particles.update(dt);
     for (const fx of this.effects) {
       fx.age += dt;
       const t = fx.age / fx.life;
@@ -778,19 +795,97 @@ export class Renderer {
     this.toScene(p.x, p.y, p.z, view.obj.position);
     if (p.kind === 'arrow' && prev.distanceToSquared(view.obj.position) > 1e-8) {
       view.obj.lookAt(view.obj.position.clone().multiplyScalar(2).sub(prev));
+      // A faint trail: small pale puffs left behind, fading fast.
+      if (this.graphics.effects) {
+        const { x, y, z } = view.obj.position;
+        this.particles.puff({ x, y, z, size: 0.07, grow: 0.05, life: 0.3, color: 0xf2ead8, alpha: 0.5, drag: 1 });
+      }
     } else if (p.kind === 'boulder') {
       view.obj.rotation.x += 0.15;
       view.obj.rotation.z += 0.1;
     }
   }
 
-  _spawnBurst(x, y, z, color, size, life) {
+  // ---------------------------------------------------------------- combat effects (particles.js)
+  // Positions passed in are world tile coordinates; nothing here touches the world.
+
+  /** Cannon smoke and flash at the muzzle when a cannon fires. */
+  _fxFired(p) {
+    if (!this.graphics.effects || p.kind !== 'cannonball') return;
+    const dx = p.tx - p.sx;
+    const dz = p.tz - p.sz;
+    const len = Math.hypot(dx, dz) || 1;
+    const [ux, uz] = [dx / len, dz / len];
+    const at = this.toScene(p.sx + ux * 0.45, p.sy, p.sz + uz * 0.45, this._fxPos);
+    const P = this.particles;
+    P.puff({ x: at.x, y: at.y, z: at.z, size: 0.25, grow: 0.15, life: 0.12, color: 0xffd27a, alpha: 0.95 });
+    for (let i = 0; i < 6; i++) {
+      const s = 0.6 + Math.random() * 1.4;
+      P.puff({ x: at.x, y: at.y, z: at.z, vx: ux * s + rand(0.3), vy: 0.2 + Math.random() * 0.3, vz: uz * s + rand(0.3), size: 0.2, grow: 0.6, life: 1 + Math.random() * 0.6, color: 0xbab3a6, alpha: 0.55, rise: 0.4, drag: 0.15 });
+    }
+  }
+
+  /** Where a cannonball or boulder lands: a flash (cannon), a cloud of smoke or dust, and earth or rock thrown up. */
+  _fxImpact(p) {
     if (!this.graphics.effects) return;
-    const obj = new THREE.Mesh(BURST_GEOMETRY, new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.7, depthWrite: false }));
-    obj.renderOrder = 3;
-    this.toScene(x, y, z, obj.position);
-    this.scene.add(obj);
-    this.effects.push({ obj, age: 0, life, size });
+    const at = this.toScene(p.x, 0.15, p.z, this._fxPos);
+    const P = this.particles;
+    const r = p.splash || 0.5;
+    if (p.kind === 'cannonball') {
+      P.puff({ x: at.x, y: at.y + 0.1, z: at.z, size: 0.4, grow: 0.5, life: 0.15, color: 0xffb04a, alpha: 0.95 });
+      this._fxCloud(at, 8, r, 0x6f6a62, 0.6);
+    } else if (p.kind === 'boulder') {
+      this._fxCloud(at, 9, r, 0xc2a77c, 0.6);
+      for (let i = 0; i < 7; i++) this._fxChunk(at, 0.12, DEBRIS.rock, 2.2);
+    }
+    if (p.kind !== 'arrow') for (let i = 0; i < 6; i++) this._fxChunk(at, 0.06, DEBRIS.earth, 2.6);
+  }
+
+  /** An enemy's blow on a wall or building: a puff of dust and a few splinters or stone chips where it lands. */
+  _fxHit({ building: b, x, z }) {
+    if (!this.graphics.effects) return;
+    const dx = b.cx - x;
+    const dz = b.cz - z;
+    const len = Math.hypot(dx, dz) || 1;
+    const at = this.toScene(x + (dx / len) * 0.45, 0.35 + Math.random() * 0.3, z + (dz / len) * 0.45, this._fxPos);
+    this._fxCloud(at, 2, 0.25, 0xb59e7a, 0.45);
+    const colors = DEBRIS[b.type] ?? DEBRIS.wall;
+    for (let i = 0; i < 3; i++) this._fxChunk(at, 0.05, colors, 1.6);
+  }
+
+  /** A building falls: a big dust cloud and a shower of logs or stones, sized to it. */
+  _fxCollapse(b) {
+    if (!this.graphics.effects) return;
+    const at = this.toScene(b.cx, 0.3, b.cz, this._fxPos);
+    this._fxCloud(at, 6 + b.size * 6, b.size * 0.6, 0x9d8f7a, 0.7, 1.6);
+    const colors = DEBRIS[b.type] ?? DEBRIS.wall;
+    for (let i = 0; i < 8 + b.size * 8; i++) {
+      const c = at.clone();
+      c.x += rand(b.size * 0.4);
+      c.z += rand(b.size * 0.4);
+      c.y += Math.random() * b.def.height * 0.6;
+      this._fxChunk(c, 0.07 + Math.random() * 0.08 * b.size, colors, 2.4);
+    }
+  }
+
+  _fxDust(x, y, z, n, r) {
+    if (!this.graphics.effects) return;
+    this._fxCloud(this.toScene(x, y, z, this._fxPos), n, r, 0x9a8f80, 0.45);
+  }
+
+  /** `n` puffs billowing out from `at` over radius `r`. */
+  _fxCloud(at, n, r, color, alpha, life = 1.1) {
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const s = (0.4 + Math.random()) * r * 1.6;
+      this.particles.puff({ x: at.x + Math.cos(a) * r * 0.3, y: at.y, z: at.z + Math.sin(a) * r * 0.3, vx: Math.cos(a) * s, vy: 0.3 + Math.random() * 0.5, vz: Math.sin(a) * s, size: 0.25 + r * 0.3, grow: 0.5 + r * 0.6, life: life * (0.7 + Math.random() * 0.6), color, alpha, rise: 0.25, drag: 0.08 });
+    }
+  }
+
+  _fxChunk(at, size, colors, speed) {
+    const a = Math.random() * Math.PI * 2;
+    const s = speed * (0.4 + Math.random() * 0.6);
+    this.particles.chunk({ x: at.x, y: at.y, z: at.z, vx: Math.cos(a) * s * 0.6, vy: s, vz: Math.sin(a) * s * 0.6, size: size * (0.7 + Math.random() * 0.6), color: colors[Math.floor(Math.random() * colors.length)] });
   }
 
   // Expanding flat ring on the ground (Magic Spire pulse).
@@ -817,7 +912,7 @@ export function wallVariant(x, z) {
   return (h >>> 7) % WALL_VARIANTS;
 }
 
-/** About one straight wall tile in nine carries a decoration; which tile and which kind come from its position. */
+/** About one straight wall tile in six carries a decoration; which tile and which kind come from its position. */
 export const WALL_DECOR_EVERY = 6;
 
 /** How far a typical tree's top sways in the wind, as a fraction of its sprite's width (see SpriteLayer). */

@@ -81,10 +81,16 @@ describe('World', () => {
       }
     }
     let wallsDestroyed = 0;
+    const hits = [];
     world.events.on('buildingDestroyed', ({ building }) => building.type === 'wall' && wallsDestroyed++);
+    world.events.on('buildingHit', (hit) => hits.push(hit));
     world.startWave();
     runUntil(world, () => wallsDestroyed > 0, 300);
     expect(wallsDestroyed).toBeGreaterThan(0);
+    // Each blow is reported with where it came from (for the renderer's dust and splinters), next to the wall.
+    expect(hits.length).toBeGreaterThan(0);
+    const { building, x, z } = hits[0];
+    expect(Math.hypot(x - building.cx, z - building.cz)).toBeLessThan(2);
   });
 
   it('does not allow building on top of enemies', () => {

@@ -575,3 +575,36 @@ test('a new game starts in a partly built fort: gatehouse and archer tower drawn
   await testInfo.attach('fort', { body: await page.screenshot({ path: testInfo.outputPath('fort.png') }), contentType: 'image/png' });
   expect(errors).toEqual([]);
 });
+
+test('combat effects: cannon smoke, impact clouds, dust and splinters from blows, debris when a wall falls (screenshot attached)', async ({ page }, testInfo) => {
+  const errors = await openGame(page);
+  await page.evaluate(() => {
+    const w = window.game.world;
+    w.economy.earn(2000);
+    w.place('cannonTower', 14, 14);
+    for (let x = 20; x <= 26; x++) w.place('wall', x, 24);
+  });
+  await zoomTo(page, 20, 20, 1.6);
+  // Fire the events the sim sends in battle (blows and the collapse go through the sim itself).
+  const burst = (hitX, fallX) =>
+    page.evaluate(({ hitX, fallX }) => {
+      const w = window.game.world;
+      const r = window.game.renderer;
+      r.particles.clear();
+      const cannon = [...w.buildings.values()].find((b) => b.type === 'cannonTower');
+      w.events.emit('projectileFired', { projectile: { kind: 'cannonball', sx: cannon.cx, sy: cannon.def.height, sz: cannon.cz, tx: 20, tz: 20 }, building: cannon });
+      w.events.emit('projectileImpact', { x: 19, y: 0.2, z: 19, kind: 'cannonball', splash: 1.6 });
+      w.events.emit('projectileImpact', { x: 23, y: 0.2, z: 19, kind: 'boulder', splash: 1.8 });
+      w._damageBuilding(w.buildingAt(hitX, 24), 10, { x: hitX + 0.5, z: 25.5 }); // an enemy's blow
+      w._damageBuilding(w.buildingAt(fallX, 24), 9999, { x: fallX + 0.5, z: 25.5 }); // a wall falls
+      return r.particles.count;
+    }, { hitX, fallX });
+  expect(await burst(22, 25)).toBeGreaterThan(60);
+  await page.waitForTimeout(250);
+  await testInfo.attach('combat-effects', { body: await page.screenshot({ path: testInfo.outputPath('combat-effects.png') }), contentType: 'image/png' });
+  // They burn out, and the Effects setting turns them off.
+  await expect.poll(() => page.evaluate(() => window.game.renderer.particles.count), { timeout: 10000 }).toBe(0);
+  await page.evaluate(() => window.game.setGraphics({ ...window.game.graphics, effects: false }));
+  expect(await burst(21, 20)).toBe(0);
+  expect(errors).toEqual([]);
+});

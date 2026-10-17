@@ -21,7 +21,7 @@ import { generateTerrain, spawnTilesBySide, T } from './terrain.js';
  * → back to 'build' when the wave is cleared, or 'gameover' when the Town Hall falls.
  *
  * Events emitted: goldChanged, buildingPlaced, buildingSold, buildingDestroyed,
- * enemySpawned, enemyKilled, projectileFired, projectileImpact, towerPulse, waveStarted,
+ * enemySpawned, enemyKilled, projectileFired, projectileImpact, towerPulse, buildingHit, waveStarted,
  * waveCleared, gameOver.
  */
 export class World {
@@ -301,9 +301,11 @@ export class World {
     this._flowDirty = true;
   }
 
-  _damageBuilding(b, amount) {
+  /** `from`: where the blow came from ({ x, z }, e.g. the attacker), for the renderer's hit effects. */
+  _damageBuilding(b, amount, from = null) {
     if (b.hp <= 0) return;
     b.hp -= amount;
+    if (from) this.events.emit('buildingHit', { building: b, amount, x: from.x, z: from.z });
     if (b.hp > 0) return;
     b.hp = 0;
     this._removeBuilding(b);
@@ -496,7 +498,7 @@ export class World {
         e.attackTimer -= dt;
         if (e.attackTimer <= 0) {
           e.attackTimer += e.def.attackCooldown;
-          this._damageBuilding(b, e.def.damage * (e.elite ? 1.5 : 1));
+          this._damageBuilding(b, e.def.damage * (e.elite ? 1.5 : 1), e);
           // A cheaper route may have opened up (e.g. another wall fell).
           const next = this.flow.nextStep(e.tx, e.tz);
           if (!next || this.grid.get(next.x, next.z) !== b.id) e.attackTargetId = null;
