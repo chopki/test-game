@@ -97,8 +97,10 @@ Pre-rendered sprites on a fixed isometric camera (see ARCHITECTURE.md), working 
       rings the water and darkens the ground and light. Looks only (`weather.js`, `weatherLayers.js`, sprite
       shader); Settings → Weather turns it off; `?season=` / `?weather=` force it. Ideas left: bare trees in winter,
       frozen lakes, puddles
-- [ ] **Wildlife**: birds flying over (and scattering when cannons fire), fish jumping in streams and lakes, deer
-      or rabbits at the woods' edge; decoration only, never in the way
+- [x] **Wildlife**: inked flocks of birds cross the map (with shadows) and scatter when cannons fire or shots land
+      near them; fish leap from streams and lakes with a splash; deer and rabbits graze at the woods' edge, away
+      from the hall, and bolt into the trees when enemies come near, shots land close or something is built on
+      their spot, coming back in quiet times (`wildlife.js`, `animals.js`; decoration only)
 - [ ] **Models from our drawings (image-to-3D trial)**: send crops of `docs/reference/art-style.jpg` (Town Hall,
       catapult, watchtower, trees) to an image-to-3D service (open models such as Hunyuan3D-2 or TRELLIS, or Tripo /
       Meshy with an API key), restyle the returned `.glb` with our materials and bake it with our ink style, and add

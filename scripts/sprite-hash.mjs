@@ -12,6 +12,7 @@ export const SPRITE_SOURCES = [
   'src/render/iso.js',
   'src/render/inkStyle.js',
   'src/render/wallDecor.js',
+  'src/render/animals.js',
 ];
 
 const root = fileURLToPath(new URL('..', import.meta.url));

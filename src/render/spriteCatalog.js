@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { BUILDINGS, ENEMIES } from '../sim/config.js';
 import { wavingPennant, withoutPennantCloth } from './modelKit.js';
+import { ANIMAL_KINDS, ANIMAL_POSES, createAnimal } from './animals.js';
 import { createWallDecor, WALL_DECOR_KINDS } from './wallDecor.js';
 import { BRIDGE_PARTS, createBridgePiece, createBuildingModel, createEnemyModel, createSceneryObject, createWallArm, ENEMY_ANIMS, IN_WALL_RADIUS, IN_WALL_TYPES, poseEnemy, SCENERY_TYPES, SCENERY_VARIANTS, WALL_VARIANTS } from './models.js';
 
@@ -30,6 +31,8 @@ export const spriteKeys = {
   inWall: (type, shape) => (type === 'gatehouse' && shape.startsWith('ns') ? `bw:${type}:ns` : `bw:${type}`),
   /** A piece of a ford's footbridge ('mid', 'start' or 'end') running along `axis` ('x' or 'z'). */
   bridge: (part, axis) => `bridge:${axis}:${part}`,
+  /** A wild animal (see animals.js) facing `heading`, in `pose`. */
+  animal: (kind, heading, pose) => `a:${kind}:${angleIndex(heading, ENEMY_DIRECTIONS)}:${pose}`,
   /** A frame of a waving pennant cloth; `turn` 1 for one turned a quarter (see PENNANTS in models.js). */
   flag: (turn, frame) => `flag:${turn}:${frame}`,
   /** One wall arm of an in-wall tower (see createWallArm in models.js). */
@@ -220,6 +223,24 @@ export function spriteSpecs() {
   for (const from of new Set(Object.values(IN_WALL_RADIUS))) {
     for (const dir of ['n', 'e', 's', 'w']) {
       for (const straight of [true, false]) specs.push({ key: spriteKeys.wallArm(dir, from, straight), make: () => createWallArm(dir, from, straight) });
+    }
+  }
+
+  for (const kind of ANIMAL_KINDS) {
+    for (let d = 0; d < ENEMY_DIRECTIONS; d++) {
+      const heading = (d / ENEMY_DIRECTIONS) * Math.PI * 2;
+      for (const pose of ANIMAL_POSES) {
+        specs.push({
+          key: spriteKeys.animal(kind, heading, pose),
+          shadow: false,
+          pxPerUnit: ENEMY_PX_PER_UNIT,
+          make: () => {
+            const m = createAnimal(kind, pose);
+            m.rotation.y = heading;
+            return m;
+          },
+        });
+      }
     }
   }
 

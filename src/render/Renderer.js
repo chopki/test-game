@@ -20,6 +20,7 @@ import { Particles } from './particles.js';
 import { SPRITE_KIND, SpriteLayer } from './spriteLayer.js';
 import { seasonFor, SEASONS, weatherFor, WEATHERS, weatherLook } from './weather.js';
 import { GroundCover, Precipitation } from './weatherLayers.js';
+import { Wildlife } from './wildlife.js';
 import { CATAPULT_ARM_FRAMES, ENEMY_ANIMS, FLAG_FRAMES, crystalHeight, spriteKeys, turretHeight } from './spriteCatalog.js';
 import { PENNANT_W } from './modelKit.js';
 
@@ -143,6 +144,7 @@ export class Renderer {
     this.groundMarks = new GroundMarks(this.groundLayer);
     this.glows = new GlowBatch(this.overlayLayer, ISO_QUATERNION);
     this.precipitation = new Precipitation(this.overlayLayer);
+    this.wildlife = new Wildlife(this);
     this.weather = { season: 'summer', weather: 'clear' };
     this._look = weatherLook('summer', 'clear');
     this.scorches = [];
@@ -554,10 +556,17 @@ export class Renderer {
     const season = SEASONS.includes(params.get('season')) ? params.get('season') : seasonFor(world.seed);
     this.setWeather(season, this._weatherFor(0, season));
     this._look = this._targetLook();
+    this.wildlife.reset(world);
     const ev = world.events;
     this._unsubscribe = [
-      ev.on('projectileFired', ({ projectile }) => this._fxFired(projectile)),
-      ev.on('projectileImpact', (p) => this._fxImpact(p)),
+      ev.on('projectileFired', ({ projectile }) => {
+        this._fxFired(projectile);
+        if (projectile.kind === 'cannonball') this.wildlife.startle(projectile.sx, projectile.sz, 5);
+      }),
+      ev.on('projectileImpact', (p) => {
+        this._fxImpact(p);
+        if (p.kind !== 'arrow') this.wildlife.startle(p.x, p.z, 4);
+      }),
       ev.on('towerPulse', ({ x, z, radius }) => this._spawnRing(x, z, radius, 0xa66bff, 0.55)),
       ev.on('enemyKilled', ({ enemy }) => {
         this._fxDust(enemy.x, 0.25, enemy.z, 3, 0.35);
@@ -634,6 +643,7 @@ export class Renderer {
       }
     }
     this._updateWeather(dt);
+    this.wildlife.update(dt, this._time);
     if (this._shimmer) this._shimmer.material.uniforms.time.value = this._time;
     this._clouds.material.uniforms.time.value = this._time;
     if (world) {

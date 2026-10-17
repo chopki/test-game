@@ -763,3 +763,35 @@ test('seasons and weather: winter snow, autumn leaves and rain, and the Weather 
   await expect.poll(() => page.evaluate(() => window.game.renderer.precipitation.drawn), { timeout: 15000 }).toBe(0);
   expect(errors).toEqual([]);
 });
+
+test('wildlife: deer and rabbits at the woods edge bolt when startled, birds fly over and scatter, fish jump (screenshot attached)', async ({ page }, testInfo) => {
+  const errors = await openGame(page, { map: 'terrain' });
+  const wild = () =>
+    page.evaluate(() => {
+      const w = window.game.renderer.wildlife;
+      return { animals: w.visibleAnimals, birds: w.birds.length, scattered: w.birds.filter((b) => b.scatter).length, jumps: w.jumps ?? 0, fled: w.fled ?? 0 };
+    });
+  await expect.poll(async () => (await wild()).animals, { timeout: 20000 }).toBeGreaterThan(2);
+  // Hurry the birds and the fish along.
+  await page.evaluate(() => {
+    const w = window.game.renderer.wildlife;
+    w._birdTimer = 0;
+    w._fishTimer = 0;
+  });
+  await expect.poll(async () => (await wild()).birds).toBeGreaterThan(3);
+  await expect.poll(async () => (await wild()).jumps).toBeGreaterThan(0);
+  // A close look at one of the animals, then a cannon shot lands by it and next to the birds.
+  const animal = await page.evaluate(() => window.game.renderer.wildlife.animals.find((a) => a.state !== 'gone'));
+  await zoomTo(page, animal.x, animal.z, 3);
+  await testInfo.attach('wildlife', { body: await page.screenshot({ path: testInfo.outputPath('wildlife.png') }), contentType: 'image/png' });
+  await page.evaluate(({ x, z }) => {
+    const w = window.game.renderer.wildlife;
+    w.startle(x, z, 4);
+    const b = w.birds[0];
+    w.startle(b.x, b.z, 2);
+  }, animal);
+  const after = await wild();
+  expect(after.fled).toBeGreaterThan(0);
+  expect(after.scattered).toBeGreaterThan(0);
+  expect(errors).toEqual([]);
+});

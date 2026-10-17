@@ -153,6 +153,10 @@ so the whole battlefield is ~15 draw calls and a few hundred triangles however d
   clear of snow) and lays snow on top edges by sampling the atlas a few pixels above each pixel.
   `weatherLayers.js` draws the ground cover (snow, wet, leaves; masked off the water) and the falling rain or
   snow; the water shader adds rain rings; rain and winter light are CSS filters with the grade.
+- Wildlife: `wildlife.js` (driven by the renderer, reads the world, never changes it) runs birds (one instanced
+  batch of inked wing frames), the odd leaping fish (a small 3D mesh) and deer and rabbits (baked sprites from
+  `animals.js`, 8 directions × graze / alert / two run frames), drawn through the renderer's sprite, shadow and
+  particle batches. Animals startle from enemies nearby, buildings on their spot and `startle()` (shots, cannons).
 - Combat effects: `particles.js` draws soft inked puffs (smoke, dust, flashes, arrow trails) and tumbling debris
   chunks as two InstancedMeshes, refilled each frame. The renderer spawns them from world events
   (`projectileFired`, `projectileImpact`, `buildingHit` with the blow's origin, `buildingDestroyed`, `enemyKilled`);
