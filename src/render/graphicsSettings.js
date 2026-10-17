@@ -17,6 +17,10 @@ export const OPTIONS = {
     [1, '100%'],
     [1.5, '150%'],
     [2, '200%'],
+    [2.5, '250%'],
+    [3, '300%'],
+    // The screen's own pixel density (e.g. ~260% on a Pixel 7, 300% on many iPhones): every pixel drawn for real.
+    ['native', 'Native'],
   ],
   antialias: [
     [false, 'Off'],
@@ -47,7 +51,7 @@ export const OPTIONS = {
  * Bounds for automatic render scale ('auto' resolution). The upper bound is also capped at the
  * screen's real pixel ratio. Touch devices start lower and work up.
  */
-export const AUTO_RESOLUTION = { min: 0.5, max: 1.5, startTouch: 0.75, startDesktop: 1 };
+export const AUTO_RESOLUTION = { min: 0.5, max: 2, startTouch: 0.75, startDesktop: 1 };
 
 /**
  * Decorative trees placed in the woods outside the map, for each scenery setting. (Terrain on the map itself,

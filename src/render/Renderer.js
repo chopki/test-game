@@ -435,10 +435,14 @@ export class Renderer {
     this._clouds.visible = graphics.effects;
   }
 
-  /** Pixels drawn per CSS pixel, capped at the screen's real pixel ratio. */
+  /**
+   * Pixels drawn per CSS pixel: a number, or 'native' for the screen's own density. Always capped at that density:
+   * drawing more pixels than the screen has (supersampling) costs a lot for very little smoothing.
+   */
   setRenderScale(scale) {
     this.renderScale = scale;
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, scale));
+    const screen = window.devicePixelRatio || 1;
+    this.renderer.setPixelRatio(scale === 'native' ? screen : Math.min(screen, scale));
     this._resize();
   }
 

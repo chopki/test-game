@@ -91,7 +91,9 @@ Open **⚙** in the top bar. The game pauses while the menu is open.
 | Medium | Auto | off | 60 fps | medium |
 | High (always used at startup) | 150% | on | unlimited | high |
 
-**Auto** render scale adjusts itself (50%–150%, capped at the screen's pixel density) to hold the frame-rate
+Render scale goes from 50% up to 300% and **Native** (the screen's own pixel density: about 260% on a Pixel 7,
+300% on many iPhones), always capped at that density, since drawing more pixels than the screen has costs a lot
+for very little gain. **Auto** render scale adjusts itself (50%–200%, capped at the screen's pixel density) to hold the frame-rate
 cap: it drops as soon as frames slow down and creeps back up after a few smooth seconds. Shadows are baked into
 the sprites, so they cost nothing extra.
 The FPS counter also shows the current render scale.

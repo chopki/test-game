@@ -201,3 +201,17 @@ test('showcase: a walled base with every tower and enemy renders without errors 
   await buildShowcase(page, testInfo, 'showcase-phone');
   expect(errors).toEqual([]);
 });
+
+test('render scale goes up to the screen: Native and 300% draw at the phone’s own pixel density', async ({ page }) => {
+  const errors = await openGame(page);
+  const ratio = () => page.evaluate(() => window.game.renderer.renderer.getPixelRatio());
+  const screen = await page.evaluate(() => window.devicePixelRatio);
+  await page.getByRole('button', { name: 'Settings' }).tap();
+  await settingButton(page, 'Render scale', 'Native').tap();
+  expect(await ratio()).toBeCloseTo(screen, 3);
+  await settingButton(page, 'Render scale', '300%').tap();
+  expect(await ratio()).toBeCloseTo(Math.min(3, screen), 3); // never more pixels than the screen has
+  await settingButton(page, 'Render scale', '200%').tap();
+  expect(await ratio()).toBeCloseTo(Math.min(2, screen), 3);
+  expect(errors).toEqual([]);
+});
