@@ -36,6 +36,9 @@ export const TERRAIN = {
   forest: { scale: 0.12, threshold: 0.62, edgeBoost: 0.3 },
   rock: { scale: 0.21, threshold: 0.75, ridges: [1, 3], ridgeLength: [3, 7] },
   water: { streamChance: 0.8, lakeChance: 0.5, fords: [1, 2], fordWidth: 3 },
+  // Coast: on this share of maps the sea lies along one edge (`depth` tiles of sea give or take `wobble`, then
+  // `beach` tiles of sand). No enemies come from the sea.
+  sea: { chance: 0.35, depth: [5, 7.5], wobble: 1.4, beach: [1.2, 2.4] },
 };
 
 /**

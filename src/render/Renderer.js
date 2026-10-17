@@ -4,7 +4,7 @@ import { GRID } from '../sim/config.js';
 import { T } from '../sim/terrain.js';
 import { createRng } from '../sim/rng.js';
 import { AUTO_RESOLUTION, GROUND_DETAIL, GROUND_PX, SCENERY_COUNT } from './graphicsSettings.js';
-import { OUTER_GROUND, outsideForest, paintTerrain } from './terrainPainter.js';
+import { isOffshore, OCEAN, OUTER_GROUND, outsideForest, paintTerrain } from './terrainPainter.js';
 import { cloudTexture } from './textures.js';
 import { wallSeat } from './wallSeat.js';
 import { DECOR_PENNANTS, WALL_DECOR_KINDS } from './wallDecor.js';
@@ -256,7 +256,7 @@ export class Renderer {
    */
   _buildTerrain() {
     const world = this.world;
-    for (const obj of [this._ground, this._shimmer, this._blockedTint]) {
+    for (const obj of [this._ground, this._shimmer, this._blockedTint, this._ocean]) {
       if (!obj) continue;
       obj.removeFromParent();
       obj.geometry.dispose();
@@ -264,7 +264,7 @@ export class Renderer {
       obj.material.uniforms?.mask.value.dispose();
       obj.material.dispose();
     }
-    this._ground = this._shimmer = this._blockedTint = null;
+    this._ground = this._shimmer = this._blockedTint = this._ocean = null;
     this._cover?.dispose();
     this._cover = null;
     if (!world) return;
@@ -272,7 +272,7 @@ export class Renderer {
     const grid = world.grid;
     const scenery = this.graphics.scenery;
     const started = performance.now();
-    const painted = paintTerrain(grid, { pxPerTile: GROUND_PX[scenery], detail: GROUND_DETAIL[scenery], seed: world.seed });
+    const painted = paintTerrain(grid, { pxPerTile: GROUND_PX[scenery], detail: GROUND_DETAIL[scenery], seed: world.seed, coast: world.coast });
     this.terrainPaintMs = Math.round(performance.now() - started);
     this._terrainNoise = painted.noise;
 
@@ -285,6 +285,7 @@ export class Renderer {
     this._ground.renderOrder = -1;
     this.scene.add(this._ground);
 
+    if (world.coast) this._ocean = this._createOcean(world.coast);
     if (painted.hasWater) this._shimmer = this._createShimmer(painted);
     this._cover = new GroundCover(this.scene, painted.tiles, painted.waterMask);
     this._blockedTint = this._createBlockedTint(grid);
@@ -314,6 +315,22 @@ export class Renderer {
     this._buildScenery(SCENERY_COUNT[scenery]);
   }
 
+  /** Open sea to the horizon beyond the painted ground on the coast side (the painted sea fades into it). */
+  _createOcean(coast) {
+    const W = GRID.width;
+    const H = GRID.height;
+    const S = 600;
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(S, S), new THREE.MeshBasicMaterial({ color: OCEAN, depthWrite: false }));
+    mesh.rotation.x = -Math.PI / 2;
+    mesh.position.y = -0.02;
+    mesh.renderOrder = -1.5; // over the outer ground, under the painted ground
+    // Its inner edge on the map's coast edge; it reaches out along the whole horizon.
+    const [cx, cz] = { north: [W / 2, -S / 2], south: [W / 2, H + S / 2], west: [-S / 2, H / 2], east: [W + S / 2, H / 2] }[coast];
+    this.toScene(cx, -0.02, cz, mesh.position);
+    this.scene.add(mesh);
+    return mesh;
+  }
+
   /**
    * Moving water: foam streaks drifting downstream (streams flow off the map; see waterFlow.js) and glints on
    * every wet tile, masked to the painted shoreline. One quad per wet tile; each corner carries the flow direction
@@ -341,13 +358,28 @@ export class Renderer {
       const len = Math.hypot(fx, fz);
       return len > 1e-6 ? [fx / len, fz / len] : [0, 0];
     };
+    // Distance from land at a quad corner (the mean over the sea tiles round it), or -1 for streams and lakes.
+    const shoreAt = (cx, cz) => {
+      let sum = 0;
+      let n = 0;
+      for (const [x, z] of [[cx - 1, cz - 1], [cx, cz - 1], [cx - 1, cz], [cx, cz]]) {
+        const i = (z + b) * TW + (x + b);
+        if (x + b < 0 || z + b < 0 || x + b >= TW || z + b >= TH || !painted.sea[i]) continue;
+        sum += painted.seaDist[i];
+        n++;
+      }
+      return n ? sum / n : -1;
+    };
     const positions = [];
     const uvs = [];
     const flows = [];
-    for (let z = 0; z < grid.height; z++) {
-      for (let x = 0; x < grid.width; x++) {
-        const t = grid.terrain[z * grid.width + x];
-        if (t !== T.water && t !== T.ford) continue;
+    const shores = [];
+    // Every wet tile of the map, and the sea out through the painted border.
+    for (let z = -b; z < grid.height + b; z++) {
+      for (let x = -b; x < grid.width + b; x++) {
+        const inMap = grid.inBounds(x, z);
+        const t = inMap ? grid.terrain[z * grid.width + x] : -1;
+        if (inMap ? t !== T.water && t !== T.ford && t !== T.sea : !painted.sea[(z + b) * TW + (x + b)]) continue;
         // Wound anticlockwise seen from above, so the quads face up (the camera) and aren't culled.
         const quad = [
           [x, z],
@@ -361,6 +393,7 @@ export class Renderer {
           positions.push(qx - this.offsetX, 0.005, qz - this.offsetZ);
           uvs.push((qx + b) / TW, 1 - (qz + b) / TH);
           flows.push(...cornerFlow(qx, qz));
+          shores.push(shoreAt(qx, qz));
         }
       }
     }
@@ -368,6 +401,7 @@ export class Renderer {
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
     geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
     geometry.setAttribute('flow', new THREE.Float32BufferAttribute(flows, 2));
+    geometry.setAttribute('shoreDist', new THREE.Float32BufferAttribute(shores, 1));
     const mask = new THREE.CanvasTexture(painted.waterMask);
     const material = new THREE.ShaderMaterial({
       uniforms: {
@@ -379,13 +413,16 @@ export class Renderer {
       },
       vertexShader: /* glsl */ `
         attribute vec2 flow;
+        attribute float shoreDist;
         varying vec2 vUv;
         varying vec2 vWorld;
         varying vec2 vFlow;
+        varying float vShore;
         void main() {
           vUv = uv;
           vWorld = position.xz;
           vFlow = flow;
+          vShore = shoreDist;
           gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
         }`,
       fragmentShader: /* glsl */ `
@@ -397,6 +434,7 @@ export class Renderer {
         varying vec2 vUv;
         varying vec2 vWorld;
         varying vec2 vFlow;
+        varying float vShore; // sea: tiles from the shore; -1 for streams and lakes
         float maskAt(vec2 o) { return texture2D(mask, vUv + o * tileUv).a; }
         void main() {
           float m = maskAt(vec2(0.0));
@@ -425,6 +463,14 @@ export class Renderer {
           float inner = min(min(maskAt(vec2(r, 0.0)), maskAt(vec2(-r, 0.0))), min(maskAt(vec2(0.0, r)), maskAt(vec2(0.0, -r))));
           float shore = (1.0 - inner) * (0.55 + 0.45 * sin(time * 1.7 + (p.x + p.y) * 2.3));
 
+          // The sea: lines of surf rolling in and breaking on the beach (fading out to sea), and a slow swell
+          // further out.
+          float sea = step(0.0, vShore);
+          float roll = sin(vShore * 2.6 - time * 1.35 + nz * 3.0);
+          float surf = smoothstep(0.72, 0.96, roll) * (1.0 - smoothstep(0.6, 3.6, vShore)) * smoothstep(0.15, 0.5, nz + 0.3) * sea;
+          float swell = smoothstep(0.92, 1.0, sin(vShore * 1.1 - time * 0.7 + nz * 4.0 + p.x * 0.25)) * smoothstep(1.5, 3.0, vShore) * sea;
+          shore *= 1.0 + 0.5 * sea;
+
           // Rain: small rings spreading where drops land (one per cell, each on its own beat).
           float rings = 0.0;
           if (rain > 0.0) {
@@ -436,7 +482,7 @@ export class Renderer {
             float d = length(f - at);
             rings = (1.0 - smoothstep(0.0, 0.05, abs(d - t * 0.35))) * (1.0 - t) * rain;
           }
-          float light = max(max(max(crest * 0.22, streak * 0.38), max(glint * 0.3 * (1.0 - rain * 0.8), shore * 0.5)), rings * 0.6);
+          float light = max(max(max(crest * 0.22, streak * 0.38), max(glint * 0.3 * (1.0 - rain * 0.8), shore * 0.5)), max(rings * 0.6, max(surf * 0.95, swell * 0.22)));
           float dark = trough * 0.1 * (1.0 - light);
           vec3 color = mix(vec3(0.12, 0.3, 0.45), vec3(0.95, 0.98, 1.0), light / max(light + dark, 0.0001));
           gl_FragColor = vec4(color, max(light, dark) * m);
@@ -487,6 +533,7 @@ export class Renderer {
       const z = rnd.range(-16, H + 16);
       const wood = outsideForest(noise, x, z, W, H);
       if (wood <= 0.05) continue;
+      if ([[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dz]) => isOffshore(this.world.grid, this.world.coast, x + dx, z + dz))) continue; // not in (or right by) the sea
       const dense = wood > 0.5;
       if (!dense && rnd.next() > 0.12) continue;
       const kind = dense ? treeKind(noise, x, z, rnd) : rnd.pick(['bush', 'bush', 'rock', 'oak', 'birch', 'stump']);

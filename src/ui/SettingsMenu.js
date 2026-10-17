@@ -41,6 +41,15 @@ export class SettingsMenu {
       }),
     );
     this.body.appendChild(this._row('Rivers', 'For new maps: Always gives every map a stream to defend across (crossed at fords). Takes effect from the next new map.', this.riverButtons));
+    // Coast: whether new maps have the sea along one edge (no attacks come from it).
+    this.seaChoices = [false, 'sometimes', true];
+    this.seaButtons = ['Never', 'Sometimes', 'Always'].map((text, i) =>
+      this._button(text, () => {
+        this.game.mapOptions.sea = this.seaChoices[i];
+        this.refresh();
+      }),
+    );
+    this.body.appendChild(this._row('Coast', 'For new maps: the sea along one edge, behind a sandy beach. No enemies come from the sea, so there is one side less to defend. Takes effect from the next new map.', this.seaButtons));
 
     this.presetButtons = PRESET_ORDER.map((preset) =>
       this._button(capitalize(preset), () => this.game.setGraphics(withPreset(this.game.graphics, preset))),
@@ -113,6 +122,7 @@ export class SettingsMenu {
     this.mapButton.classList.toggle('warn', confirming);
     this.mapRow.querySelector('small').textContent = `Map ${this.game.world.seed}. A new map starts a new game (woods, rocks and water are different every time).`;
     this.riverButtons.forEach((b, i) => b.classList.toggle('active', this.game.mapOptions.river === (i === 1)));
+    this.seaButtons.forEach((b, i) => b.classList.toggle('active', this.game.mapOptions.sea === this.seaChoices[i]));
     const g = this.game.graphics;
     PRESET_ORDER.forEach((preset, i) => this.presetButtons[i].classList.toggle('active', g.preset === preset));
     this.customTag.hidden = g.preset !== 'custom';

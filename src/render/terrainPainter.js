@@ -20,6 +20,8 @@ const BASE_PX = 8;
 const BANK_DEPTH = 0.45; // how far (in tiles) the far bank's wall shows above the water
 export const PAINT_BORDER = 14;
 export const OUTER_GROUND = '#aaa25a';
+/** The open sea beyond the painted ground on a coast (the painted sea deepens into it). */
+export const OCEAN = '#306c9c';
 
 // Warm straw-olive grass like the reference, with ink for the edges between kinds of ground.
 const C = {
@@ -34,6 +36,10 @@ const C = {
   bankTop: [150, 112, 68],
   shallow: [120, 190, 206],
   deep: [74, 146, 186],
+  ocean: hexRgb('#306c9c'), // the open sea, far from the shore (OCEAN)
+  sand: [232, 208, 142],
+  wetSand: [208, 180, 118],
+  sandWall: [196, 164, 106],
   ford: [156, 184, 168],
   outer: hexRgb(OUTER_GROUND),
 };
@@ -54,6 +60,20 @@ function mix(out, c, t) {
   out[2] += (c[2] - out[2]) * t;
 }
 
+/**
+ * Whether sim position (x, z) outside the map is sea: everything beyond the coast edge, and off the map's other
+ * edges wherever the edge tile it continues from is sea (so the coastline runs straight on out). Shared by the
+ * painter and the renderer (no trees in the sea).
+ */
+export function isOffshore(grid, coast, x, z) {
+  if (!coast) return false;
+  const { width: W, height: H } = grid;
+  if (coast === 'north' ? z < 0 : coast === 'south' ? z >= H : coast === 'west' ? x < 0 : x >= W) return true;
+  const tx = Math.min(W - 1, Math.max(0, Math.floor(x)));
+  const tz = Math.min(H - 1, Math.max(0, Math.floor(z)));
+  return (tx !== Math.floor(x) || tz !== Math.floor(z)) && grid.terrain[tz * W + tx] === T.sea;
+}
+
 /** How wooded the land outside the map is at sim tile (x, z): 0..1. Shared by the painter and the renderer. */
 export function outsideForest(noise, x, z, width, height) {
   const out = Math.max(-x, -z, x - (width - 1), z - (height - 1)); // tiles beyond the map edge
@@ -64,11 +84,13 @@ export function outsideForest(noise, x, z, width, height) {
 
 /**
  * Paint the ground for `grid` (a sim Grid with `terrain`). `pxPerTile` is the final resolution and `detail`
- * scales how many small details are stamped (0 = none). Returns { canvas, waterMask, hasWater, tiles, border,
- * noise } where `tiles` is the painted size in tiles (map + 2 × border) and `waterMask` is a small
- * canvas (white where there's water) for the shimmer effect.
+ * scales how many small details are stamped (0 = none). `coast`: the side the sea lies along (it carries on out
+ * through the border, deepening into open ocean), or null. Returns { canvas, waterMask, hasWater, tiles, border,
+ * noise, sea, seaDist } where `tiles` is the painted size in tiles (map + 2 × border), `waterMask` is a small
+ * canvas (white where there's water) for the shimmer effect, and `sea` / `seaDist` give, per painted tile, whether
+ * it's sea and how many tiles it is from land.
  */
-export function paintTerrain(grid, { pxPerTile = 16, detail = 1, seed = 1, border = PAINT_BORDER } = {}) {
+export function paintTerrain(grid, { pxPerTile = 16, detail = 1, seed = 1, border = PAINT_BORDER, coast = null } = {}) {
   const { width: W, height: H } = grid;
   const TW = W + 2 * border;
   const TH = H + 2 * border;
@@ -80,12 +102,21 @@ export function paintTerrain(grid, { pxPerTile = 16, detail = 1, seed = 1, borde
   const ford = field();
   const forest = field();
   const rock = field();
+  const sea = field();
+  const sand = field();
   let hasWater = false;
+  // Beyond the coast edge it's all sea.
+  const offshore = (x, z) => isOffshore(grid, coast, x, z);
   for (let tz = 0; tz < TH; tz++) {
     for (let tx = 0; tx < TW; tx++) {
       const x = tx - border;
       const z = tz - border;
       const i = tz * TW + tx;
+      if (offshore(x, z)) {
+        sea[i] = water[i] = 1;
+        hasWater = true;
+        continue;
+      }
       if (!grid.inBounds(x, z)) {
         // Outside the map the woods are decoration with fewer trees, so the forest floor is fainter.
         forest[i] = outsideForest(noise, x, z, W, H) * 0.55;
@@ -99,9 +130,38 @@ export function paintTerrain(grid, { pxPerTile = 16, detail = 1, seed = 1, borde
       }
       if (t === T.forest) forest[i] = 1;
       if (t === T.rock) rock[i] = 1;
-      if (t === T.water || t === T.ford) hasWater = true;
+      if (t === T.sea) sea[i] = water[i] = 1;
+      if (t === T.sand) sand[i] = 1;
+      if (t === T.water || t === T.ford || t === T.sea) hasWater = true;
     }
   }
+  // How far each sea tile is from land (tiles, 4-neighbour steps), for the deepening colour and the surf.
+  const seaDist = field();
+  {
+    const queue = [];
+    for (let i = 0; i < TW * TH; i++) {
+      if (sea[i]) seaDist[i] = Infinity;
+      else queue.push(i);
+    }
+    for (let k = 0; k < queue.length; k++) {
+      const i = queue[k];
+      const tx = i % TW;
+      const tz = (i / TW) | 0;
+      for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nx = tx + dx;
+        const nz = tz + dz;
+        if (nx < 0 || nz < 0 || nx >= TW || nz >= TH) continue;
+        const j = nz * TW + nx;
+        if (seaDist[j] > seaDist[i] + 1) {
+          seaDist[j] = seaDist[i] + 1;
+          queue.push(j);
+        }
+      }
+    }
+    for (let i = 0; i < TW * TH; i++) if (!Number.isFinite(seaDist[i])) seaDist[i] = 30;
+  }
+  const deepSea = field();
+  for (let i = 0; i < TW * TH; i++) deepSea[i] = sea[i] ? smooth(1, 8, seaDist[i]) : 0;
   const sample = (f, u, v) => {
     // Bilinear between tile centres.
     const fu = Math.min(TW - 1.001, Math.max(0, u - 0.5));
@@ -131,7 +191,7 @@ export function paintTerrain(grid, { pxPerTile = 16, detail = 1, seed = 1, borde
   const mask = mctx.createImageData(bw, bh);
   const col = [0, 0, 0];
   // Per-pixel field values (after their wobble), kept to find the edges to ink afterwards.
-  const fields = { forest: new Float32Array(bw * bh), rock: new Float32Array(bw * bh), earth: new Float32Array(bw * bh), shore: new Float32Array(bw * bh) };
+  const fields = { forest: new Float32Array(bw * bh), rock: new Float32Array(bw * bh), earth: new Float32Array(bw * bh), shore: new Float32Array(bw * bh), sand: new Float32Array(bw * bh) };
   for (let py = 0; py < bh; py++) {
     const v = (py + 0.5) / BASE_PX;
     const z = v - border;
@@ -159,12 +219,18 @@ export function paintTerrain(grid, { pxPerTile = 16, detail = 1, seed = 1, borde
       const r = sample(rock, u, v) + wobble * 0.4;
       mix(col, C.gravel, smooth(0.4, 0.47, r) * 0.85);
 
+      // Beach: pale sand, damper where the sea reaches it.
+      const sd = sample(sand, u, v) + wobble * 0.3;
+      mix(col, C.sand, smooth(0.42, 0.5, sd));
+
       const w = sample(water, u, v) + wobble * 0.3;
+      const seaHere = sample(sea, u, v) > 0.5;
       let m = 0;
       if (w > 0.4) {
         // Sandy shore, then the water, which sits below the grass: where the land is on the far side (away
         // from the camera), the earth bank's wall shows above the water line, as in the reference.
-        mix(col, C.shore, smooth(0.4, 0.47, w));
+        const sandy = Math.min(1, sample(sand, u, v) * 2 + (seaHere ? 0.6 : 0));
+        mix(col, sandy > 0.3 ? C.wetSand : C.shore, smooth(0.4, 0.47, w));
         if (w > 0.48) {
           const isFord = sample(ford, u, v) > 0.5;
           col[0] = C.shallow[0];
@@ -172,13 +238,16 @@ export function paintTerrain(grid, { pxPerTile = 16, detail = 1, seed = 1, borde
           col[2] = C.shallow[2];
           if (isFord) mix(col, C.ford, 0.85);
           else mix(col, C.deep, smooth(0.62, 1.05, w + fine * 0.3));
+          // The sea deepens away from the shore into open ocean.
+          if (seaHere) mix(col, C.ocean, sample(deepSea, u, v) * (0.9 + fine * 0.2));
           const far = sample(water, u - BANK_DEPTH, v - BANK_DEPTH) + wobble * 0.3;
           if (far <= 0.48 && !isFord) {
             const depth = smooth(0.48, 0.3, far);
             col[0] = C.bankWall[0];
             col[1] = C.bankWall[1];
             col[2] = C.bankWall[2];
-            mix(col, C.bankTop, 1 - depth);
+            mix(col, C.sandWall, sandy);
+            mix(col, sandy > 0.3 ? C.sand : C.bankTop, 1 - depth);
           } else {
             m = isFord ? 0.55 : 1;
           }
@@ -190,6 +259,7 @@ export function paintTerrain(grid, { pxPerTile = 16, detail = 1, seed = 1, borde
       fields.rock[pi] = r;
       fields.earth[pi] = earth;
       fields.shore[pi] = w;
+      fields.sand[pi] = sd;
 
       // A touch of light and shade, then fade the border into the flat outer ground.
       const shade = 1 + fine * 0.04 + wobble * 0.03;
@@ -198,7 +268,7 @@ export function paintTerrain(grid, { pxPerTile = 16, detail = 1, seed = 1, borde
       col[0] *= shade;
       col[1] *= shade;
       col[2] *= shade;
-      mix(col, C.outer, fade);
+      mix(col, offshore(Math.floor(x), Math.floor(z)) || seaHere ? C.ocean : C.outer, fade);
 
       img.data[o] = col[0];
       img.data[o + 1] = col[1];
@@ -225,10 +295,11 @@ export function paintTerrain(grid, { pxPerTile = 16, detail = 1, seed = 1, borde
   landOverlay(ctx, maskCanvas, (c) => tileGrid(c, { W, H, border, pxPerTile }));
   if (detail > 0) {
     const near = (u, v) => Math.max(sample(forest, u, v), sample(rock, u, v), sample(water, u, v));
-    stampDetails(ctx, { grid, noise, border, pxPerTile, detail, sample: (u, v) => sample(water, u, v), near });
+    // No tufts or flowers on the beach either.
+    stampDetails(ctx, { grid, noise, border, pxPerTile, detail, sample: (u, v) => Math.max(sample(water, u, v), sample(sand, u, v)), near });
   }
 
-  return { canvas, waterMask: maskCanvas, hasWater, tiles: { width: TW, height: TH }, border, noise };
+  return { canvas, waterMask: maskCanvas, hasWater, tiles: { width: TW, height: TH }, border, noise, sea, seaDist };
 }
 
 /**
@@ -241,6 +312,7 @@ function inkEdges(data, fields, bw, bh, b, mapW, mapH) {
     [fields.rock, 0.435, 0.45],
     [fields.earth, 0.715, 0.4],
     [fields.shore, 0.4, 0.55],
+    [fields.sand, 0.46, 0.3],
   ];
   for (let y = 0; y < bh - 1; y++) {
     for (let x = 0; x < bw - 1; x++) {
@@ -249,7 +321,9 @@ function inkEdges(data, fields, bw, bh, b, mapW, mapH) {
       if (out > b * 0.4) continue;
       const i = y * bw + x;
       let ink = 0;
+      const wet = fields.shore[i] > 0.5; // under water only the shoreline itself is inked
       for (const [f, t, strength] of lines) {
+        if (wet && f !== fields.shore) continue;
         const a = f[i] > t;
         if (a !== f[i + 1] > t || a !== f[i + bw] > t) ink = Math.max(ink, strength);
       }

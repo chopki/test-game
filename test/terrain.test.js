@@ -200,3 +200,68 @@ describe('rivers', () => {
     for (let seed = 1; seed <= 40; seed++) expect(hasStream(new World({ seed, terrain: 'generate', river: true })), `seed ${seed}`).toBe(true);
   });
 });
+
+describe('coast', () => {
+  const SEEDS = Array.from({ length: 60 }, (_, i) => i * 104729 + 7);
+  const SIDES = ['north', 'south', 'west', 'east'];
+
+  it('coastal maps meet the map rules, with sea along the coast and a beach behind it', () => {
+    for (const coast of SIDES) {
+      for (const seed of SEEDS.slice(0, 25)) {
+        const types = generateTerrain({ ...mapInfo, rng: createRng(seed), coast });
+        const stats = analyzeTerrain(types, mapInfo);
+        const where = `seed ${seed}, coast ${coast}`;
+        expect(stats.unreachable, where).toBe(0);
+        expect(stats.pinches, where).toBe(0);
+        expect(stats.openFraction, where).toBeGreaterThanOrEqual(TERRAIN.minOpenFraction);
+        expect(stats.coast, where).toEqual([coast]);
+        expect(stats.spawnTiles[coast], where).toBe(0);
+        for (const side of SIDES.filter((s) => s !== coast)) expect(stats.spawnTiles[side], where).toBeGreaterThanOrEqual(TERRAIN.minSpawnTilesPerSide);
+        expect(types.includes(T.sand), where).toBe(true);
+        const c = hall.x + size / 2;
+        for (let z = 0; z < H; z++) {
+          for (let x = 0; x < W; x++) {
+            if (Math.hypot(x + 0.5 - c, z + 0.5 - c) <= TERRAIN.clearingRadius) expect(types[z * W + x], where).toBe(T.open);
+          }
+        }
+      }
+    }
+  });
+
+  it('the sea blocks enemies and building; the beach is open ground', () => {
+    const world = new World({ seed: 3, terrain: 'generate', sea: true });
+    const g = world.grid;
+    const at = (t) => g.terrain.findIndex((v) => v === t);
+    const sea = at(T.sea);
+    const sand = at(T.sand);
+    expect(g.isBlocked(sea % W, (sea / W) | 0)).toBe(true);
+    expect(g.isBuildable(sea % W, (sea / W) | 0)).toBe(false);
+    expect(g.isBlocked(sand % W, (sand / W) | 0)).toBe(false);
+  });
+
+  it('no attacks come from the sea', () => {
+    for (let seed = 1; seed <= 12; seed++) {
+      const world = new World({ seed, terrain: 'generate', sea: true });
+      expect(world.coast, `seed ${seed}`).not.toBeNull();
+      expect(world.spawnTiles[world.coast]).toHaveLength(0);
+      for (let n = 1; n <= 12; n++) {
+        world.startWave();
+        expect(world.waves.current.sides, `seed ${seed} wave ${n}`).not.toContain(world.coast);
+        world.waves.queue = [];
+        world.enemies = [];
+        world.update(0.01);
+      }
+    }
+  });
+
+  it("sometimes a map has a coast, and a map without one is the same as before", () => {
+    let coasts = 0;
+    for (let seed = 1; seed <= 80; seed++) {
+      const world = new World({ seed, terrain: 'generate', sea: 'sometimes' });
+      if (world.coast) coasts++;
+      else expect(world.grid.terrain).toEqual(new World({ seed, terrain: 'generate' }).grid.terrain);
+    }
+    expect(coasts / 80).toBeGreaterThan(TERRAIN.sea.chance - 0.15);
+    expect(coasts / 80).toBeLessThan(TERRAIN.sea.chance + 0.15);
+  });
+});

@@ -39,7 +39,7 @@ to a fixed-timestep server, replays or AI opponents later.
 | `config.js`      | **All balance data**: grid, economy, timings, building and enemy tables, wave tuning |
 | `World.js`       | Game state and rules: phases, placement, combat, enemy AI, projectiles, events |
 | `Grid.js`        | Tile occupancy (building id per cell), terrain per cell (`isBlocked`, `isBuildable`), footprints, spawn zone |
-| `terrain.js`     | Terrain types and the seeded map generator (`generateTerrain`): features, then repair passes; `analyzeTerrain` checks the map rules |
+| `terrain.js`     | Terrain types (incl. `sea` and `sand`) and the seeded map generator (`generateTerrain`, with an optional `coast` side): features, then repair passes; `analyzeTerrain` checks the map rules |
 | `noise.js`       | Seeded value noise and fBm for the generator (and the ground painter) |
 | `FlowField.js`   | Dijkstra distance-to-Town-Hall map with building "breach cost"; terrain can't be entered, fords cost extra; `nextStep()` for enemies |
 | `WaveManager.js` | Procedural wave generation (`generateWave`) and the spawn queue |
@@ -144,7 +144,10 @@ so the whole battlefield is ~15 draw calls and a few hundred triangles however d
 - Flowing water: `waterFlow.js` (pure, unit-tested) gives each water tile a flow direction (streams run off the
   map from one edge to the other, round their bends; lakes are still). The water mesh carries it per corner, and
   its shader draws ripple bands and soft foam streaks carried downstream (`waterTextures.js`: streaks in R, noise
-  in G), sun glints, and foam lapping at the shoreline (from the painted water mask). Its quads must stay wound
+  in G), sun glints, and foam lapping at the shoreline (from the painted water mask). On a coast the mesh also
+  covers the sea out through the painted border, each corner carrying its distance from land (the painter's
+  `seaDist`), which drives lines of surf rolling in to the beach and a slow swell further out; an `OCEAN` plane
+  carries the sea on to the horizon (`isOffshore()` keeps scenery trees out of it). Its quads must stay wound
   to face up, or they're culled.
 - Damage states: `damage.js` (pure) gives a building's stage from its health; the renderer passes it per sprite
   (`SpriteLayer.add(..., damage)`) and the sprite shader draws soot, cracks and knocked-out pieces from noise in

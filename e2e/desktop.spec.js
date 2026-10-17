@@ -524,9 +524,9 @@ test('settings: New map starts a fresh game on another map, asking first if one 
 test('settings: Rivers → Always gives the next new map a stream', async ({ page }) => {
   const errors = await openGame(page, { map: 'terrain' });
   await page.getByRole('button', { name: 'Settings' }).click();
-  await expect(page.getByRole('button', { name: 'Sometimes' })).toHaveClass(/active/);
-  await page.getByRole('button', { name: 'Always' }).click();
-  await expect(page.getByRole('button', { name: 'Always' })).toHaveClass(/active/);
+  await expect(settingButton(page, 'Rivers', 'Sometimes')).toHaveClass(/active/);
+  await settingButton(page, 'Rivers', 'Always').click();
+  await expect(settingButton(page, 'Rivers', 'Always')).toHaveClass(/active/);
   // A stream runs off the map at both ends.
   const stream = () =>
     page.evaluate(() => {
@@ -541,6 +541,34 @@ test('settings: Rivers → Always gives the next new map a stream', async ({ pag
     await expect(page.locator('#settings')).toBeHidden();
     expect(await stream()).toBe(true);
   }
+  expect(errors).toEqual([]);
+});
+
+test('a coast: sea along one edge, drawn out to the horizon, and no attacks from it (screenshot attached)', async ({ page }, testInfo) => {
+  const errors = await openGame(page, { map: 'terrain', query: 'sea=1' });
+  const state = await page.evaluate(() => {
+    const { world, renderer } = window.game;
+    const g = world.grid;
+    const seaTiles = [...g.terrain].filter((t) => t === 5).length;
+    const sandTiles = [...g.terrain].filter((t) => t === 6).length;
+    return { coast: world.coast, seaTiles, sandTiles, landing: world.spawnTiles[world.coast].length, sides: world.waves.next.sides, ocean: Boolean(renderer._ocean), shimmer: Boolean(renderer._shimmer) };
+  });
+  expect(['north', 'south', 'west', 'east']).toContain(state.coast);
+  expect(state.seaTiles).toBeGreaterThan(100);
+  expect(state.sandTiles).toBeGreaterThan(20);
+  expect(state.landing).toBe(0);
+  expect(state.sides).not.toContain(state.coast);
+  expect(state.ocean && state.shimmer).toBe(true);
+  const shot = await page.screenshot({ path: testInfo.outputPath('coast.png') });
+  await testInfo.attach('coast', { body: shot, contentType: 'image/png' });
+  // Settings → Coast: Never gives the next new map no sea.
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await expect(settingButton(page, 'Coast', 'Always')).toHaveClass(/active/);
+  await settingButton(page, 'Coast', 'Never').click();
+  await expect(settingButton(page, 'Coast', 'Never')).toHaveClass(/active/);
+  await page.getByRole('button', { name: 'New map' }).click();
+  await expect(page.locator('#settings')).toBeHidden();
+  expect(await page.evaluate(() => [window.game.world.coast, Boolean(window.game.renderer._ocean)])).toEqual([null, false]);
   expect(errors).toEqual([]);
 });
 

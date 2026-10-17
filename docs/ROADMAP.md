@@ -84,6 +84,9 @@ Pre-rendered sprites on a fixed isometric camera (see ARCHITECTURE.md), working 
 - [x] Ground marks: worn earth round towers, scorch marks and craters where cannonballs and boulders land (fading
       after 45 s), plank footbridges across the fords (`groundMarks.js`, `bridges.js`; decoration only)
 - [x] Rivers more often (about 62% of maps, from 42%) and Settings → Rivers → Always for a stream on every new map
+- [x] **Coast**: on about 35% of maps the sea lies along one edge behind a sandy beach, deepening out to an ocean
+      on the horizon, with surf rolling in; no enemies come from the sea (Settings → Coast). Later: raiders
+      landing from ships
 - [x] Warm colour grade and a soft glow on crystals, torches, braziers, lanterns and fires: Settings → Glow and
       colour, on with High (the grade is a CSS filter on the canvas, the halos one additive instanced draw)
 - [x] **Varied wall tiles**: previously every wall tile of the same shape was the identical sprite, so long straight runs

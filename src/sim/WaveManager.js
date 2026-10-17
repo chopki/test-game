@@ -6,11 +6,11 @@ export const SIDES = ['north', 'east', 'south', 'west'];
  * Builds the spawn list for wave `n`. Waves are filled with squads (several men of one type, or a siege engine
  * with its escort) up to a "threat budget" that grows with the wave number; enemies attack from more sides over
  * time and every few waves a squad of elite Knights joins in. Each entry carries its `squad` number: the World
- * lines a squad's men up side by side on the edge.
+ * lines a squad's men up side by side on the edge. Attacks come only from the sides in `from` (not the sea).
  */
-export function generateWave(n, rng) {
-  const sideCount = n < 3 ? 1 : n < 6 ? 2 : n < 10 ? 3 : 4;
-  const sides = rng.shuffle(SIDES).slice(0, sideCount);
+export function generateWave(n, rng, from = SIDES) {
+  const sideCount = Math.min(from.length, n < 3 ? 1 : n < 6 ? 2 : n < 10 ? 3 : 4);
+  const sides = rng.shuffle(from).slice(0, sideCount);
   const budget = Math.round(WAVES.budgetBase + n * WAVES.budgetPerWave + n * n * WAVES.budgetQuadratic);
   const hpMult = 1 + WAVES.hpGrowthPerWave * (n - 1);
   const [firstGap, minGap] = WAVES.squadGap;
@@ -65,13 +65,15 @@ export function summarizeWave(plan) {
 }
 
 export class WaveManager {
-  constructor(rng) {
+  /** `sides`: the map edges enemies can come from (all four, less any coast). */
+  constructor(rng, sides = SIDES) {
     this.rng = rng;
+    this.sides = sides;
     this.wave = 0;
     this.queue = [];
     this.timer = 0;
     this.current = null;
-    this.next = generateWave(1, rng);
+    this.next = generateWave(1, rng, sides);
   }
 
   start() {
@@ -79,7 +81,7 @@ export class WaveManager {
     this.wave = this.current.wave;
     this.queue = [...this.current.entries];
     this.timer = this.queue.length ? this.queue[0].delay : 0;
-    this.next = generateWave(this.wave + 1, this.rng);
+    this.next = generateWave(this.wave + 1, this.rng, this.sides);
     return this.current;
   }
 

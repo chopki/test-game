@@ -7,6 +7,7 @@ import { Economy } from './Economy.js';
 import { WaveManager } from './WaveManager.js';
 import { planWall } from './wallPlanner.js';
 import { generateTerrain, spawnTilesBySide, T } from './terrain.js';
+import { SIDES } from './WaveManager.js';
 
 /**
  * The whole game state and rules, with no rendering or DOM dependencies.
@@ -15,7 +16,9 @@ import { generateTerrain, spawnTilesBySide, T } from './terrain.js';
  * Coordinates are in tile units: tile (x, z) spans [x, x+1) × [z, z+1).
  *
  * `terrain`: 'open' (no terrain, the default, used by most tests), 'generate' (a map generated from the seed,
- * as the game uses), or a Uint8Array of terrain types (see terrain.js).
+ * as the game uses), or a Uint8Array of terrain types (see terrain.js). For generated maps, `river` forces a
+ * stream and `sea` picks the coast: false (none, the default), 'sometimes' (TERRAIN.sea.chance of maps) or
+ * true (always); `this.coast` is the side the sea lies along, or null.
  *
  * Phases: 'build' (countdown to next wave) → 'wave' (enemies spawning/alive)
  * → back to 'build' when the wave is cleared, or 'gameover' when the Town Hall falls.
@@ -29,14 +32,13 @@ import { generateTerrain, spawnTilesBySide, T } from './terrain.js';
  * waveCleared, gameOver. Enemy shots are projectiles too (`hostile: true`, fired by `enemy`).
  */
 export class World {
-  constructor({ seed = Date.now(), terrain = 'open', fort = false, river = false } = {}) {
+  constructor({ seed = Date.now(), terrain = 'open', fort = false, river = false, sea = false } = {}) {
     this.seed = seed >>> 0;
     this.rng = createRng(seed);
     this.events = new EventBus();
     this.grid = new Grid(GRID.width, GRID.height, GRID.spawnMargin);
     this.flow = new FlowField(this.grid);
     this.economy = new Economy(ECONOMY.startingGold, this.events);
-    this.waves = new WaveManager(this.rng);
 
     this.buildings = new Map();
     this.enemies = [];
@@ -55,13 +57,19 @@ export class World {
     const s = BUILDINGS.townHall.size;
     const hall = { x: Math.floor((GRID.width - s) / 2), z: Math.floor((GRID.height - s) / 2), size: s };
     const mapInfo = { width: GRID.width, height: GRID.height, spawnMargin: GRID.spawnMargin, hall };
+    this.coast = null;
     if (terrain === 'generate') {
+      // The coast is decided on a random stream of its own, so maps without one are just as they were.
+      const coastRng = createRng(this.seed ^ 0x5ea5ea);
+      if (sea === true || (sea === 'sometimes' && coastRng.next() < TERRAIN.sea.chance)) this.coast = coastRng.pick(SIDES);
       // Its own random stream, so the map doesn't change the waves that follow.
-      this.grid.terrain = generateTerrain({ ...mapInfo, rng: createRng(this.seed ^ 0x9e3779b9), river });
+      this.grid.terrain = generateTerrain({ ...mapInfo, rng: createRng(this.seed ^ 0x9e3779b9), river, coast: this.coast });
     } else if (terrain instanceof Uint8Array) {
       this.grid.terrain = Uint8Array.from(terrain);
     }
     this.spawnTiles = spawnTilesBySide(this.grid.terrain, mapInfo);
+    // Waves come only from sides with somewhere to land (not the sea).
+    this.waves = new WaveManager(this.rng, SIDES.filter((side) => this.spawnTiles[side].length > 0));
     this.townHall = this._addBuilding('townHall', hall.x, hall.z);
     if (fort) this._buildStartingFort();
     this._refreshFlow();

@@ -7,16 +7,20 @@ import { createNoise } from './noise.js';
  * Water, rock and forest block enemies and building. Fords (shallow crossings of a stream) can be waded but
  * not built on. Enemies can't break terrain, so it decides the routes and chokepoints the player fortifies.
  *
- * The generator lays down features (forest clumps, rock outcrops and ridges, a stream with fords or a lake),
- * then repairs the map until it meets the rules in `analyzeTerrain`: every walkable tile reaches the Town Hall,
- * every spawn side keeps reachable edge tiles, passages are at least 2 tiles wide, and enough land is open.
+ * Some maps have a coast: sea along one edge (it blocks like water, and no enemies come from that side), behind
+ * a sandy beach that can be walked and built on.
+ *
+ * The generator lays down features (a coast, forest clumps, rock outcrops and ridges, a stream with fords or a
+ * lake), then repairs the map until it meets the rules in `analyzeTerrain`: every walkable tile reaches the Town
+ * Hall, every land side keeps reachable spawn tiles on its edge, passages are at least 2 tiles wide, and enough of
+ * the land is open.
  */
 
-export const T = { open: 0, water: 1, ford: 2, rock: 3, forest: 4 };
-export const TERRAIN_NAMES = ['open', 'water', 'ford', 'rock', 'forest'];
+export const T = { open: 0, water: 1, ford: 2, rock: 3, forest: 4, sea: 5, sand: 6 };
+export const TERRAIN_NAMES = ['open', 'water', 'ford', 'rock', 'forest', 'sea', 'sand'];
 
-export const blocksMovement = (t) => t === T.water || t === T.rock || t === T.forest;
-export const isBuildableTerrain = (t) => t === T.open;
+export const blocksMovement = (t) => t === T.water || t === T.rock || t === T.forest || t === T.sea;
+export const isBuildableTerrain = (t) => t === T.open || t === T.sand;
 
 const SIDES = ['north', 'south', 'west', 'east'];
 const N4 = [
@@ -33,14 +37,15 @@ export function openTerrain(width, height) {
 
 /**
  * Generate terrain for a `width` × `height` map with the Town Hall at `hall` ({ x, z, size }). With `river`, the
- * map always gets a stream. Returns a Uint8Array of T values (index z * width + x). Deterministic for a given rng
- * state.
+ * map always gets a stream. `coast`: the side ('north', 'south', 'west' or 'east') the sea lies along, or null.
+ * Returns a Uint8Array of T values (index z * width + x). Deterministic for a given rng state.
  */
-export function generateTerrain({ width, height, spawnMargin, hall, rng, params = TERRAIN, river = false }) {
+export function generateTerrain({ width, height, spawnMargin, hall, rng, params = TERRAIN, river = false, coast = null }) {
   let density = 1;
   let best = null;
   for (let attempt = 0; attempt < 6; attempt++) {
     const map = new TerrainMap(width, height, spawnMargin, hall);
+    map.coast = coast;
     layFeatures(map, rng, params, density, river);
     repair(map, rng, params);
     const stats = analyzeTerrain(map.types, { width, height, spawnMargin, hall });
@@ -58,6 +63,7 @@ class TerrainMap {
     this.spawnMargin = spawnMargin;
     this.hall = hall;
     this.types = openTerrain(width, height);
+    this.coast = null;
   }
 
   inBounds(x, z) {
@@ -76,10 +82,11 @@ class TerrainMap {
     return this.inBounds(x, z) && blocksMovement(this.get(x, z));
   }
 
-  /** Make a blocking tile walkable: water becomes a ford, rock and forest become open ground. */
+  /** Make a blocking tile walkable: water becomes a ford, sea becomes beach, rock and forest become open ground. */
   clear(x, z) {
     if (!this.blocked(x, z)) return;
-    this.set(x, z, this.get(x, z) === T.water ? T.ford : T.open);
+    const t = this.get(x, z);
+    this.set(x, z, t === T.water ? T.ford : t === T.sea ? T.sand : T.open);
   }
 
   hallCentre() {
@@ -95,7 +102,8 @@ function layFeatures(map, rng, params, density, river = false) {
   const c = map.hallCentre();
   const clearR = params.clearingRadius + map.hall.size / 2;
 
-  // Water first, so forests and rocks can grow up to the banks.
+  // The coast and water first, so forests and rocks can grow up to the shores.
+  if (map.coast) coastline(map, rng, noise, params);
   if (river || rng.next() < params.water.streamChance * Math.min(1, density + 0.2)) stream(map, rng, params, clearR);
   else if (rng.next() < params.water.lakeChance * density) lake(map, rng, noise, clearR);
 
@@ -168,7 +176,11 @@ function stream(map, rng, params, clearR) {
     const a = Math.round(base + amp * Math.sin(i * freq + phase) + amp * 0.4 * Math.sin(i * freq * 2.3 + phase * 1.7));
     course.push(Math.max(limitLo, Math.min(limitHi, a)));
   }
-  const at = (i, a) => (vertical ? map.set(a, i, T.water) : map.set(i, a, T.water));
+  // Where the stream reaches the coast it runs out into the sea.
+  const at = (i, a) => {
+    const [x, z] = vertical ? [a, i] : [i, a];
+    if (map.inBounds(x, z) && map.get(x, z) !== T.sea) map.set(x, z, T.water);
+  };
   for (let i = 0; i < len; i++) {
     // Fill between consecutive rows so the stream has no diagonal-only joins.
     const from = Math.min(course[i], course[i - 1] ?? course[i]);
@@ -190,6 +202,28 @@ function stream(map, rng, params, clearR) {
   }
 }
 
+/**
+ * Sea along the coast side: a shoreline that wanders in and out (coves and headlands) a few tiles from the edge,
+ * behind a beach of sand.
+ */
+function coastline(map, rng, noise, params) {
+  const { depth, wobble, beach } = params.sea;
+  const side = map.coast;
+  const along = side === 'north' || side === 'south' ? map.width : map.height;
+  const base = rng.range(depth[0], depth[1]);
+  const freq = rng.range(0.15, 0.3);
+  const phase = rng.range(0, Math.PI * 2);
+  for (let i = 0; i < along; i++) {
+    const n = noise.fbm(i * 0.18 + 91.3, 7.7, 2) - 0.5;
+    const shore = base + wobble * Math.sin(i * freq + phase) + n * wobble * 2.4;
+    const sand = shore + beach[0] + (noise.value(i * 0.4 + 13, 2.1) * (beach[1] - beach[0]));
+    for (let d = 0; d < sand; d++) {
+      const [x, z] = side === 'north' ? [i, d] : side === 'south' ? [i, map.height - 1 - d] : side === 'west' ? [d, i] : [map.width - 1 - d, i];
+      map.set(x, z, d < shore ? T.sea : T.sand);
+    }
+  }
+}
+
 /** A round-ish lake away from the hall. */
 function lake(map, rng, noise, clearR) {
   const c = map.hallCentre();
@@ -201,7 +235,7 @@ function lake(map, rng, noise, clearR) {
     for (let z = Math.floor(lz - r - 2); z <= lz + r + 2; z++) {
       for (let x = Math.floor(lx - r - 2); x <= lx + r + 2; x++) {
         const d = Math.hypot(x + 0.5 - lx, z + 0.5 - lz) + (noise.value(x * 0.5 + 40, z * 0.5) - 0.5) * 2;
-        if (d < r) map.set(x, z, T.water);
+        if (d < r && map.inBounds(x, z) && map.get(x, z) === T.open) map.set(x, z, T.water);
       }
     }
     return;
@@ -230,6 +264,7 @@ function repair(map, rng, params) {
 function openSpawnEdges(map, rng, params) {
   let changed = false;
   for (const side of SIDES) {
+    if (side === map.coast) continue; // no one comes from the sea
     const tiles = edgeTiles(map, side);
     if (tiles.filter(([x, z]) => !map.blocked(x, z)).length >= params.minSpawnTilesPerSide) continue;
     const gapLen = params.minSpawnTilesPerSide + 2;
@@ -344,6 +379,7 @@ function connect(map) {
         const nz = z + dz;
         if (!map.inBounds(nx, nz)) continue;
         const k = nz * W + nx;
+        if (map.types[k] === T.sea) continue; // no causeways out to sea
         const w = blocksMovement(map.types[k]) ? 1 : 0;
         if (dist[j] + w < dist[k]) {
           dist[k] = dist[j] + w;
@@ -400,9 +436,9 @@ function widenPinches(map) {
   return changed;
 }
 
-/** Of two blocking tiles, the better one to remove: rock/forest before water (streams keep their shape). */
+/** Of two blocking tiles, the better one to remove: rock/forest before water before sea (shores keep their shape). */
 function preferClear(map, a, b) {
-  const score = ([x, z]) => (map.get(x, z) === T.water ? 1 : 0);
+  const score = ([x, z]) => ({ [T.water]: 1, [T.sea]: 2 })[map.get(x, z)] ?? 0;
   return score(a) <= score(b) ? a : b;
 }
 
@@ -410,7 +446,7 @@ function preferClear(map, a, b) {
 
 /**
  * Check a terrain map against the generator's rules. Used by tests and by the generator itself.
- * Returns { openFraction, unreachable, spawnTiles: { side: n }, pinches }.
+ * Returns { openFraction (of the land), unreachable, spawnTiles: { side: n }, coast: [sides all sea], pinches }.
  */
 export function analyzeTerrain(types, { width, height, spawnMargin, hall }) {
   const map = new TerrainMap(width, height, spawnMargin, hall);
@@ -425,13 +461,14 @@ export function analyzeTerrain(types, { width, height, spawnMargin, hall }) {
       const i = z * width + x;
       if (label[i] !== -1 && label[i] !== home) unreachable++;
       const inSpawnZone = x < spawnMargin || z < spawnMargin || x >= width - spawnMargin || z >= height - spawnMargin;
-      if (inSpawnZone) continue;
+      if (inSpawnZone || types[i] === T.sea) continue;
       buildable++;
-      if (types[i] === T.open) open++;
+      if (isBuildableTerrain(types[i])) open++;
     }
   }
   const spawnTiles = {};
   for (const side of SIDES) spawnTiles[side] = edgeTiles(map, side).filter(([x, z]) => label[z * width + x] === home).length;
+  const coast = SIDES.filter((side) => edgeTiles(map, side).every(([x, z]) => types[z * width + x] === T.sea));
   let pinches = 0;
   for (let z = 0; z < height; z++) {
     for (let x = 0; x < width; x++) {
@@ -440,7 +477,7 @@ export function analyzeTerrain(types, { width, height, spawnMargin, hall }) {
       if (map.blocked(x, z - 1) && map.blocked(x, z + 1)) pinches++;
     }
   }
-  return { openFraction: open / buildable, unreachable, spawnTiles, pinches };
+  return { openFraction: open / buildable, unreachable, spawnTiles, coast, pinches };
 }
 
 /** Walkable edge tiles per side that can reach the hall (where enemies spawn). */
