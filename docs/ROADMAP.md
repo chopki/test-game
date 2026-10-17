@@ -77,6 +77,10 @@ Pre-rendered sprites on a fixed isometric camera (see ARCHITECTURE.md), working 
 - [x] Mixed woods: birch, spruce, beech and dead trees join the oaks and pines; pine woods and broadleaf woods by
       region, birch groves, a ragged mix where they meet; stumps and birches among the scenery outside the map
 - [x] WebP atlas pages (6.1 MB of PNG → 1.5 MB) and an HD sprite set for desktops (2.5 MB), sharp when zoomed in
+- [x] ~~AVIF atlas pages~~: tried and dropped. Re-encoding the pages saved 21–26% only at quality 75, which loses
+      colour accuracy (~38 dB against today's pages) and, with lossy alpha, flips ~0.1% of edge pixels across the
+      sprites' alpha cut-off; at a quality that matches today's look it's no smaller than WebP. It would also need a
+      WebP fallback (iOS before 16.4) and a separate encoder in the bake (Chromium's canvas can't write AVIF)
 - [x] Ground marks: worn earth round towers, scorch marks and craters where cannonballs and boulders land (fading
       after 45 s), plank footbridges across the fords (`groundMarks.js`, `bridges.js`; decoration only)
 - [x] Rivers more often (about 62% of maps, from 42%) and Settings → Rivers → Always for a stream on every new map
