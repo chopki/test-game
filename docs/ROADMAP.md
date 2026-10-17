@@ -91,6 +91,11 @@ Pre-rendered sprites on a fixed isometric camera (see ARCHITECTURE.md), working 
       sprites and ground, snowfall), maybe autumn leaves; per map or changing between waves
 - [ ] **Wildlife**: birds flying over (and scattering when cannons fire), fish jumping in streams and lakes, deer
       or rabbits at the woods' edge; decoration only, never in the way
+- [ ] **Models from our drawings (image-to-3D trial)**: send crops of `docs/reference/art-style.jpg` (Town Hall,
+      catapult, watchtower, trees) to an image-to-3D service (open models such as Hunyuan3D-2 or TRELLIS, or Tripo /
+      Meshy with an API key), restyle the returned `.glb` with our materials and bake it with our ink style, and add
+      it as a column in the import-vs-procedural comparison. Needs the go-ahead to upload the art to a third party.
+      (So far: Kenney CC0 imports, restyled, matched our palette on trees but lost to procedural on buildings and rocks)
 
 ## v0.2: Defence depth
 
