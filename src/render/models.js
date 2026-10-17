@@ -31,6 +31,7 @@ import {
   torus,
   wheel,
   windowFrame,
+  SANDSTONE_WALL,
   WORN_TRIM,
   WORN_WALL,
   WORNSTONE,
@@ -80,7 +81,7 @@ function fence(p, { x0, z0, x1, z1, rnd, gapFrom = 2, gapTo = 2, h = 0.42 }) {
 }
 
 /** Chimney tops (smoke rises from them in game), in the model's own coordinates. */
-export const CHIMNEYS = { townHall: { x: 0.36, y: 3.0, z: -0.62 } };
+export const CHIMNEYS = { townHall: { x: 0.3, y: 2.35, z: -0.55 } };
 
 /**
  * Where each building's pennants fly (the waving cloth is a sprite of its own; see wavingPennant in modelKit.js):
@@ -88,7 +89,7 @@ export const CHIMNEYS = { townHall: { x: 0.36, y: 3.0, z: -0.62 } };
  * gatehouse is in a north–south wall). Model coordinates, matching the pennant() calls in the models.
  */
 export const PENNANTS = {
-  townHall: [{ x: -0.62, y: 2.47 + 0.95 - 0.02, z: -0.7, w: PENNANT_W }],
+  townHall: [{ x: -0.52, y: 1.81 + 0.95 - 0.02, z: -0.6, w: PENNANT_W }],
   gatehouse: [{ x: -0.95, y: 1.64 + 0.85 - 0.02, z: -0.1, w: 0.4 }],
 };
 
@@ -103,47 +104,48 @@ function townHall() {
   fence(p, { x0: -e, z0: -e, x1: -e, z1: e, rnd });
   fence(p, { x0: e, z0: -e, x1: e, z1: e, rnd });
   fence(p, { x0: -e, z0: e, x1: e, z1: e, rnd, gapFrom: 0.38, gapTo: 0.62 });
-  // Square stone keep, set back in the yard: a plinth, two storeys of courses, corbels and battlements.
+  // A small square stone keep, set back in the yard (after the reference's stage-one Town Hall): a foot course,
+  // two storeys of worn courses, corbels and battlements, a door and a few small windows.
   const kx = -0.12;
   const kz = -0.2;
-  const W = 1.5;
-  stoneBlocks(p, { x: kx, z: kz, y: 0.05, w: W + 0.16, d: W + 0.16, h: 0.18, rows: 1, rnd, minBlock: 0.3, maxBlock: 0.5 });
-  const courses = 9;
-  const top = 2.25;
+  const W = 1.25;
+  const top = 1.6;
+  stoneBlocks(p, { x: kx, z: kz, y: 0.05, w: W + 0.14, d: W + 0.14, h: 0.16, rows: 1, rnd, minBlock: 0.3, maxBlock: 0.5 });
+  const courses = 6;
   for (let i = 0; i < courses; i++) {
-    const rowH = (top - 0.23) / courses;
-    stoneBlocks(p, { x: kx, z: kz, y: 0.23 + i * rowH, w: W, d: W, h: rowH, rows: 1, along: i % 2 ? 'x' : 'z', rnd });
+    const rowH = (top - 0.21) / courses;
+    stoneBlocks(p, { x: kx, z: kz, y: 0.21 + i * rowH, w: W, d: W, h: rowH, rows: 1, along: i % 2 ? 'x' : 'z', rnd });
   }
   // A string course between the storeys.
-  p.add(box(W + 0.06, 0.06, W + 0.06), M.capstone, { x: kx, y: 1.2, z: kz });
-  for (let i = 0; i < 5; i++) {
-    const t = -0.5 + (i + 0.5) / 5;
+  p.add(box(W + 0.06, 0.06, W + 0.06), M.capstone, { x: kx, y: 0.98, z: kz });
+  for (let i = 0; i < 4; i++) {
+    const t = -0.5 + (i + 0.5) / 4;
     for (const [x, z] of [
       [t * W, W / 2],
       [W / 2, t * W],
       [t * W, -W / 2],
       [-W / 2, t * W],
     ]) {
-      p.add(box(0.13, 0.15, 0.13), rnd.pick(SANDSTONE), { x: kx + x * 1.04, y: top - 0.02, z: kz + z * 1.04 });
+      p.add(rbox(0.12, 0.14, 0.12, 0.025, 1), rnd.pick(SANDSTONE), { x: kx + x * 1.04, y: top - 0.02, z: kz + z * 1.04 });
     }
   }
-  stoneBlocks(p, { x: kx, z: kz, y: top + 0.05, w: W + 0.18, d: W + 0.18, h: 0.16, rows: 1, rnd, minBlock: 0.3, maxBlock: 0.5 });
-  merlonsRect(p, { x: kx, z: kz, y: top + 0.21, w: W + 0.18, d: W + 0.18, size: 0.22, height: 0.3, spacing: 0.38, rnd });
-  p.add(box(W, 0.04, W), M.woodLight, { x: kx, y: top + 0.22, z: kz });
+  stoneBlocks(p, { x: kx, z: kz, y: top + 0.05, w: W + 0.16, d: W + 0.16, h: 0.15, rows: 1, rnd, minBlock: 0.3, maxBlock: 0.5 });
+  merlonsRect(p, { x: kx, z: kz, y: top + 0.2, w: W + 0.16, d: W + 0.16, size: 0.21, height: 0.27, spacing: 0.38, rnd });
+  p.add(box(W, 0.04, W), M.woodLight, { x: kx, y: top + 0.21, z: kz });
   // A chimney stack on the roof (it smokes in game; see CHIMNEYS).
   const ch = CHIMNEYS.townHall;
-  stoneBlocks(p, { x: ch.x, z: ch.z, y: top + 0.24, w: 0.24, d: 0.24, h: ch.y - top - 0.3, rows: 3, rnd, minBlock: 0.24, maxBlock: 0.24 });
-  p.add(box(0.3, 0.06, 0.3), M.capstone, { x: ch.x, y: ch.y - 0.03, z: ch.z });
-  // Door, windows and a banner on the faces the camera sees.
-  door(p, { x: kx, y: 0.23, z: kz + W / 2 + 0.01, w: 0.42, h: 0.66 });
-  for (const x of [-0.42, 0.42]) windowFrame(p, { x: kx + x, y: 1.62, z: kz + W / 2 + 0.01, w: 0.2, h: 0.3, shutters: true });
-  windowFrame(p, { x: kx + W / 2 + 0.01, y: 1.62, z: kz, ry: Math.PI / 2, w: 0.2, h: 0.3 });
-  windowFrame(p, { x: kx + W / 2 + 0.01, y: 0.8, z: kz + 0.3, ry: Math.PI / 2, w: 0.16, h: 0.24, shutters: false });
-  banner(p, { x: kx + W / 2 + 0.02, y: 1.05, z: kz - 0.35, ry: Math.PI / 2, w: 0.26, h: 0.55 });
-  pennant(p, { x: kx - 0.5, y: top + 0.22, z: kz - 0.5, h: 0.95, w: PENNANT_W });
+  stoneBlocks(p, { x: ch.x, z: ch.z, y: top + 0.23, w: 0.22, d: 0.22, h: ch.y - top - 0.29, rows: 2, rnd, minBlock: 0.22, maxBlock: 0.22 });
+  p.add(box(0.28, 0.06, 0.28), M.capstone, { x: ch.x, y: ch.y - 0.03, z: ch.z });
+  // Door, small deep-set windows and a banner on the faces the camera sees.
+  door(p, { x: kx, y: 0.21, z: kz + W / 2 + 0.01, w: 0.38, h: 0.6 });
+  deepWindow(p, rnd, { x: kx + 0.3, y: 1.3, z: kz + W / 2, nx: 0, nz: 1, s: 0.14, stones: SANDSTONE });
+  deepWindow(p, rnd, { x: kx - 0.3, y: 1.3, z: kz + W / 2, nx: 0, nz: 1, s: 0.14, stones: SANDSTONE });
+  deepWindow(p, rnd, { x: kx + W / 2, y: 1.3, z: kz + 0.15, nx: 1, nz: 0, s: 0.14, stones: SANDSTONE });
+  banner(p, { x: kx + W / 2 + 0.02, y: 0.62, z: kz - 0.25, ry: Math.PI / 2, w: 0.24, h: 0.48 });
+  pennant(p, { x: kx - 0.4, y: top + 0.21, z: kz - 0.4, h: 0.95, w: PENNANT_W });
   // A lean-to shed against the fence, and yard clutter.
-  p.add(box(0.7, 0.5, 0.5), M.wood, { x: 0.95, y: 0.28, z: -0.95 });
-  p.add(box(0.82, 0.05, 0.64), M.woodDark, { x: 0.95, y: 0.56, z: -0.92, rx: 0.25 });
+  p.add(box(0.6, 0.5, 0.5), M.wood, { x: 1.02, y: 0.28, z: -0.95 });
+  p.add(box(0.72, 0.05, 0.64), M.woodDark, { x: 1.02, y: 0.56, z: -0.92, rx: 0.25 });
   barrel(p, { x: 0.95, y: 0.05, z: 0.55 });
   barrel(p, { x: 1.12, y: 0.05, z: 0.78, r: 0.11, h: 0.26 });
   crate(p, { x: -0.95, y: 0.05, z: 0.95, ry: 0.3 });

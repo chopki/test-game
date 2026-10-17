@@ -55,7 +55,8 @@ export const MATERIALS = {
 };
 
 /** Stone palettes: each block picks one, which gives the hand-laid look. */
-export const SANDSTONE = ['#d2b688', '#c5a878', '#dbc398', '#bb9e6e', '#cdb07e'].map((c) => speckled(c));
+const SANDSTONE_COLORS = ['#d2b688', '#c5a878', '#dbc398', '#bb9e6e', '#cdb07e'];
+export const SANDSTONE = SANDSTONE_COLORS.map((c) => speckled(c));
 export const GREYSTONE = ['#8d8f99', '#7f818c', '#9a9ca6', '#74767f'].map((c) => speckled(c, 0.08));
 export const ROOF_TILES = ['#b8452e', '#a83c28', '#c25236'].map((c) => std({ map: roofTexture(c) }));
 export const SLATE = ['#5a5e72', '#4e5266', '#666a7e'].map((c) => std({ map: roofTexture(c) }));
@@ -611,6 +612,8 @@ export const WORN_TRIM = speckled('#8c705a', 0.14);
 const WORN_MORTAR = std({ color: 0x4a3a2c });
 /** Smooth walls of painted rough stone (flat shaded, so a tapering wall keeps crisp faces). */
 export const WORN_WALL = std({ map: roughStoneTexture(WORN_COLORS), flatShading: true });
+/** The same painted rough stonework in the Town Hall's sandstone. */
+export const SANDSTONE_WALL = std({ map: roughStoneTexture(SANDSTONE_COLORS, '#6e5a42'), flatShading: true });
 
 /**
  * A course-built block of worn stone: rounded blocks of uneven length (and course height) round a dark mortar
@@ -687,32 +690,34 @@ export function deepWindow(p, rnd, { x, y, z, nx, nz, s = 0.15, stones = WORNSTO
 
 /**
  * An arched plank door in a ring of voussoirs on a +z face that may slope (a battered wall): `faceZ(y)` gives the
- * face's z at height y, and every part is tilted to lie on it.
+ * face's z at height y, and every part is tilted to lie on it. The door stands on `y0`.
  */
-export function slopedDoor(p, rnd, { faceZ, w = 0.32, jamb = 0.3, stones = WORNSTONE, keystone = WORN_TRIM }) {
+export function slopedDoor(p, rnd, { x = 0, y0 = 0, faceZ, w = 0.32, jamb = 0.3, stones = WORNSTONE, keystone = WORN_TRIM }) {
   const M = MATERIALS;
   const r = w / 2;
-  const tilt = Math.atan2(faceZ(0) - faceZ(1), 1);
-  const at = (y, out = 0) => ({ y, z: faceZ(y) + out, rx: -tilt });
+  const tilt = Math.atan2(faceZ(y0) - faceZ(y0 + 0.1), 0.1); // lean of the face where the door stands
+  const at = (y, out = 0) => ({ x, y: y0 + y, z: faceZ(y0 + y) + out, rx: -tilt });
   const top = jamb + r;
   p.add(box(w + 0.04, top - 0.02, 0.04), M.opening, at(top / 2));
   p.add(box(w - 0.02, jamb, 0.03), M.wood, at(jamb / 2, 0.012));
   p.add(halfDisc(r - 0.01), M.wood, at(jamb, 0.012));
-  for (let i = 0; i < 3; i++) p.add(box(0.014, jamb + r * 0.75, 0.01), M.woodDark, { ...at((jamb + r * 0.75) / 2, 0.03), x: -w / 4 + (i * w) / 4 });
+  for (let i = 0; i < 3; i++) p.add(box(0.014, jamb + r * 0.75, 0.01), M.woodDark, { ...at((jamb + r * 0.75) / 2, 0.03), x: x - w / 4 + (i * w) / 4 });
   for (const y of [jamb * 0.3, jamb * 0.85]) p.add(box(w * 0.9, 0.028, 0.012), M.iron, at(y, 0.034));
-  p.add(sphere(0.022, 6, 5), M.iron, { ...at(jamb * 0.55, 0.04), x: w * 0.3 });
+  p.add(sphere(0.022, 6, 5), M.iron, { ...at(jamb * 0.55, 0.04), x: x + w * 0.3 });
   for (const sx of [-1, 1]) {
     let y = 0;
-    for (const h of [0.13, 0.12, jamb - 0.25]) {
-      if (h < 0.04) break;
-      p.add(rbox(0.1, h - 0.015, 0.09, 0.02), rnd.pick(stones), { ...at(y + h / 2, 0.02), x: sx * (r + 0.05) });
+    for (let k = 0, left = jamb; left > 0.04; k++) {
+      const h = left < 0.2 ? left : 0.13 - (k % 2) * 0.01;
+      left -= h;
+      p.add(rbox(0.1, h - 0.015, 0.09, 0.02), rnd.pick(stones), { ...at(y + h / 2, 0.02), x: x + sx * (r + 0.05) });
       y += h;
     }
   }
-  for (let i = 0; i < 7; i++) {
-    const a = Math.PI - (i / 6) * Math.PI;
+  const n = Math.max(7, Math.round((Math.PI * (r + 0.05)) / 0.095) | 1);
+  for (let i = 0; i < n; i++) {
+    const a = Math.PI - (i / (n - 1)) * Math.PI;
     const R = r + 0.05;
-    p.add(rbox(0.09, 0.08, 0.09, 0.02), i === 3 ? keystone : rnd.pick(stones), { ...at(jamb + Math.sin(a) * R, 0.02), x: Math.cos(a) * R, rz: a - Math.PI / 2 });
+    p.add(rbox(0.09, 0.08, 0.09, 0.02), i === (n - 1) / 2 ? keystone : rnd.pick(stones), { ...at(jamb + Math.sin(a) * R, 0.02), x: x + Math.cos(a) * R, rz: a - Math.PI / 2 });
   }
 }
 

@@ -80,7 +80,7 @@ export const BUILDINGS = {
     maxHp: 2500,
     cost: 0,
     buildable: false,
-    height: 2.9,
+    height: 2.2,
     attack: {
       range: 5,
       damage: 8,
