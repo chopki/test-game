@@ -89,7 +89,7 @@ Open **⚙** in the top bar. The game pauses while the menu is open.
 | ------ | ------------ | ------------- | -------------- | ------------------------- |
 | Low | Auto | off | 30 fps | low |
 | Medium | Auto | off | 60 fps | medium |
-| High (always used at startup) | 150% | on | unlimited | high |
+| High (always used at startup) | Native | on | unlimited | high |
 
 Render scale goes from 50% up to 300% and **Native** (the screen's own pixel density: about 260% on a Pixel 7,
 300% on many iPhones), always capped at that density, since drawing more pixels than the screen has costs a lot

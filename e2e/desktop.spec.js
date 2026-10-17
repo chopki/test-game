@@ -175,7 +175,7 @@ test('runtime errors are shown on screen instead of a blank page', async ({ page
 
 test('graphics start on High, presets apply live, and the game pauses while the menu is open', async ({ page }) => {
   await openGame(page, { paused: false });
-  expect(await graphicsState(page)).toMatchObject({ preset: 'high', resolution: 1.5, scenery: 'high' });
+  expect(await graphicsState(page)).toMatchObject({ preset: 'high', resolution: 'native', scenery: 'high' });
 
   await page.getByRole('button', { name: 'Settings' }).click();
   await expect(page.locator('#settings')).toBeVisible();

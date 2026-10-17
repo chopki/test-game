@@ -3,7 +3,7 @@
 export const PRESETS = {
   low: { resolution: 'auto', antialias: false, fpsCap: 30, scenery: 'low', effects: true },
   medium: { resolution: 'auto', antialias: false, fpsCap: 60, scenery: 'medium', effects: true },
-  high: { resolution: 1.5, antialias: true, fpsCap: 0, scenery: 'high', effects: true },
+  high: { resolution: 'native', antialias: true, fpsCap: 0, scenery: 'high', effects: true },
 };
 
 export const PRESET_ORDER = ['low', 'medium', 'high'];

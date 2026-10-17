@@ -17,7 +17,8 @@ test('defaults to the High graphics preset and the HUD fits the screen', { tag: 
   expect(r.preset).toBe('high');
   // Phones get the standard sprite set (they can't show more detail than it has).
   expect(await page.evaluate(() => window.game.renderer.atlas.set)).toBe('standard');
-  expect(r.pixelRatio).toBe(1.5); // High renders at 150% (under the Pixel 7's 2.6× screen)
+  // High renders at the screen's own pixel density (about 2.6× on a Pixel 7).
+  expect(r.pixelRatio).toBeCloseTo(await page.evaluate(() => window.devicePixelRatio), 3);
   expect(r.overflowX).toBe(false);
   expect(r.topbarBottom).toBeLessThan(915 * 0.3);
   const vp = page.viewportSize();
