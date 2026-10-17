@@ -143,7 +143,8 @@ map, ink lines where kinds of ground meet, sparse dark grass clumps gathered by 
 ground shadows. Sprites get a hand-drawn finish when baked: warm dark-brown ink outlines and inner lines, shading
 pulled into soft bands, and light hatching in the shadows. Cloud shadows drift across the battlefield, and streams flow, with foam streaks running downstream round their
 bends (lakes glint but stay still), and trees sway in gusts of wind. Battles kick up inked smoke and dust: arrow trails, cannon smoke, impact clouds,
-splinters where enemies strike, and debris when a building falls. Woods mix oaks, broad beeches, birch groves, pines
+splinters where enemies strike, and debris when a building falls. Damaged buildings and walls show it: soot and cracks below 2/3 health,
+then holed roofs, broken stakes, smoke and flames below 1/3. Woods mix oaks, broad beeches, birch groves, pines
 and tall spruces, with the odd dead tree.
 Enemies are animated: they walk with a stride matched to their speed, wind up and swing their weapons in time
 with their hits, and topple over when killed. Everything is built from code (procedural

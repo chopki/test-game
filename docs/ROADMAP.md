@@ -69,10 +69,10 @@ Pre-rendered sprites on a fixed isometric camera (see ARCHITECTURE.md), working 
       arm sprites, which halved the HD atlas (19 → 10 pages)
 - [x] Combat effects: arrow trails, cannon smoke and flash, impact clouds with earth or rock thrown up, dust and
       splinters where enemies strike, a dust cloud and debris when a building falls (`particles.js`)
-- [ ] **Damage states**: buildings and walls look more damaged the lower their health, in 3 baked stages per
-      sprite (e.g. above 66%, 33–66%, under 33%): cracks and missing stones, broken or leaning stakes and gaps in
-      palisades, holed roofs, scorch marks, then smoke and small fires at the lowest stage. Repairs (see Repair)
-      put them back
+- [x] **Damage states**: three stages by health (`damage.js`: above 2/3, 1/3–2/3, below 1/3) drawn by the sprite
+      shader, so no extra atlas space: soot and scorching and inked cracks, then pieces knocked out (more towards
+      the top: broken stakes, holed roofs) with inked edges; badly damaged buildings smoke and burn, walls smoke.
+      Repairs (see Repair) will put them back
 - [x] Tree sway: tree tops sway in gusts of wind (a vertex shear on the sprite; slim birches most, dead trees barely)
 - [x] Mixed woods: birch, spruce, beech and dead trees join the oaks and pines; pine woods and broadleaf woods by
       region, birch groves, a ragged mix where they meet; stumps and birches among the scenery outside the map

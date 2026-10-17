@@ -13,6 +13,7 @@ import { waterTexture } from './waterTextures.js';
 import { createProjectileModel, IN_WALL_RADIUS, SCENERY_SWAY, SCENERY_VARIANTS, WALL_VARIANTS, wallArmOffset } from './models.js';
 import { BlobShadowBatch, HealthBarBatch } from './batches.js';
 import { ISO_QUATERNION, isoDirection } from './iso.js';
+import { damageAmount, damageStage } from './damage.js';
 import { Particles } from './particles.js';
 import { SpriteLayer } from './spriteLayer.js';
 import { CATAPULT_ARM_FRAMES, ENEMY_ANIMS, crystalHeight, spriteKeys, turretHeight } from './spriteCatalog.js';
@@ -641,19 +642,23 @@ export class Renderer {
   }
 
   _createBuildingView(b) {
-    return { phase: Math.random() * Math.PI * 2, wallKey: null };
+    return { phase: Math.random() * Math.PI * 2, wallKey: null, smoke: Math.random() };
   }
 
   _updateBuildingView(view, b) {
     // Towers built into a wall are drawn on it, with their in-wall model (see wallSeat.js).
     const seat = b.type === 'wall' ? { shape: null, dx: 0, dz: 0 } : wallSeat(this.world, b.type, b.x, b.z);
     const ground = this.toScene(b.cx + seat.dx, 0, b.cz + seat.dz, this._v);
+    // Battered look by health (see damage.js): cracks and soot, then pieces missing, smoke and fire.
+    view.damageStage = damageStage(b.hp, b.maxHp);
+    const dmg = damageAmount(view.damageStage);
+    if (view.damageStage === 2) this._smoulder(view, b, seat);
     if (b.type === 'wall') {
       view.wallKey = this._wallConnections(b).key;
       // Each tile keeps the same variant (from its position), so long runs don't repeat.
       view.wallVariant = wallVariant(b.x, b.z);
       const key = spriteKeys.wall(view.wallKey, view.wallVariant);
-      this.sprites.add(key, ground);
+      this.sprites.add(key, ground, 1, 0, 0, dmg);
       this.shadowSprites.add(key, ground);
       // Now and then a straight stretch carries a decoration (a flag, a torch, shields…), always the same one.
       const axis = view.wallKey === '-e-w' ? 'x' : view.wallKey === 'n-s-' ? 'z' : null;
@@ -662,31 +667,32 @@ export class Renderer {
         const decorKey = spriteKeys.wallDecor(view.decor, axis);
         this.shadowSprites.add(decorKey, ground);
         // Drawn from a point nudged towards the camera, so it's always in front of its own wall's logs.
-        this.sprites.add(decorKey, this._decorPos.copy(ground).addScaledVector(this._toCamera, 0.3));
+        this.sprites.add(decorKey, this._decorPos.copy(ground).addScaledVector(this._toCamera, 0.3), 1, 0, 0, dmg);
         this.wallDecorDrawn++;
       }
     } else {
       const key = seat.shape ? spriteKeys.inWall(b.type, seat.shape) : spriteKeys.building(b.type);
-      this.sprites.add(key, ground);
+      this.sprites.add(key, ground, 1, 0, 0, dmg);
       this.shadowSprites.add(key, ground);
       if (seat.shape) {
         this.inWallDrawn++;
-        this._drawWallArms(b, seat);
+        this._drawWallArms(b, seat, dmg);
       }
+      const turretDmg = Math.min(dmg, 0.5); // turrets scorch and crack but keep their shape
       const lift = this._turretHeight(b.type, seat.shape);
       const attack = b.def.attack;
       if (b.type === 'catapult') {
         // Arm thrown forward when it fires, winched back while reloading.
         const reload = 1 - b.cooldown / attack.cooldown;
         const frame = Math.min(CATAPULT_ARM_FRAMES - 1, Math.floor(THREE.MathUtils.smoothstep(reload, 0.05, 0.75) * (CATAPULT_ARM_FRAMES - 1) + 0.5));
-        this.sprites.add(spriteKeys.turret(b.type, b.aim, frame), ground, 1, lift);
+        this.sprites.add(spriteKeys.turret(b.type, b.aim, frame), ground, 1, lift, 0, turretDmg);
       } else if (lift) {
-        this.sprites.add(spriteKeys.turret(b.type, b.aim), ground, 1, lift);
+        this.sprites.add(spriteKeys.turret(b.type, b.aim), ground, 1, lift, 0, turretDmg);
       }
       if (b.type === 'magicSpire') {
         this.sprites.add(spriteKeys.crystal(), ground, 1, crystalHeight() + Math.sin(this._time * 2 + view.phase) * 0.08);
       }
-      if (!seat.shape) this._drawWallJoints(b); // in-wall models carry their own wall stubs
+      if (!seat.shape) this._drawWallJoints(b, dmg); // in-wall models carry their own wall stubs
     }
     if (b.hp < b.maxHp || b.type === 'townHall') {
       this.healthBars.add(this.toScene(b.cx + seat.dx, b.def.height + 0.6, b.cz + seat.dz, this._v), Math.min(2.4, 0.8 * b.size + 0.2), b.hp / b.maxHp);
@@ -694,14 +700,14 @@ export class Renderer {
   }
 
   /** The wall arms of a tower built into a wall: one sprite each, centred on the arm so it sorts by its own depth. */
-  _drawWallArms(b, seat) {
+  _drawWallArms(b, seat, damage = 0) {
     const from = IN_WALL_RADIUS[b.type];
     const straight = seat.shape === 'we' || seat.shape === 'ns';
     for (const dir of seat.shape) {
       const [ox, oz] = wallArmOffset(dir, from, straight);
       const at = this.toScene(b.cx + seat.dx + ox, 0, b.cz + seat.dz + oz, this._armPos);
       const key = spriteKeys.wallArm(dir, from, straight);
-      this.sprites.add(key, at);
+      this.sprites.add(key, at, 1, 0, 0, damage);
       this.shadowSprites.add(key, at);
     }
   }
@@ -718,7 +724,7 @@ export class Renderer {
    * building's edge tile. A tower drawn shifted onto its wall (wallSeat.js) only ever moves across those arms or
    * away from them, so the post still lands on the tower's edge.
    */
-  _drawWallJoints(b) {
+  _drawWallJoints(b, damage = 0) {
     const grid = this.world.grid;
     for (let i = 0; i < b.size; i++) {
       for (const [dir, ix, iz, ox, oz] of [
@@ -730,7 +736,7 @@ export class Renderer {
         const id = grid.get(ox, oz);
         if (id === null || this.world.buildings.get(id)?.type !== 'wall') continue;
         const at = this.toScene(ix + 0.5, 0, iz + 0.5, this._v);
-        this.sprites.add(spriteKeys.wallJoint(dir), at);
+        this.sprites.add(spriteKeys.wallJoint(dir), at, 1, 0, 0, damage);
         this.shadowSprites.add(spriteKeys.wallJoint(dir), at);
         this.wallJointsDrawn++;
       }
@@ -865,6 +871,24 @@ export class Renderer {
       c.z += rand(b.size * 0.4);
       c.y += Math.random() * b.def.height * 0.6;
       this._fxChunk(c, 0.07 + Math.random() * 0.08 * b.size, colors, 2.4);
+    }
+  }
+
+  /**
+   * A badly damaged building smoulders: smoke rising from it now and then, with small flames licking up from the
+   * buildings (walls just smoke, and less often).
+   */
+  _smoulder(view, b, seat) {
+    if (!this.graphics.effects) return;
+    view.smoke -= this._dt * (b.type === 'wall' ? 0.6 : 2.5);
+    if (view.smoke > 0) return;
+    view.smoke += 1;
+    const h = b.type === 'wall' ? 1 : b.def.height;
+    const at = this.toScene(b.cx + seat.dx + rand(b.size * 0.3), h * (0.5 + Math.random() * 0.4), b.cz + seat.dz + rand(b.size * 0.3), this._fxPos);
+    this.particles.puff({ x: at.x, y: at.y, z: at.z, vx: rand(0.1), vy: 0.5, vz: rand(0.1), size: 0.2, grow: 0.9, life: 2.4, color: 0x5d5752, alpha: 0.45, rise: 0.2, drag: 0.5 });
+    if (b.type !== 'wall') {
+      this.particles.puff({ x: at.x, y: at.y - 0.1, z: at.z, vy: 0.6, size: 0.18, grow: 0.05, life: 0.45, color: 0xffa23c, alpha: 0.9 });
+      this.particles.puff({ x: at.x, y: at.y - 0.05, z: at.z, vy: 0.7, size: 0.1, grow: 0.02, life: 0.35, color: 0xffe08a, alpha: 0.95 });
     }
   }
 

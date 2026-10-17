@@ -132,6 +132,9 @@ so the whole battlefield is ~15 draw calls and a few hundred triangles however d
   its shader draws ripple bands and soft foam streaks carried downstream (`waterTextures.js`: streaks in R, noise
   in G), sun glints, and foam lapping at the shoreline (from the painted water mask). Its quads must stay wound
   to face up, or they're culled.
+- Damage states: `damage.js` (pure) gives a building's stage from its health; the renderer passes it per sprite
+  (`SpriteLayer.add(..., damage)`) and the sprite shader draws soot, cracks and knocked-out pieces from noise in
+  the sprite's own world units, seeded by position. Badly damaged buildings also emit smoke and flame particles.
 - Combat effects: `particles.js` draws soft inked puffs (smoke, dust, flashes, arrow trails) and tumbling debris
   chunks as two InstancedMeshes, refilled each frame. The renderer spawns them from world events
   (`projectileFired`, `projectileImpact`, `buildingHit` with the blow's origin, `buildingDestroyed`, `enemyKilled`);

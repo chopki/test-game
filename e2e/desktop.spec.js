@@ -524,7 +524,7 @@ test('woods mix several kinds of tree, and the trees (not the rocks) sway in the
   expect(spots.filter((s) => s.kind !== 'outcrop').every((s) => s.sway > 0)).toBe(true);
   // The sway reaches the GPU, and the wind's clock runs.
   const swaying = () =>
-    page.evaluate(() => window.game.renderer.sprites.layers.reduce((n, p) => n + p.sway.array.subarray(0, p.count).filter((v) => v > 0).length, 0));
+    page.evaluate(() => window.game.renderer.sprites.layers.reduce((n, p) => n + p.fx.array.subarray(0, p.count * 2).filter((v, i) => i % 2 === 0 && v > 0).length, 0));
   await expect.poll(swaying).toBeGreaterThan(50);
   const clock = () => page.evaluate(() => window.game.renderer.sprites._time.value);
   const t0 = await clock();
@@ -606,5 +606,36 @@ test('combat effects: cannon smoke, impact clouds, dust and splinters from blows
   await expect.poll(() => page.evaluate(() => window.game.renderer.particles.count), { timeout: 10000 }).toBe(0);
   await page.evaluate(() => window.game.setGraphics({ ...window.game.graphics, effects: false }));
   expect(await burst(21, 20)).toBe(0);
+  expect(errors).toEqual([]);
+});
+
+test('damage states: buildings and walls look more battered as health drops, and smoulder when badly hurt (screenshot attached)', async ({ page }, testInfo) => {
+  const errors = await openGame(page);
+  // Three of each: sound, damaged (under 2/3) and badly damaged (under 1/3), left to right.
+  await page.evaluate(() => {
+    const w = window.game.world;
+    w.economy.earn(3000);
+    for (const [i, x] of [10, 14, 18].entries()) {
+      w.place('archerTower', x, 24);
+      w.place('cannonTower', x, 27);
+      for (let z = 30; z <= 33; z++) w.place('wall', x, z);
+      for (let z = 30; z <= 33; z++) w.place('wall', x + 1, z);
+      const health = [1, 0.5, 0.2][i];
+      for (const b of w.buildings.values()) if (b.type !== 'townHall' && b.x >= x && b.x <= x + 1 && b.z >= 24) b.hp = b.maxHp * health;
+    }
+  });
+  const damage = () =>
+    page.evaluate(() => {
+      const counts = { 0: 0, 0.5: 0, 1: 0 };
+      for (const p of window.game.renderer.sprites.layers) for (let i = 0; i < p.count; i++) counts[p.fx.array[i * 2 + 1]] = (counts[p.fx.array[i * 2 + 1]] ?? 0) + 1;
+      return counts;
+    });
+  await expect.poll(async () => (await damage())[1]).toBeGreaterThan(8);
+  expect((await damage())[0.5]).toBeGreaterThan(8);
+  // The badly damaged ones smoke (and the towers burn).
+  await expect.poll(() => page.evaluate(() => window.game.renderer.particles.count)).toBeGreaterThan(3);
+  await zoomTo(page, 15, 29, 2.6);
+  await page.waitForTimeout(1200);
+  await testInfo.attach('damage-states', { body: await page.screenshot({ path: testInfo.outputPath('damage-states.png') }), contentType: 'image/png' });
   expect(errors).toEqual([]);
 });
