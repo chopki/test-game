@@ -1,8 +1,9 @@
 import * as THREE from 'three';
-import { BUILDINGS, ENEMIES, WAVES } from '../sim/config.js';
+import { BUILDINGS, ENEMIES, UPGRADES, WAVES } from '../sim/config.js';
 import { wavingPennant, withoutPennantCloth } from './modelKit.js';
 import { ANIMAL_KINDS, ANIMAL_POSES, createAnimal } from './animals.js';
 import { createWallDecor, WALL_DECOR_KINDS } from './wallDecor.js';
+import { createStagedModel, createStagedWallArm, STAGE_WALL_VARIANTS } from './stageModels.js';
 import { BRIDGE_PARTS, CLIFF_PROFILES, CLIFF_VARIANTS, createBridgePiece, createCliffPiece, createBuildingModel, createEnemyModel, createSceneryObject, createWallArm, ENEMY_ANIMS, IN_WALL_RADIUS, IN_WALL_TYPES, poseEnemy, SCENERY_TYPES, SCENERY_VARIANTS, WALL_VARIANTS } from './models.js';
 
 export { ENEMY_ANIMS };
@@ -22,28 +23,33 @@ export const WALL_KEYS = Array.from({ length: 16 }, (_, mask) => WALL_DIRS.map((
 
 const angleIndex = (angle, steps) => ((Math.round((angle / (Math.PI * 2)) * steps) % steps) + steps) % steps;
 
+/** The suffix stage-2+ sprites carry (stage 1 keeps the plain key). */
+const st = (stage) => (stage > 1 ? `:s${stage}` : '');
+
 export const spriteKeys = {
-  building: (type) => `b:${type}`,
+  /** A building's base at its upgrade `stage` (see stageModels.js). */
+  building: (type, stage = 1) => `b:${type}${st(stage)}`,
   /**
    * A tower's base when built into a wall (`shape`: see IN_WALL_SHAPES in models.js): the bastion alone, the same
    * for every shape (the wall arms are sprites of their own), except that the gatehouse turns for north–south walls.
+   * From stage 3 a tower's stone model stands on the wall by itself: its normal sprite.
    */
-  inWall: (type, shape) => (type === 'gatehouse' && shape.startsWith('ns') ? `bw:${type}:ns` : `bw:${type}`),
+  inWall: (type, shape, stage = 1) => (stage >= 3 ? spriteKeys.building(type, stage) : type === 'gatehouse' && shape.startsWith('ns') ? `bw:${type}:ns` : `bw:${type}${st(stage)}`),
   /** A piece of a ford's footbridge ('mid', 'start' or 'end') running along `axis` ('x' or 'z'). */
   bridge: (part, axis) => `bridge:${axis}:${part}`,
   /** A wild animal (see animals.js) facing `heading`, in `pose`. */
   animal: (kind, heading, pose) => `a:${kind}:${angleIndex(heading, ENEMY_DIRECTIONS)}:${pose}`,
   /** A frame of a waving pennant cloth; `turn` 1 for one turned a quarter (see PENNANTS in models.js). */
   flag: (turn, frame) => `flag:${turn}:${frame}`,
-  /** One wall arm of an in-wall tower (see createWallArm in models.js). */
-  wallArm: (dir, from, straight) => `arm:${dir}:${from}:${straight ? 'run' : 'end'}`,
-  icon: (type) => `icon:${type}`,
+  /** One wall arm of an in-wall tower (see createWallArm in models.js), at the stage of the wall it joins. */
+  wallArm: (dir, from, straight, stage = 1) => `arm:${dir}:${from}:${straight ? 'run' : 'end'}${st(stage)}`,
+  icon: (type, stage = 1) => `icon:${type}${st(stage)}`,
   /** A decoration on a straight wall: `axis` 'x' for an east–west wall, 'z' for north–south. */
   wallDecor: (kind, axis) => `decor:${kind}:${axis}`,
-  /** A wall tile: its connection key, and which of the WALL_VARIANTS versions. */
-  wall: (connectionKey, variant = 0) => `wall:${connectionKey}:${variant}`,
+  /** A wall tile: its connection key, which of its stage's versions (STAGE_WALL_VARIANTS), and its stage. */
+  wall: (connectionKey, variant = 0, stage = 1) => `wall:${connectionKey}:${variant}${st(stage)}`,
   /** The piece that ties a wall into a building's edge tile; `dir` points from the building to the wall. */
-  wallJoint: (dir) => `join:${dir}`,
+  wallJoint: (dir, stage = 1) => `join:${dir}${st(stage)}`,
   turret: (type, aim, frame = 0) => `t:${type}:${angleIndex(aim, TURRET_DIRECTIONS)}:${frame}`,
   crystal: () => 'crystal',
   /** An enemy frame: `anim` is 'walk', 'attack' or 'death' (see ENEMY_ANIMS). */
@@ -55,11 +61,11 @@ export const spriteKeys = {
 };
 
 /** Height of a building's turret pivot above the ground (sprites are lifted by this much); `inWall`: a shape. */
-export const turretHeight = (type, inWall) =>
-  createBuildingModel(type, inWall ? { inWall } : undefined).userData.turret?.position.y ?? 0;
-let crystalY = null;
-/** Height of the Magic Spire's floating crystal above the ground. */
-export const crystalHeight = () => (crystalY ??= createBuildingModel('magicSpire').userData.crystal.position.y);
+export const turretHeight = (type, inWall, stage = 1) =>
+  createStagedModel(type, stage, inWall ? { inWall } : undefined).userData.turret?.position.y ?? 0;
+const crystalY = {};
+/** Height of the Magic Spire's floating crystal above the ground at `stage`. */
+export const crystalHeight = (stage = 1) => (crystalY[stage] ??= createStagedModel('magicSpire', stage).userData.crystal.position.y);
 
 /** Which buildings have separately animated parts (and so extra sprites). */
 const BUILDING_PARTS = {
@@ -268,6 +274,34 @@ export function spriteSpecs() {
       }
     }
   }
+  // Upgrade stages 2 to 5 (stageModels.js): portraits and bases, stage-2 in-wall bastions, and the wall pieces.
+  const withoutMoving = (m) => {
+    m.userData.turret?.removeFromParent();
+    m.userData.crystal?.removeFromParent();
+    return m;
+  };
+  for (const type of Object.keys(UPGRADES.stages)) {
+    for (let stage = 2; stage <= UPGRADES.stages[type].length; stage++) {
+      const opts = type === 'wall' ? {} : undefined;
+      specs.push({ key: spriteKeys.icon(type, stage), make: () => createStagedModel(type, stage, opts), shadow: false });
+      if (type === 'wall') continue;
+      specs.push({ key: spriteKeys.building(type, stage), make: () => withoutMoving(createStagedModel(type, stage)) });
+      if (stage === 2 && IN_WALL_TYPES.includes(type)) {
+        specs.push({ key: spriteKeys.inWall(type, 'we', stage), make: () => withoutMoving(createStagedModel(type, stage, { inWall: 'we', stubs: false })) });
+      }
+    }
+  }
+  for (let stage = 2; stage <= UPGRADES.stages.wall.length; stage++) {
+    for (const key of WALL_KEYS) {
+      const connections = Object.fromEntries(WALL_DIRS.map((d, i) => [d, key[i] === d]));
+      for (let v = 0; v < STAGE_WALL_VARIANTS[stage - 1]; v++) specs.push({ key: spriteKeys.wall(key, v, stage), make: () => createStagedModel('wall', stage, { connections, variant: v }) });
+    }
+    for (const dir of WALL_DIRS) specs.push({ key: spriteKeys.wallJoint(dir, stage), make: () => createStagedModel('wallJoint', stage, { dir }) });
+    for (const from of new Set(Object.values(IN_WALL_RADIUS))) {
+      for (const dir of WALL_DIRS) for (const straight of [true, false]) specs.push({ key: spriteKeys.wallArm(dir, from, straight, stage), make: () => createStagedWallArm(dir, from, straight, stage) });
+    }
+  }
+
   // Waving pennant cloths (left out of every battlefield sprite; UI portraits keep theirs): FLAG_FRAMES frames of
   // the ripple, for cloths flying along x and turned a quarter.
   for (const s of specs) {

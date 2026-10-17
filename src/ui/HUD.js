@@ -264,7 +264,7 @@ export class HUD {
     const pips = stages
       ? `<div class="stage-pips" aria-label="Stage ${b.stage} of ${stages.length}">${stages.map((_, i) => `<i class="${i < b.stage ? 'on' : i === b.stage ? 'next' : ''}"></i>`).join('')}<span>${b.def.stageName} · stage ${b.stage} of ${stages.length}</span></div>`
       : '';
-    const icon = this.icons[b.type];
+    const icon = b.stage > 1 ? (this.icons[`${b.type}:${b.stage}`] ??= frameToDataURL(this.game.renderer.atlas, spriteKeys.icon(b.type, b.stage))) : this.icons[b.type];
     const hpRatio = b.hp / b.maxHp;
     const rate = (c) => `${(1 / c).toFixed(1)}/s`;
     this.el.info.hidden = false;

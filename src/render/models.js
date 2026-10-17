@@ -366,7 +366,7 @@ function lookouts(y) {
 }
 
 
-// ------------------------------------------------------------------ stone tower (future upgrade stage)
+// ------------------------------------------------------------------ stone tower (the archer tower's stone stages)
 
 const DEFENDER_SKIN = std({ color: 0xe2b48a });
 const DEFENDER_TUNIC = std({ color: 0x5d6b34 });
@@ -397,9 +397,10 @@ function hidePennant(p, x, y, z, h, dir = 1, len = 0.32) {
  * base with a weathered ledge, a tall arched door and a sloping buttress on the faces the camera sees, a straight
  * shaft with deep-set windows, a heavy timber band under a jutting parapet of chunky worn merlons, four defenders
  * and hide pennants. Walls are smooth painted stonework (WORN_WALL) with rough quoins; ledges and merlons are real
- * blocks. Ready for the archer tower's stone upgrade stage (not baked yet: nothing uses it until upgrades arrive).
+ * blocks. The archer tower's stone stages (stageModels.js) build on it, without the defenders (`defenders: false`):
+ * the lookouts turret stands on the parapet instead.
  */
-export function createStoneTower() {
+export function createStoneTower({ defenders = true } = {}) {
   const M = MATERIALS;
   const p = new Parts();
   const rnd = rng(77);
@@ -455,7 +456,7 @@ export function createStoneTower() {
   }
   p.add(box(P - 0.2, 0.04, P - 0.2), M.woodLight, { y: mY + 0.01 });
   // Four defenders, and hide pennants on the back corners and a tall centre pole.
-  for (const [x, z, ry] of [[-0.2, 0.17, 0], [0.18, 0.2, Math.PI / 4], [0.2, -0.18, Math.PI / 2], [-0.16, -0.2, -Math.PI / 2]]) defender(p, x, mY + 0.02, z, ry, 1);
+  if (defenders) for (const [x, z, ry] of [[-0.2, 0.17, 0], [0.18, 0.2, Math.PI / 4], [0.2, -0.18, Math.PI / 2], [-0.16, -0.2, -Math.PI / 2]]) defender(p, x, mY + 0.02, z, ry, 1);
   hidePennant(p, 0, mY, 0, 0.62, 1, 0.2);
   hidePennant(p, -0.4, mY + 0.27, -0.4, 0.3, -1, 0.26);
   hidePennant(p, 0.4, mY + 0.27, -0.4, 0.3, 1, 0.26);
@@ -1760,3 +1761,6 @@ export function createSceneryObject(kind, variant = 0) {
   SCENERY_BUILDERS[kind](p, rng(kind.length * 31 + variant * 7 + 3), variant);
   return p.build();
 }
+
+// The pieces the upgrade stages (stageModels.js) build on.
+export { LOGS, LOG_SETS, RAIL, addCatapultTurret, archerTower, bastion, cannonTower, cannonTurret, catapult, crystalCluster, defender, fence, hidePennant, inWallParts, lookouts, magicSpire, palisadeLog, palisadeRun, townHall, wall, wallArm, wallJoint };

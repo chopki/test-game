@@ -23,7 +23,7 @@ try {
     const started = Date.now();
     // The bake runs while the page loads, so don't wait for 'load'.
     await page.goto(`${url}bake.html?set=${set}`, { waitUntil: 'commit' });
-    await Promise.race([page.waitForFunction(() => window.__bake, null, { timeout: 900_000, polling: 1000 }), failed]);
+    await Promise.race([page.waitForFunction(() => window.__bake, null, { timeout: 2_400_000, polling: 1000 }), failed]);
     const result = await page.evaluate(() => window.__bake);
     await page.close();
 

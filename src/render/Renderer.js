@@ -23,6 +23,7 @@ import { seasonFor, SEASONS, weatherFor, WEATHERS, weatherLook } from './weather
 import { GroundCover, Precipitation } from './weatherLayers.js';
 import { Wildlife } from './wildlife.js';
 import { CATAPULT_ARM_FRAMES, ENEMY_ANIMS, FLAG_FRAMES, crystalHeight, spriteKeys, turretHeight } from './spriteCatalog.js';
+import { hallEffects, STAGE_WALL_VARIANTS } from './stageModels.js';
 import { PENNANT_W } from './modelKit.js';
 
 const SKY = 0xa9d3ee;
@@ -896,13 +897,13 @@ export class Renderer {
     if (b.type === 'wall') {
       view.wallKey = this._wallConnections(b).key;
       // Each tile keeps the same variant (from its position), so long runs don't repeat.
-      view.wallVariant = wallVariant(b.x, b.z);
-      const key = spriteKeys.wall(view.wallKey, view.wallVariant);
+      view.wallVariant = wallVariant(b.x, b.z) % STAGE_WALL_VARIANTS[b.stage - 1];
+      const key = spriteKeys.wall(view.wallKey, view.wallVariant, b.stage);
       this.sprites.add(key, ground, 1, 0, 0, dmg);
       this.shadowSprites.add(key, ground);
       // Now and then a straight stretch carries a decoration (a flag, a torch, shields…), always the same one.
       const axis = view.wallKey === '-e-w' ? 'x' : view.wallKey === 'n-s-' ? 'z' : null;
-      view.decor = axis && wallDecorAt(b.x, b.z);
+      view.decor = axis && b.stage <= 2 && wallDecorAt(b.x, b.z); // decorations hang on the wooden walls
       if (view.decor) {
         const decorKey = spriteKeys.wallDecor(view.decor, axis);
         this.shadowSprites.add(decorKey, ground);
@@ -920,7 +921,7 @@ export class Renderer {
         }
       }
     } else {
-      const key = seat.shape ? spriteKeys.inWall(b.type, seat.shape) : spriteKeys.building(b.type);
+      const key = seat.shape ? spriteKeys.inWall(b.type, seat.shape, b.stage) : spriteKeys.building(b.type, b.stage);
       this.sprites.add(key, ground, 1, 0, 0, dmg);
       this.shadowSprites.add(key, ground);
       if (seat.shape) {
@@ -928,7 +929,7 @@ export class Renderer {
         this._drawWallArms(b, seat, dmg);
       }
       const turretDmg = Math.min(dmg, 0.5); // turrets scorch and crack but keep their shape
-      const lift = this._turretHeight(b.type, seat.shape);
+      const lift = this._turretHeight(b.type, seat.shape, b.stage);
       const attack = b.def.attack;
       if (b.type === 'catapult') {
         // Arm thrown forward when it fires, winched back while reloading.
@@ -941,15 +942,17 @@ export class Renderer {
       }
       // Waving pennants, chimney smoke, crystal sparkles.
       const turned = b.type === 'gatehouse' && seat.shape?.startsWith('ns');
-      for (const flag of PENNANTS[b.type] ?? []) this._drawFlag(view, b.cx + seat.dx, b.cz + seat.dz, flag, turned);
-      if (CHIMNEYS[b.type]) this._chimneySmoke(view, b, CHIMNEYS[b.type]);
+      const hall = b.type === 'townHall' && b.stage > 1 ? hallEffects(b.stage) : null;
+      for (const flag of hall?.pennants ?? PENNANTS[b.type] ?? []) this._drawFlag(view, b.cx + seat.dx, b.cz + seat.dz, flag, turned);
+      if (hall || CHIMNEYS[b.type]) this._chimneySmoke(view, b, hall?.chimney ?? CHIMNEYS[b.type]);
       if (b.type === 'magicSpire') {
         const bob = Math.sin(this._time * 2 + view.phase) * 0.08;
-        this.sprites.add(spriteKeys.crystal(), ground, 1, crystalHeight() + bob, 0, SPRITE_KIND.unit);
-        this._sparkle(view, b.cx + seat.dx, crystalHeight() + bob + 0.25, b.cz + seat.dz);
+        const cy = crystalHeight(b.stage);
+        this.sprites.add(spriteKeys.crystal(), ground, 1, cy + bob, 0, SPRITE_KIND.unit);
+        this._sparkle(view, b.cx + seat.dx, cy + bob + 0.25, b.cz + seat.dz);
         if (this.graphics.glow) {
           const pulse = 0.5 + 0.15 * Math.sin(this._time * 3 + view.phase);
-          this.glows.add(this.toScene(b.cx + seat.dx, crystalHeight() + bob + 0.3, b.cz + seat.dz, this._fxPos), 1.8, 0xa860ff, pulse);
+          this.glows.add(this.toScene(b.cx + seat.dx, cy + bob + 0.3, b.cz + seat.dz, this._fxPos), 1.8, 0xa860ff, pulse);
         }
       }
       if (!seat.shape) this._drawWallJoints(b, dmg); // in-wall models carry their own wall stubs
@@ -1061,16 +1064,28 @@ export class Renderer {
     for (const dir of seat.shape) {
       const [ox, oz] = wallArmOffset(dir, from, straight);
       const at = this.toScene(b.cx + seat.dx + ox, 0, b.cz + seat.dz + oz, this._armPos);
-      const key = spriteKeys.wallArm(dir, from, straight);
+      const key = spriteKeys.wallArm(dir, from, straight, this._armStage(b, dir));
       this.sprites.add(key, at, 1, 0, 0, damage);
       this.shadowSprites.add(key, at);
     }
   }
 
-  /** Turret pivot height for a building type, normal or built into a wall (cached; models are built once). */
-  _turretHeight(type, shape) {
-    const key = shape ? `${type}:${shape}` : type;
-    if (!(key in this.turretHeights)) this.turretHeights[key] = turretHeight(type, shape);
+  /** The stage of the wall a tower's arm joins on side `dir` (the first wall along that edge), else 1. */
+  _armStage(b, dir) {
+    const [dx, dz] = { n: [0, -1], e: [1, 0], s: [0, 1], w: [-1, 0] }[dir];
+    for (let i = 0; i < b.size; i++) {
+      const x = dx ? (dx > 0 ? b.x + b.size : b.x - 1) : b.x + i;
+      const z = dz ? (dz > 0 ? b.z + b.size : b.z - 1) : b.z + i;
+      const w = this.world.buildingAt(x, z);
+      if (w?.type === 'wall') return w.stage;
+    }
+    return 1;
+  }
+
+  /** Turret pivot height for a building type and stage, normal or built into a wall (cached; models are built once). */
+  _turretHeight(type, shape, stage = 1) {
+    const key = `${type}:${shape ?? ''}:${stage}`;
+    if (!(key in this.turretHeights)) this.turretHeights[key] = turretHeight(type, shape, stage);
     return this.turretHeights[key];
   }
 
@@ -1091,8 +1106,9 @@ export class Renderer {
         const id = grid.get(ox, oz);
         if (id === null || this.world.buildings.get(id)?.type !== 'wall') continue;
         const at = this.toScene(ix + 0.5, 0, iz + 0.5, this._v);
-        this.sprites.add(spriteKeys.wallJoint(dir), at, 1, 0, 0, damage);
-        this.shadowSprites.add(spriteKeys.wallJoint(dir), at);
+        const joint = spriteKeys.wallJoint(dir, this.world.buildings.get(id).stage);
+        this.sprites.add(joint, at, 1, 0, 0, damage);
+        this.shadowSprites.add(joint, at);
         this.wallJointsDrawn++;
       }
     }

@@ -144,6 +144,8 @@ test('upgrades: the selected tower goes up a stage (button or U), capped by the 
   });
   await page.keyboard.press('u');
   await expect(info).toContainText('Stone Tower · stage 3 of 5');
+  // Each stage has its own baked look.
+  expect(await page.evaluate(() => ['b:archerTower:s2', 'b:archerTower:s3', 'icon:archerTower:s3', 'wall:-e-w:0:s4', 'b:townHall:s5'].every((k) => window.game.renderer.atlas.frame(k)))).toBe(true);
 
   // A wall line: one press upgrades every joined wall.
   await page.keyboard.press('Escape');

@@ -1,4 +1,5 @@
-import { bakeSprites, loadAtlas } from './spriteBaker.js';
+import * as THREE from 'three';
+import { bakeSprites, SpriteAtlas } from './spriteBaker.js';
 import { SPRITE_SETS, spriteSpecs } from './spriteCatalog.js';
 
 /**
@@ -21,7 +22,7 @@ export async function loadSprites({ set = pickSpriteSet(), preferBaked = !import
   const specs = spriteSpecs();
   if (preferBaked) {
     try {
-      const atlas = await loadAtlas(SPRITE_SETS[set].dir);
+      const atlas = await loadPrebaked(SPRITE_SETS[set].dir);
       const missing = specs.filter((s) => !atlas.frame(s.key));
       if (missing.length === 0) return Object.assign(atlas, { set });
       console.warn(`Pre-baked sprites (${set}) are missing ${missing.length} frames (e.g. ${missing[0].key}); baking instead. Run npm run bake.`);
@@ -30,4 +31,33 @@ export async function loadSprites({ set = pickSpriteSet(), preferBaked = !import
     }
   }
   return Object.assign(bakeSprites(specs, SPRITE_SETS.standard.options), { set: 'standard' });
+}
+
+/**
+ * Load an atlas saved by scripts/bake-sprites.mjs from `baseUrl` (atlas.json + page images), a page at a time: the
+ * HD set has a couple of dozen 2048² pages, and decoding them all at once can fail for lack of memory. If a page's
+ * decode() is refused anyway, it waits for the image to load the ordinary way instead.
+ */
+async function loadPrebaked(baseUrl) {
+  const res = await fetch(`${baseUrl}atlas.json`);
+  if (!res.ok) throw new Error(`atlas.json: HTTP ${res.status}`);
+  const data = await res.json();
+  const atlas = new SpriteAtlas();
+  atlas.frames = new Map(Object.entries(data.frames));
+  for (const file of data.pages) {
+    const img = new Image();
+    const loaded = new Promise((resolve, reject) => {
+      img.onload = resolve;
+      img.onerror = () => reject(new Error(`${file}: could not load`));
+    });
+    img.src = `${baseUrl}${file}`;
+    await img.decode().catch(() => loaded);
+    const texture = new THREE.Texture(img);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.anisotropy = 4;
+    texture.needsUpdate = true;
+    atlas.pages.push({ source: img, texture });
+  }
+  atlas.sourceHash = data.sourceHash;
+  return atlas;
 }

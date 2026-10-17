@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 // Files that decide how the baked sprites look. If any changes, the pre-baked atlas is stale.
 export const SPRITE_SOURCES = [
   'src/render/models.js',
+  'src/render/stageModels.js',
   'src/render/modelKit.js',
   'src/render/textures.js',
   'src/render/spriteCatalog.js',

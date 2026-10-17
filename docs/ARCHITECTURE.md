@@ -125,6 +125,11 @@ so the whole battlefield is ~15 draw calls and a few hundred triangles however d
   sprites are baked, so polygon count doesn't matter. Animated parts (`userData.turret`, `arm`/`ammo` on the
   catapult, `crystal` on the spire) stay separate and get their own sprites. Walls take
   `{ connections: { n, e, s, w } }`, and every shape is baked as `wall:<key>`.
+- `stageModels.js`: the upgrade stages 2 to 5 (`createStagedModel(type, stage, opts)`, stage 1 being models.js),
+  built on models.js's pieces. Stage sprites carry `:s<stage>` (`b:archerTower:s3`, `wall:<key>:<v>:s4`,
+  `join:e:s2`, `arm:…:s3`, `icon:townHall:s5`); the renderer picks them by `building.stage`, turret and crystal
+  heights by stage, a tower's wall arms by the stage of the wall they join, and the Town Hall's chimney and
+  pennant from `hallEffects(stage)`. From stage 3 a tower built into a wall uses its normal stone sprite.
 - `modelKit.js`: the building blocks the models share. `Parts` merges primitives into one mesh per material and
   adds height-based ambient occlusion. The builders lay real masonry (`stoneBlocks`, `stoneRing`, with mortar gaps),
   `merlonsRect`/`merlonsRing`, shingled roofs (`shingleGable`, `shingleCone`), half-timbering (`timberFace`),
@@ -234,6 +239,8 @@ the maths by hand.
    area damage, and `slow: { factor, duration }` slows what it hits.
 2. Add a model function to `BUILDING_MODELS` in `render/models.js`, built with `Parts`. Put a `userData.turret`
    group on it if it should aim.
+3. For upgrades, add its five stages to `UPGRADES.stages` in `config.js` and a builder for stages 2 to 5 to
+   `STAGED` in `render/stageModels.js` (then `npm run bake`).
 
 The build bar button, hotkey, placement, targeting and health bar all follow automatically.
 

@@ -138,8 +138,12 @@ Pre-rendered sprites on a fixed isometric camera (see ARCHITECTURE.md), working 
 - [x] **Upgrades, 5 stages each** (per the art reference): Town Hall, walls and every tower, capped at one stage
       above the Town Hall; the Engineer's Codex shows the next stage's gains, with Upgrade (U), Repair (between
       waves) and Upgrade the whole line for walls (`sim/upgrades.js`, `UPGRADES` in config.js)
-- [ ] A model for each stage: wall stages wooden palisade → reinforced wood → dry stone → stone battlements →
-      heavy citadel wall; towers and the hall growing in stone
+- [x] A model for each stage (`stageModels.js`): walls wooden palisade → planked palisade on a stone footing →
+      turf-capped dry stone → crenellated battlements → grey citadel wall with corner towers; the watchtower on a
+      plinth, then the stone tower, roofed, then royal; the cannon on gabions, a round battery, a bombard tower, a
+      great bastion; the crystal mound in a rune circle, then a mage tower crowned with a gold ring; the catapult
+      on a timber deck, then stone platforms; the Town Hall growing into a walled castle. Later: towers built into
+      a wall at stage 3+ have no bastion of their own
 - [x] **Starting fort**: the game opens with a partly built palisade round the Town Hall, a log gatehouse (twin
       open-topped towers and a walkway over a wide gateway) and an archer tower built into the wall
 - [ ] Gatehouse as a buildable wall piece (today only the starting fort has one), and gates troops can use
