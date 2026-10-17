@@ -105,31 +105,46 @@ const DECOR = {
   },
   /** A lantern hanging from an iron arm on a stake. */
   lantern: (p) => {
-    p.add(box(0.025, 0.025, 0.24), MATERIALS.iron, { y: 1.02, z: 0.2 });
-    p.add(box(0.012, 0.08, 0.012), MATERIALS.iron, { y: 0.97, z: 0.3 });
-    p.add(box(0.09, 0.12, 0.09), GLOW, { y: 0.87, z: 0.3 });
-    p.add(cone(0.075, 0.06, 4), MATERIALS.iron, { y: 0.96, z: 0.3, ry: Math.PI / 4 });
-    p.add(box(0.1, 0.02, 0.1), MATERIALS.iron, { y: 0.8, z: 0.3 });
+    p.add(box(0.035, 0.035, 0.32), MATERIALS.iron, { y: 1.06, z: 0.22 });
+    p.add(box(0.016, 0.1, 0.016), MATERIALS.iron, { y: 1.0, z: 0.36 });
+    p.add(box(0.14, 0.18, 0.14), GLOW, { y: 0.85, z: 0.36 });
+    for (const [x, z] of [
+      [-0.07, -0.07],
+      [0.07, -0.07],
+      [-0.07, 0.07],
+      [0.07, 0.07],
+    ]) {
+      p.add(box(0.02, 0.19, 0.02), MATERIALS.iron, { x, y: 0.85, z: 0.36 + z });
+    }
+    p.add(cone(0.11, 0.09, 4), MATERIALS.iron, { y: 0.985, z: 0.36, ry: Math.PI / 4 });
+    p.add(box(0.15, 0.025, 0.15), MATERIALS.iron, { y: 0.75, z: 0.36 });
   },
   /** A bow and a quiver of arrows hung on the wall. */
   bowAndQuiver: (p) => {
-    p.add(torus(0.22, 0.012, 12), MATERIALS.woodDark, { x: -0.14, y: 0.78, z: 0.12, sx: 0.45, rz: 0.15 });
-    p.add(cyl(0.05, 0.045, 0.32, 8), MATERIALS.leather, { x: 0.14, y: 0.66, z: 0.13, rz: -0.2 });
-    for (let i = 0; i < 4; i++) p.add(cone(0.02, 0.06, 4), MATERIALS.bannerRed, { x: 0.11 + i * 0.02, y: 0.85, z: 0.13, rz: -0.2 });
+    p.add(torus(0.3, 0.018, 14), MATERIALS.woodDark, { x: -0.17, y: 0.76, z: 0.12, sx: 0.45, rz: 0.15 });
+    p.add(box(0.008, 0.56, 0.008), MATERIALS.rope, { x: -0.13, y: 0.76, z: 0.12, rz: 0.15 });
+    p.add(cyl(0.075, 0.065, 0.46, 8), MATERIALS.leather, { x: 0.17, y: 0.64, z: 0.14, rz: -0.2 });
+    for (let i = 0; i < 5; i++) p.add(cone(0.03, 0.09, 4), MATERIALS.bannerRed, { x: 0.13 + i * 0.022, y: 0.9, z: 0.14, rz: -0.2 });
   },
   /** A crow perched on top of a stake. */
   crow: (p) => {
-    p.add(sphere(0.055, 8, 6), FEATHER, { y: 1.33, sz: 1.4 });
-    p.add(sphere(0.035, 8, 6), FEATHER, { y: 1.39, z: 0.06 });
-    p.add(cone(0.012, 0.05, 4), MATERIALS.gold, { y: 1.385, z: 0.11, rx: Math.PI / 2 });
-    p.add(box(0.03, 0.01, 0.09), FEATHER, { y: 1.33, z: -0.09, rx: -0.3 });
+    p.add(sphere(0.09, 9, 7), FEATHER, { y: 1.36, sz: 1.4 });
+    p.add(sphere(0.058, 8, 6), FEATHER, { y: 1.46, z: 0.1 });
+    p.add(cone(0.02, 0.08, 4), MATERIALS.gold, { y: 1.455, z: 0.18, rx: Math.PI / 2 });
+    p.add(box(0.05, 0.015, 0.15), FEATHER, { y: 1.35, z: -0.15, rx: -0.3 });
+    for (const x of [-0.03, 0.03]) p.add(box(0.012, 0.06, 0.012), MATERIALS.gold, { x, y: 1.29 });
   },
   /** A water bucket and a ladle, ready for fires. */
   waterBucket: (p) => {
-    p.add(cyl(0.11, 0.09, 0.2, 12), MATERIALS.woodLight, { y: 0.1, z: 0.22 });
-    p.add(cyl(0.1, 0.1, 0.01, 12), WATER, { y: 0.19, z: 0.22 });
-    p.add(torus(0.11, 0.008, 12), MATERIALS.iron, { y: 0.16, z: 0.22, rx: Math.PI / 2 });
-    p.add(torus(0.1, 0.008, 10), MATERIALS.iron, { y: 0.2, z: 0.22, ry: 0.2 });
+    for (const [x, s] of [
+      [-0.12, 1],
+      [0.15, 0.8],
+    ]) {
+      p.add(cyl(0.15 * s, 0.12 * s, 0.28 * s, 12), MATERIALS.woodLight, { x, y: 0.14 * s, z: 0.24 });
+      p.add(cyl(0.14 * s, 0.14 * s, 0.01, 12), WATER, { x, y: 0.27 * s, z: 0.24 });
+      p.add(torus(0.15 * s, 0.012, 12), MATERIALS.iron, { x, y: 0.22 * s, z: 0.24, rx: Math.PI / 2 });
+      p.add(torus(0.14 * s, 0.012, 10), MATERIALS.iron, { x, y: 0.28 * s, z: 0.24, ry: 0.2 });
+    }
   },
 };
 

@@ -462,3 +462,29 @@ test('settings: New map starts a fresh game on another map, asking first if one 
   expect(await page.evaluate(() => window.game.world.waves.wave)).toBe(0);
   expect(errors).toEqual([]);
 });
+
+test('long walls carry the odd decoration (flags, torches, shields…), sparsely and on both wall directions', async ({ page }, testInfo) => {
+  const errors = await openGame(page);
+  await page.evaluate(() => {
+    const w = window.game.world;
+    w.economy.earn(5000);
+    for (let x = 3; x <= 36; x++) w.place('wall', x, 6); // east–west
+    for (let z = 8; z <= 33; z++) w.place('wall', 6, z); // north–south
+  });
+  const decor = () =>
+    page.evaluate(() => {
+      const r = window.game.renderer;
+      const kinds = [];
+      for (const b of window.game.world.buildings.values()) {
+        const v = r.views.buildings.get(b.id);
+        if (b.type === 'wall' && v?.decor) kinds.push(`${v.decor}@${v.wallKey}`);
+      }
+      return { kinds, walls: [...window.game.world.buildings.values()].filter((b) => b.type === 'wall').length };
+    });
+  await expect.poll(async () => (await decor()).kinds.length).toBeGreaterThan(2);
+  const { kinds, walls } = await decor();
+  expect(kinds.length).toBeLessThan(walls / 4); // sparse
+  expect(kinds.some((k) => k.endsWith('-e-w')) && kinds.some((k) => k.endsWith('n-s-'))).toBe(true);
+  await testInfo.attach('wall-decor', { body: await page.screenshot({ path: testInfo.outputPath('wall-decor.png') }), contentType: 'image/png' });
+  expect(errors).toEqual([]);
+});

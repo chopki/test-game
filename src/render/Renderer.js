@@ -7,6 +7,7 @@ import { AUTO_RESOLUTION, GROUND_DETAIL, GROUND_PX, SCENERY_COUNT } from './grap
 import { OUTER_GROUND, outsideForest, paintTerrain } from './terrainPainter.js';
 import { cloudTexture } from './textures.js';
 import { wallSeat } from './wallSeat.js';
+import { WALL_DECOR_KINDS } from './wallDecor.js';
 import { waterFlow } from './waterFlow.js';
 import { waterTexture } from './waterTextures.js';
 import { createProjectileModel, SCENERY_VARIANTS, WALL_VARIANTS } from './models.js';
@@ -105,6 +106,8 @@ export class Renderer {
     this.blobShadows = new BlobShadowBatch(this.groundLayer);
     this.effects = [];
     this.corpses = [];
+    this._decorPos = new THREE.Vector3();
+    this._toCamera = isoDirection(new THREE.Vector3());
     this._unsubscribe = [];
     this._raycaster = new THREE.Raycaster();
     this._groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
@@ -538,6 +541,7 @@ export class Renderer {
     this._dt = dt;
     this.wallJointsDrawn = 0;
     this.inWallDrawn = 0;
+    this.wallDecorDrawn = 0;
     const world = this.world;
     this.controls.update();
     this.sprites.begin();
@@ -632,6 +636,16 @@ export class Renderer {
       const key = spriteKeys.wall(view.wallKey, view.wallVariant);
       this.sprites.add(key, ground);
       this.shadowSprites.add(key, ground);
+      // Now and then a straight stretch carries a decoration (a flag, a torch, shields…), always the same one.
+      const axis = view.wallKey === '-e-w' ? 'x' : view.wallKey === 'n-s-' ? 'z' : null;
+      view.decor = axis && wallDecorAt(b.x, b.z);
+      if (view.decor) {
+        const decorKey = spriteKeys.wallDecor(view.decor, axis);
+        this.shadowSprites.add(decorKey, ground);
+        // Drawn from a point nudged towards the camera, so it's always in front of its own wall's logs.
+        this.sprites.add(decorKey, this._decorPos.copy(ground).addScaledVector(this._toCamera, 0.3));
+        this.wallDecorDrawn++;
+      }
     } else {
       const key = seat.shape ? spriteKeys.inWall(b.type, seat.shape) : spriteKeys.building(b.type);
       if (seat.shape) this.inWallDrawn++;
@@ -783,6 +797,14 @@ export class Renderer {
 export function wallVariant(x, z) {
   const h = Math.imul(x * 73856093 ^ z * 19349663, 0x9e3779b1) >>> 0;
   return (h >>> 7) % WALL_VARIANTS;
+}
+
+/** About one straight wall tile in nine carries a decoration; which tile and which kind come from its position. */
+export const WALL_DECOR_EVERY = 9;
+export function wallDecorAt(x, z) {
+  const h = Math.imul(x * 83492791 ^ z * 2654435761, 0x85ebca6b) >>> 0;
+  if ((h >>> 3) % WALL_DECOR_EVERY) return null;
+  return WALL_DECOR_KINDS[(h >>> 11) % WALL_DECOR_KINDS.length];
 }
 
 export function underlay(material, opacity = 1) {

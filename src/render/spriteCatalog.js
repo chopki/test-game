@@ -1,4 +1,5 @@
 import { BUILDINGS, ENEMIES } from '../sim/config.js';
+import { createWallDecor, WALL_DECOR_KINDS } from './wallDecor.js';
 import { createBuildingModel, createEnemyModel, createSceneryObject, ENEMY_ANIMS, IN_WALL_SHAPES, poseEnemy, SCENERY_TYPES, SCENERY_VARIANTS, WALL_VARIANTS } from './models.js';
 
 export { ENEMY_ANIMS };
@@ -21,6 +22,8 @@ export const spriteKeys = {
   /** A tower's base when built into a wall (`shape`: see IN_WALL_SHAPES in models.js). */
   inWall: (type, shape) => `bw:${type}:${shape}`,
   icon: (type) => `icon:${type}`,
+  /** A decoration on a straight wall: `axis` 'x' for an east–west wall, 'z' for north–south. */
+  wallDecor: (kind, axis) => `decor:${kind}:${axis}`,
   /** A wall tile: its connection key, and which of the WALL_VARIANTS versions. */
   wall: (connectionKey, variant = 0) => `wall:${connectionKey}:${variant}`,
   /** The piece that ties a wall into a building's edge tile; `dir` points from the building to the wall. */
@@ -147,6 +150,19 @@ export function spriteSpecs() {
   }
 
   for (const dir of WALL_DIRS) specs.push({ key: spriteKeys.wallJoint(dir), make: () => createBuildingModel('wallJoint', { dir }) });
+  // Wall decorations, for walls running either way (always on the side the camera sees: +z, or +x once turned).
+  for (const kind of WALL_DECOR_KINDS) {
+    for (const axis of ['x', 'z']) {
+      specs.push({
+        key: spriteKeys.wallDecor(kind, axis),
+        make: () => {
+          const d = createWallDecor(kind);
+          if (axis === 'z') d.rotation.y = Math.PI / 2;
+          return d;
+        },
+      });
+    }
+  }
 
   for (const key of WALL_KEYS) {
     const connections = Object.fromEntries(WALL_DIRS.map((d, i) => [d, key[i] === d]));
