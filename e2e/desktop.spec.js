@@ -686,3 +686,24 @@ test('ground marks: footbridges over fords, worn earth round towers, scorch mark
   await testInfo.attach('ground-marks', { body: await page.screenshot({ path: testInfo.outputPath('ground-marks.png') }), contentType: 'image/png' });
   expect(errors).toEqual([]);
 });
+
+test('glow and colour (High only): halos round crystals and fires, a warm grade, both off on Medium (screenshot attached)', async ({ page }, testInfo) => {
+  const errors = await openGame(page);
+  expect(await page.evaluate(() => window.game.graphics.glow)).toBe(true); // High
+  await page.evaluate(() => {
+    const w = window.game.world;
+    w.economy.earn(2000);
+    w.place('magicSpire', 14, 14);
+    w.place('archerTower', 17, 14);
+    w.buildingAt(17, 14).hp = 20; // badly damaged: it burns
+  });
+  await expect.poll(() => page.evaluate(() => window.game.renderer.glows.count)).toBeGreaterThanOrEqual(2);
+  expect(await page.evaluate(() => getComputedStyle(window.game.renderer.renderer.domElement).filter)).toContain('sepia');
+  expect(await minCanvasAlpha(page)).toBe(255); // additive halos leave the canvas opaque
+  await zoomTo(page, 16, 15, 2.4);
+  await testInfo.attach('glow', { body: await page.screenshot({ path: testInfo.outputPath('glow.png') }), contentType: 'image/png' });
+  await page.evaluate(() => window.game.setGraphics({ ...window.game.graphics, preset: 'medium', glow: false }));
+  expect(await page.evaluate(() => window.game.renderer.glows.mesh.visible)).toBe(false);
+  expect(await page.evaluate(() => window.game.renderer.renderer.domElement.style.filter)).toBe('');
+  expect(errors).toEqual([]);
+});

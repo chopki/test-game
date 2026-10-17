@@ -191,3 +191,70 @@ export class BlobShadowBatch {
     this.batch.end();
   }
 }
+
+function glowTexture() {
+  const size = 64;
+  const c = document.createElement('canvas');
+  c.width = c.height = size;
+  const g = c.getContext('2d');
+  const grad = g.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+  grad.addColorStop(0, 'rgba(255,255,255,1)');
+  grad.addColorStop(0.25, 'rgba(255,255,255,0.55)');
+  grad.addColorStop(0.6, 'rgba(255,255,255,0.15)');
+  grad.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, size, size);
+  return new THREE.CanvasTexture(c);
+}
+
+/**
+ * Soft light halos (crystals, torches, fires), added on top of everything as camera-facing quads with additive
+ * blending. Not depth-tested: light bleeding a little past whatever stands in front reads as glow. One draw call.
+ */
+export class GlowBatch {
+  constructor(parent, quaternion, capacity = 512) {
+    const mat = new THREE.MeshBasicMaterial({
+      map: glowTexture(),
+      transparent: true,
+      depthTest: false,
+      depthWrite: false,
+      blending: THREE.CustomBlending,
+      blendSrc: THREE.SrcAlphaFactor,
+      blendDst: THREE.OneFactor,
+      blendSrcAlpha: THREE.ZeroFactor, // keep the canvas opaque (see underlay() in Renderer.js)
+      blendDstAlpha: THREE.OneFactor,
+    });
+    this.mesh = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1), mat, capacity);
+    this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    this.mesh.setColorAt(0, new THREE.Color());
+    this.mesh.frustumCulled = false;
+    this.mesh.renderOrder = 3.5;
+    this.mesh.count = 0;
+    parent.add(this.mesh);
+    this.capacity = capacity;
+    this.count = 0;
+    this._q = quaternion;
+    this._m = new THREE.Matrix4();
+    this._s = new THREE.Vector3();
+    this._c = new THREE.Color();
+  }
+
+  begin() {
+    this.count = 0;
+  }
+
+  /** A halo `size` across at scene position `pos`; `color` is scaled by `strength` (0..1). */
+  add(pos, size, color, strength = 1) {
+    if (this.count >= this.capacity) return;
+    this._m.compose(pos, this._q, this._s.set(size, size, size));
+    this.mesh.setMatrixAt(this.count, this._m);
+    this.mesh.setColorAt(this.count, this._c.set(color).multiplyScalar(strength));
+    this.count++;
+  }
+
+  end() {
+    this.mesh.count = this.count;
+    this.mesh.instanceMatrix.needsUpdate = true;
+    if (this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
+  }
+}

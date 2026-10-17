@@ -139,6 +139,9 @@ so the whole battlefield is ~15 draw calls and a few hundred triangles however d
   land) from one small painted atlas as an InstancedMesh between the ground and the shadows. Footbridges:
   `bridges.js` (pure, unit-tested) finds each ford's middle line across the flow; the renderer adds the baked
   `bridge:<axis>:<mid|start|end>` pieces to the terrain sprites. Fords stay fords for the sim.
+- Glow and colour (High, setting `glow`): `GlowBatch` (batches.js) draws additive halos at light sources (the
+  spire's crystal, lit wall decorations via `DECOR_LIGHTS`, burning buildings), not depth-tested; the warm grade is
+  a CSS filter on the canvas (`COLOUR_GRADE`), so it costs no render pass and leaves the HUD alone.
 - Combat effects: `particles.js` draws soft inked puffs (smoke, dust, flashes, arrow trails) and tumbling debris
   chunks as two InstancedMeshes, refilled each frame. The renderer spawns them from world events
   (`projectileFired`, `projectileImpact`, `buildingHit` with the blow's origin, `buildingDestroyed`, `enemyKilled`);

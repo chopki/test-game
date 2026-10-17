@@ -11,7 +11,7 @@ import { WALL_DECOR_KINDS } from './wallDecor.js';
 import { waterFlow } from './waterFlow.js';
 import { waterTexture } from './waterTextures.js';
 import { createProjectileModel, IN_WALL_RADIUS, SCENERY_SWAY, SCENERY_VARIANTS, WALL_VARIANTS, wallArmOffset } from './models.js';
-import { BlobShadowBatch, HealthBarBatch } from './batches.js';
+import { BlobShadowBatch, GlowBatch, HealthBarBatch } from './batches.js';
 import { ISO_QUATERNION, isoDirection } from './iso.js';
 import { fordBridges } from './bridges.js';
 import { damageAmount, damageStage } from './damage.js';
@@ -37,6 +37,10 @@ const DEBRIS = {
   earth: [0x8a6f48, 0x6f5638, 0x9a8158],
 };
 const rand = (r) => (Math.random() * 2 - 1) * r;
+/** The warm colour grade on High (a CSS filter on the canvas; see applySettings). */
+const COLOUR_GRADE = 'sepia(0.08) saturate(1.04) contrast(1.04)';
+/** Wall decorations that give off light: [x, y, z, glow size], placed as on an east–west wall (see wallDecor.js). */
+const DECOR_LIGHTS = { torch: [0, 1.38, 0.2, 0.9], brazier: [0, 0.66, 0.24, 1.2], lantern: [0, 0.85, 0.36, 0.8] };
 /** Scorch marks and craters: how long they last (seconds) and how many at once. */
 const SCORCH_LIFE = 45;
 const MAX_SCORCHES = 80;
@@ -129,6 +133,7 @@ export class Renderer {
     this.effects = [];
     this.particles = new Particles(this.overlayLayer);
     this.groundMarks = new GroundMarks(this.groundLayer);
+    this.glows = new GlowBatch(this.overlayLayer, ISO_QUATERNION);
     this.scorches = [];
     this.corpses = [];
     this._decorPos = new THREE.Vector3();
@@ -466,6 +471,10 @@ export class Renderer {
     else if (!prev || prev.resolution !== 'auto') this.setRenderScale(defaultAutoScale());
     if (prev && prev.scenery !== graphics.scenery) this._buildTerrain();
     this._clouds.visible = graphics.effects;
+    // Glow and colour (High): halos round lights, and a warm grade over the canvas (a CSS filter, so it costs
+    // no render pass and leaves the HUD alone).
+    this.glows.mesh.visible = graphics.glow;
+    this.renderer.domElement.style.filter = graphics.glow ? COLOUR_GRADE : '';
   }
 
   /**
@@ -578,6 +587,7 @@ export class Renderer {
     this.healthBars.begin(this.camera.quaternion);
     this.blobShadows.begin();
     this.groundMarks.begin();
+    this.glows.begin();
     this._drawScorches(dt);
     this.sprites.time = this._time;
     const wind = this.graphics.effects ? 1 : 0;
@@ -599,6 +609,7 @@ export class Renderer {
     this.shadowSprites.end();
     this.blobShadows.end();
     this.groundMarks.end();
+    this.glows.end();
     this.healthBars.end();
 
     this.particles.update(dt);
@@ -688,6 +699,13 @@ export class Renderer {
         // Drawn from a point nudged towards the camera, so it's always in front of its own wall's logs.
         this.sprites.add(decorKey, this._decorPos.copy(ground).addScaledVector(this._toCamera, 0.3), 1, 0, 0, dmg);
         this.wallDecorDrawn++;
+        const light = DECOR_LIGHTS[view.decor];
+        if (light && this.graphics.glow) {
+          const [lx, ly, lz, size] = light;
+          const [ox, oz] = axis === 'x' ? [lx, lz] : [lz, -lx]; // the north–south version is turned a quarter
+          const flicker = 0.5 + 0.08 * Math.sin(this._time * 11 + view.phase) + 0.06 * Math.sin(this._time * 17.3 + view.phase * 2);
+          this.glows.add(this.toScene(b.cx + ox, ly, b.cz + oz, this._fxPos), size, 0xff9a3c, flicker);
+        }
       }
     } else {
       const key = seat.shape ? spriteKeys.inWall(b.type, seat.shape) : spriteKeys.building(b.type);
@@ -709,7 +727,12 @@ export class Renderer {
         this.sprites.add(spriteKeys.turret(b.type, b.aim), ground, 1, lift, 0, turretDmg);
       }
       if (b.type === 'magicSpire') {
-        this.sprites.add(spriteKeys.crystal(), ground, 1, crystalHeight() + Math.sin(this._time * 2 + view.phase) * 0.08);
+        const bob = Math.sin(this._time * 2 + view.phase) * 0.08;
+        this.sprites.add(spriteKeys.crystal(), ground, 1, crystalHeight() + bob);
+        if (this.graphics.glow) {
+          const pulse = 0.5 + 0.15 * Math.sin(this._time * 3 + view.phase);
+          this.glows.add(this.toScene(b.cx + seat.dx, crystalHeight() + bob + 0.3, b.cz + seat.dz, this._fxPos), 1.8, 0xa860ff, pulse);
+        }
       }
       if (!seat.shape) this._drawWallJoints(b, dmg); // in-wall models carry their own wall stubs
     }
@@ -904,6 +927,10 @@ export class Renderer {
    */
   _smoulder(view, b, seat) {
     if (!this.graphics.effects) return;
+    if (b.type !== 'wall' && this.graphics.glow) {
+      const flicker = 0.45 + 0.12 * Math.sin(this._time * 9 + view.phase) + 0.08 * Math.sin(this._time * 23 + view.phase);
+      this.glows.add(this.toScene(b.cx + seat.dx, b.def.height * 0.6, b.cz + seat.dz, this._fxPos), b.size * 1.3, 0xff7a2a, flicker);
+    }
     view.smoke -= this._dt * (b.type === 'wall' ? 0.6 : 2.5);
     if (view.smoke > 0) return;
     view.smoke += 1;
