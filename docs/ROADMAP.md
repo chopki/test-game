@@ -116,7 +116,8 @@ Pre-rendered sprites on a fixed isometric camera (see ARCHITECTURE.md), working 
       built to its measured proportions got close (`createStoneTower`), and its ideas went into the model kit
 - [x] **Worn detail on every model**: bevelled edges on all boxes, worn and uneven stone courses, rounded merlons,
       doors in arches of voussoirs; a worn-stone kit (painted rough stonework, quoins, deep windows, sloped doors,
-      buttresses) and a procedural stone archer tower ready for the upgrade stages
+      buttresses) and a procedural stone archer tower ready for the upgrade stages; on the wooden models, painted log grain, knots and bark,
+      pale cut tips, rope-lashed palisades, knotted weathered planks and an iron-strapped, rope-lashed watchtower
 
 ## v0.2: Defence depth
 

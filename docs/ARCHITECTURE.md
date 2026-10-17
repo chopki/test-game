@@ -134,6 +134,10 @@ so the whole battlefield is ~15 draw calls and a few hundred triangles however d
   `roughStoneTexture`) on tapering blocks (`frustum`), rough corner `quoins`, `roughBlocks`, `deepWindow`,
   `slopedDoor` (on a battered wall) and buttress `wedge`s; `createStoneTower()` in models.js uses it (the archer
   tower's future stone stage, not baked yet).
+  Wood follows the same ideas: peeled logs are painted with grain, knots, splits and slivers of bark
+  (`logTexture` in textures.js), sharpened tips show pale fresh-cut wood, palisade logs are lashed with rope, planks
+  (`woodTexture`) carry knots, worn edges and weathering, and the watchtower's legs are iron-strapped and its braces
+  rope-lashed.
 - `inkStyle.js`: the hand-drawn look, applied by the baker to every sprite (no runtime cost): ink outlines on the
   silhouette and on inner edges (found from extra normal and depth renders), shading flattened into soft bands,
   warmer shadows and light hatching. Pure pixel code, unit-tested in `test/inkStyle.test.js`; tune `INK_STYLE`.

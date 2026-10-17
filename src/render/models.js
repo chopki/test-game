@@ -42,7 +42,7 @@ import {
   slopedDoor,
   wedge,
 } from './modelKit.js';
-import { woodTexture } from './textures.js';
+import { logTexture, speckleTexture, woodTexture } from './textures.js';
 
 // The game's models, built after docs/reference/art-style.jpg: block-laid sandstone, red clay shingles, timber
 // and logs, chunky crenellations, blocky olive trees, and an enemy army of men
@@ -157,7 +157,11 @@ function townHall() {
 
 /** Peeled logs, light brown like the reference's palisade. */
 /** Peeled logs, light tan like the reference's palisade (lightest to darkest). */
-const LOGS = ['#cba46e', '#c69b66', '#bb8d58', '#ad8050', '#a0754a'].map((c) => foliage(c));
+const LOG_COLORS = ['#cba46e', '#c69b66', '#bb8d58', '#ad8050', '#a0754a'];
+const LOGS = LOG_COLORS.map((c) => std({ map: logTexture(c) }));
+/** The pale, freshly cut wood of each log shade (sharpened tips). */
+const LOG_TIPS = LOG_COLORS.map((c) => std({ map: speckleTexture(new THREE.Color(c).offsetHSL(0, -0.05, 0.1).getStyle(), 0.08) }));
+const tipOf = (log) => LOG_TIPS[LOGS.indexOf(log)] ?? log;
 /** Each wall variant leans towards its own few shades, so neighbouring tiles differ a little in tone. */
 const LOG_SETS = [
   [LOGS[1], LOGS[2], LOGS[3]],
@@ -286,6 +290,12 @@ function archerTower() {
       // Leg leaning in from the footing to the deck corner.
       const lean = Math.atan2(foot - head, deck);
       p.add(box(0.12, deck + 0.1, 0.12), M.wood, { x: sx * (foot + head) / 2, y: 0.14 + deck / 2, z: sz * (foot + head) / 2, rx: -sz * lean, rz: sx * lean });
+      // Iron straps binding the leg to its footing and to the deck.
+      for (const t of [0.06, 0.93]) {
+        const y = 0.14 + deck * t;
+        const d = foot + (head - foot) * t;
+        p.add(box(0.15, 0.035, 0.15), M.iron, { x: sx * d, y, z: sz * d, rx: -sz * lean, rz: sx * lean });
+      }
     }
   }
   // Cross braces on each face, and a mid rail.
@@ -299,6 +309,10 @@ function archerTower() {
     const at = { x: fx * midW, z: fz * midW };
     for (const s of [-1, 1]) p.add(box(0.06, 1.55, 0.05), M.woodDark, { ...at, y: 0.85, ry, rz: s * 0.62, order: 'YZX' });
     p.add(box(0.06, 0.07, midW * 2), M.woodDark, { ...at, y: 0.85, ry: ry + Math.PI / 2 });
+    // Rope lashing where the braces cross the rail.
+    const out = { x: fx * 0.045, z: fz * 0.045 };
+    p.add(sphere(0.055, 8, 6), M.rope, { x: at.x + out.x * 0.4, y: 0.85, z: at.z + out.z * 0.4, sy: 1.3 });
+    for (const dy of [-0.03, 0.03]) p.add(box(0.13, 0.016, 0.1), M.rope, { x: at.x, y: 0.85 + dy, z: at.z, ry: ry + Math.PI / 4 });
   }
   // Ladder up the front.
   for (const sx of [-0.13, 0.13]) p.add(box(0.04, 1.6, 0.04), M.woodLight, { x: sx, y: 0.85, z: foot + 0.06, rx: -0.12 });
@@ -633,12 +647,19 @@ export const IN_WALL_SHAPES = ['we', 'ns', 'wn', 'ws', 'en', 'es', 'wen', 'wes',
 const ARM = { n: [0, -1], e: [1, 0], s: [0, 1], w: [-1, 0] };
 
 /** One sharpened palisade log; heights, points and lean vary so the top line is ragged, as in the reference. */
-function palisadeLog(p, rnd, x, z, { r = 0.075, h = rnd.range(0.95, 1.28), shades = LOGS } = {}) {
+/**
+ * One sharpened palisade log, leaning a touch, with its tip cut to pale fresh wood and a rope lashing binding it to
+ * its neighbours at `lash` (0 for none).
+ */
+function palisadeLog(p, rnd, x, z, { r = 0.075, h = rnd.range(0.95, 1.28), shades = LOGS, lash = 0.62 } = {}) {
   const mat = rnd.pick(shades);
   const tilt = { rx: rnd.range(-0.06, 0.06), rz: rnd.range(-0.06, 0.06) };
   const point = rnd.range(0.15, 0.3);
+  // Where a point at height y on the leaning log ends up (it leans about its middle).
+  const lean = (y) => ({ x: x - (y - h / 2) * Math.sin(tilt.rz), y, z: z + (y - h / 2) * Math.sin(tilt.rx) });
   p.add(cyl(r, r * 1.05, h, 8), mat, { x, y: h / 2, z, ...tilt, ry: rnd.range(0, 3) });
-  p.add(cone(r, point, 8), mat, { x, y: h + point / 2, z, ...tilt });
+  p.add(cone(r, point, 8), tipOf(mat), { ...lean(h + point / 2), ...tilt });
+  if (lash > 0 && lash < h - 0.1) p.add(torus(r * 1.04 + 0.006, 0.013, 10), MATERIALS.rope, { ...lean(lash), rx: Math.PI / 2 + tilt.rx, rz: tilt.rz });
 }
 
 /**

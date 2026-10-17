@@ -176,9 +176,96 @@ export function woodTexture(base = '#8a5a34') {
         ctx.bezierCurveTo(gx + 2, s * 0.3, gx - 2, s * 0.6, gx + 1, s);
         ctx.stroke();
       }
+      // A knot now and then, the grain swirling round it.
+      if (rnd() < 0.55) {
+        const kx = i * pw + pw * (0.3 + rnd() * 0.4);
+        const ky = rnd() * s;
+        ctx.fillStyle = shade(base, -0.2);
+        ctx.beginPath();
+        ctx.ellipse(kx, ky, 2.2, 3.4, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = shade(base, -0.1);
+        ctx.beginPath();
+        ctx.ellipse(kx, ky, 4, 6.5, 0, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      // Worn, lighter edge along one side of the plank, and the dark seam on the other.
+      ctx.fillStyle = shade(base, 0.06);
+      ctx.fillRect(i * pw + pw - 4, 0, 2, s);
       ctx.fillStyle = shade(base, -0.25);
       ctx.fillRect(i * pw, 0, 2, s);
     }
+    // Weathering stains.
+    for (let k = 0; k < 5; k++) {
+      ctx.fillStyle = `rgba(40,25,12,${0.04 + rnd() * 0.05})`;
+      ctx.beginPath();
+      ctx.ellipse(rnd() * s, rnd() * s, 4 + rnd() * 8, 8 + rnd() * 14, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  });
+}
+
+/**
+ * A peeled log's surface (u round the log, v up it; one tile per unit): long wavy grain, knots, a split or two,
+ * lighter worn streaks and the odd strip of bark left on.
+ */
+export function logTexture(base = '#bb8d58') {
+  return make(`log:${base}`, 128, (ctx, s, rnd) => {
+    ctx.fillStyle = base;
+    ctx.fillRect(0, 0, s, s);
+    // Long grain: darker and lighter wavy lines up the log.
+    for (let g = 0; g < 26; g++) {
+      const gx = rnd() * s;
+      ctx.strokeStyle = rnd() < 0.6 ? shade(base, -0.08 - rnd() * 0.06) : shade(base, 0.05);
+      ctx.lineWidth = 0.8 + rnd() * 1.2;
+      const wob = 1.5 + rnd() * 2.5;
+      for (const ox of [0, -s, s]) {
+        ctx.beginPath();
+        ctx.moveTo(gx + ox, 0);
+        ctx.bezierCurveTo(gx + ox + wob, s * 0.33, gx + ox - wob, s * 0.66, gx + ox, s);
+        ctx.stroke();
+      }
+    }
+    // Bark left on in a strip or two.
+    for (let b = 0; b < 2; b++) {
+      if (rnd() < 0.4) continue;
+      const bx = rnd() * s;
+      const by = rnd() * s;
+      const bw = 5 + rnd() * 7;
+      const bh = 16 + rnd() * 26;
+      // A ragged sliver, tapering at both ends, only a little darker than the wood.
+      ctx.fillStyle = shade(base, -0.12);
+      ctx.beginPath();
+      ctx.moveTo(bx + bw / 2, by);
+      ctx.quadraticCurveTo(bx + bw * 1.1, by + bh * 0.5, bx + bw / 2, by + bh);
+      ctx.quadraticCurveTo(bx - bw * 0.1, by + bh * 0.5, bx + bw / 2, by);
+      ctx.fill();
+      ctx.fillStyle = shade(base, -0.18);
+      for (let i = 0; i < 4; i++) ctx.fillRect(bx + bw * (0.3 + rnd() * 0.4), by + bh * (0.15 + rnd() * 0.6), 1, 3 + rnd() * 5);
+    }
+    // Knots.
+    for (let k = 0; k < 3; k++) {
+      const kx = rnd() * s;
+      const ky = rnd() * s;
+      ctx.strokeStyle = shade(base, -0.14);
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.ellipse(kx, ky, 4.5, 7, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = shade(base, -0.2);
+      ctx.beginPath();
+      ctx.ellipse(kx, ky, 2.2, 3.2, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // A split.
+    const sx = rnd() * s;
+    ctx.strokeStyle = shade(base, -0.32);
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(sx, s * 0.1);
+    ctx.lineTo(sx + 1.5, s * 0.45);
+    ctx.lineTo(sx - 0.5, s * 0.7);
+    ctx.stroke();
   });
 }
 
