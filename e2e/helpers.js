@@ -159,11 +159,12 @@ export async function buildShowcase(page, testInfo, name) {
     const corner = w.anchorFor('archerTower', 14, 24);
     w.place('archerTower', corner.x, corner.z);
     w.phase = 'wave';
-    ['grunt', 'runner', 'orc', 'brute'].forEach((type, i) => {
-      for (let n = 0; n < 3; n++) {
-        w._spawnEnemy({ type, side: 'north', hpMult: 1, elite: type === 'brute' && n === 0 });
+    ['swordsman', 'pikeman', 'archer', 'knight', 'ram', 'mangonel'].forEach((type, i) => {
+      const siege = type === 'ram' || type === 'mangonel';
+      for (let n = 0; n < (siege ? 1 : 3); n++) {
+        w._spawnEnemy({ type, side: 'north', hpMult: 1, elite: type === 'knight' && n === 0 });
         const e = w.enemies.at(-1);
-        e.x = 15 + i * 2.4 + n * 0.7;
+        e.x = 12 + i * 2.2 + n * 0.7;
         e.z = 11.5 + n * 0.6;
         e.def = { ...e.def, speed: 0 };
       }

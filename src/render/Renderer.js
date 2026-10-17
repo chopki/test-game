@@ -61,10 +61,10 @@ const NEIGHBOURS = [
   ['s', 0, 1],
   ['w', -1, 0],
 ];
-const ENEMY_BAR_WIDTH = { grunt: 0.6, runner: 0.6, orc: 0.75, brute: 0.9 };
-const ENEMY_BLOB_RADIUS = { grunt: 0.28, runner: 0.24, orc: 0.38, brute: 0.6 };
+const ENEMY_BAR_WIDTH = { swordsman: 0.55, pikeman: 0.55, archer: 0.5, knight: 0.7, ram: 1.0, mangonel: 1.0 };
+const ENEMY_BLOB_RADIUS = { swordsman: 0.26, pikeman: 0.26, archer: 0.24, knight: 0.32, ram: 0.72, mangonel: 0.78 };
 // Tiles covered by one walk cycle, so feet keep pace with the ground.
-const WALK_STRIDE = { grunt: 0.7, runner: 0.8, orc: 0.85, brute: 1.2 };
+const WALK_STRIDE = { swordsman: 0.7, pikeman: 0.7, archer: 0.7, knight: 0.75, ram: 0.6, mangonel: 0.6 };
 const DEATH_FRAME_TIME = 0.11; // seconds per death frame
 const CORPSE_TIME = 0.9; // how long a fallen enemy stays before vanishing
 // Visible world height at zoom 1 is at least this; portrait screens show at least VIEW_WIDTH across.
@@ -569,7 +569,12 @@ export class Renderer {
       }),
       ev.on('towerPulse', ({ x, z, radius }) => this._spawnRing(x, z, radius, 0xa66bff, 0.55)),
       ev.on('enemyKilled', ({ enemy }) => {
-        this._fxDust(enemy.x, 0.25, enemy.z, 3, 0.35);
+        this._fxDust(enemy.x, 0.25, enemy.z, enemy.def.siege ? 8 : 3, enemy.def.siege ? 0.7 : 0.35);
+        if (enemy.def.siege && this.graphics.effects) {
+          // A siege engine breaks up: splinters and planks thrown off.
+          const at = this.toScene(enemy.x, 0.5, enemy.z, this._fxPos);
+          for (let i = 0; i < 10; i++) this._fxChunk(at, 0.06 + Math.random() * 0.06, DEBRIS.wall, 2.4);
+        }
         this.corpses.push({ type: enemy.type, elite: enemy.elite, heading: enemy.heading, x: enemy.x, z: enemy.z, age: 0 });
       }),
       ev.on('buildingHit', (hit) => this._fxHit(hit)),

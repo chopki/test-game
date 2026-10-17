@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { BUILDINGS, ENEMIES } from '../sim/config.js';
+import { BUILDINGS, ENEMIES, WAVES } from '../sim/config.js';
 import { wavingPennant, withoutPennantCloth } from './modelKit.js';
 import { ANIMAL_KINDS, ANIMAL_POSES, createAnimal } from './animals.js';
 import { createWallDecor, WALL_DECOR_KINDS } from './wallDecor.js';
@@ -80,7 +80,7 @@ export const SPRITE_SETS = {
   standard: { dir: 'sprites/', options: BAKE_OPTIONS },
   hd: { dir: 'sprites-hd/', options: { pxPerUnit: 144, supersample: 1.5 } },
 };
-/** Enemies are small and always moving, so they're baked at a lower resolution (there are ~560 frames). */
+/** Enemies are small and always moving, so they're baked at a lower resolution (there are ~780 frames). */
 const ENEMY_PX_PER_UNIT = 56;
 
 /** Pose the catapult arm for a reload frame. */
@@ -196,7 +196,7 @@ export function spriteSpecs() {
   }
 
   for (const type of Object.keys(ENEMIES)) {
-    const variants = type === 'brute' ? [false, true] : [false];
+    const variants = type === WAVES.bossType ? [false, true] : [false];
     for (const elite of variants) {
       for (let d = 0; d < ENEMY_DIRECTIONS; d++) {
         const heading = (d / ENEMY_DIRECTIONS) * Math.PI * 2;

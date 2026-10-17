@@ -188,60 +188,109 @@ export const BUILDINGS = {
 };
 
 /**
- * Enemy definitions.
+ * Enemy definitions: a human army that marches in squads.
  *  speed     tiles per second
- *  damage    per hit against buildings
- *  threat    wave-budget cost; waves are filled up to a threat budget
- *  weight    relative chance of being picked when filling a wave
+ *  damage    per hit (or per shot) against buildings; siege engines hit far harder than men
+ *  ranged    optional: { range, projectile, projectileSpeed, arc, prefer }. Ranged enemies stop and shoot a
+ *            building within `range` (measured to its nearest edge) instead of walking up to it. `prefer`:
+ *            'towers' (shoot the nearest tower, else whatever blocks their path) or 'breach' (shoot whatever
+ *            blocks their path, else the nearest tower)
+ *  siege     a siege engine (it can only damage buildings; drawn as a machine with its crew)
+ *  threat    wave-budget cost per enemy; waves are filled with squads up to a threat budget
+ *  weight    relative chance of a squad of this type being picked when filling a wave
+ *  squad     [min, max] enemies per squad; `escort`: { type, count } that march with it
+ *  plural    for the wave preview
  */
 export const ENEMIES = {
-  grunt: {
-    name: 'Goblin',
-    maxHp: 60,
-    speed: 1.6,
-    damage: 8,
+  swordsman: {
+    name: 'Swordsman',
+    plural: 'Swordsmen',
+    maxHp: 70,
+    speed: 1.1,
+    damage: 6,
     attackCooldown: 1.0,
     reward: 4,
     threat: 1,
     weight: 5,
     minWave: 1,
-    height: 1.1,
+    height: 0.95,
+    squad: [3, 5],
   },
-  runner: {
-    name: 'Goblin Scout',
-    maxHp: 35,
-    speed: 3.0,
-    damage: 6,
-    attackCooldown: 0.7,
-    reward: 3,
+  pikeman: {
+    name: 'Pikeman',
+    plural: 'Pikemen',
+    maxHp: 100,
+    speed: 0.95,
+    damage: 5,
+    attackCooldown: 1.1,
+    reward: 5,
     threat: 1,
     weight: 3,
     minWave: 2,
-    height: 0.9,
+    height: 0.95,
+    squad: [3, 4],
   },
-  orc: {
-    name: 'Orc Warrior',
-    maxHp: 140,
-    speed: 1.2,
-    damage: 18,
-    attackCooldown: 1.2,
-    reward: 8,
-    threat: 2,
-    weight: 2,
-    minWave: 3,
-    height: 1.4,
-  },
-  brute: {
-    name: 'Troll',
-    maxHp: 320,
-    speed: 0.9,
-    damage: 45,
+  archer: {
+    name: 'Archer',
+    plural: 'Archers',
+    maxHp: 45,
+    speed: 1.05,
+    damage: 3,
     attackCooldown: 1.6,
-    reward: 15,
-    threat: 5,
+    ranged: { range: 5, projectile: 'arrow', projectileSpeed: 14, arc: 0.6, prefer: 'towers' },
+    reward: 4,
+    threat: 1,
+    weight: 3,
+    minWave: 3,
+    height: 0.9,
+    squad: [3, 4],
+  },
+  ram: {
+    name: 'Battering Ram',
+    plural: 'Battering Rams',
+    maxHp: 450,
+    speed: 0.55,
+    damage: 90,
+    attackCooldown: 2.2,
+    siege: true,
+    reward: 18,
+    threat: 6,
     weight: 1,
     minWave: 4,
-    height: 1.6,
+    height: 1.1,
+    squad: [1, 1],
+    escort: { type: 'swordsman', count: 2 },
+  },
+  knight: {
+    name: 'Knight',
+    plural: 'Knights',
+    maxHp: 240,
+    speed: 0.9,
+    damage: 12,
+    attackCooldown: 1.3,
+    reward: 12,
+    threat: 4,
+    weight: 1,
+    minWave: 5,
+    height: 1.1,
+    squad: [1, 2],
+  },
+  mangonel: {
+    name: 'Siege Catapult',
+    plural: 'Siege Catapults',
+    maxHp: 220,
+    speed: 0.5,
+    damage: 70,
+    attackCooldown: 5,
+    ranged: { range: 8, projectile: 'boulder', projectileSpeed: 7, arc: 3, prefer: 'breach' },
+    siege: true,
+    reward: 20,
+    threat: 7,
+    weight: 1,
+    minWave: 6,
+    height: 1.2,
+    squad: [1, 1],
+    escort: { type: 'pikeman', count: 2 },
   },
 };
 
@@ -250,6 +299,9 @@ export const WAVES = {
   budgetPerWave: 4,
   budgetQuadratic: 0.4,
   hpGrowthPerWave: 0.1, // +10% enemy HP per wave
-  bossEvery: 5, // every Nth wave adds elite Trolls
+  squadGap: [4, 1.5], // seconds between squads: wave 1, and the floor it shrinks to (−0.15 s per wave)
+  memberGap: 0.25, // seconds between the men of one squad stepping out
+  bossEvery: 5, // every Nth wave adds a squad of elite Knights (warlords)
+  bossType: 'knight',
   bossHpMultiplier: 1.5,
 };

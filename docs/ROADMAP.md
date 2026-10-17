@@ -123,7 +123,9 @@ Pre-rendered sprites on a fixed isometric camera (see ARCHITECTURE.md), working 
 - [ ] **Repair**: pay to restore HP between waves (or a slow auto-repair upgrade)
 - [ ] **Gates**: walls your future troops can pass through but enemies can't
 - [ ] More towers: ballista (pierce)
-- [ ] Ranged enemies that out-range walls, and siege enemies that prioritise towers
+- [x] **Enemy redo**: a human army in squads (swordsmen, pikemen, archers, knights), battering rams and siege
+      catapults with escorts. Archers and catapults stop and shoot from range (archers at towers, catapults at
+      the wall in their way); siege engines hit buildings far harder than men. Everyone marches slower
 - [ ] Balance pass against human play
 
 ## v0.3: Economy

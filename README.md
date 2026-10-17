@@ -2,7 +2,8 @@
 
 A 3D browser tower-defence / survival game. Raiders pour in from the edges of the map to tear down your
 **Town Hall**. Ring it with **castle walls**, raise **archer towers**, **cannon towers**, **magic spires** and
-**catapults**, and survive as many waves as you can against goblins, orcs and trolls.
+**catapults**, and survive as many waves as you can against an invading army: squads of swordsmen, pikemen,
+archers and knights, with battering rams and siege catapults.
 
 | Desktop | Phone (Pixel 7) |
 | ------- | --------------- |

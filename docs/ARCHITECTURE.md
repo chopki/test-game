@@ -53,8 +53,10 @@ Building centres are `(x + size/2, z + size/2)`.
 Entities are plain objects (no classes) so they're easy to inspect and, later, serialise:
 
 - **Building**: `{ id, type, def, x, z, size, cx, cz, hp, maxHp, cooldown, aim }`
-- **Enemy**: `{ id, type, def, elite, x, z, tx, tz, target, hp, maxHp, attackTargetId, attackTimer, heading, moving, alive }`
-  (`tx, tz` is the tile the enemy is committed to, `target` the tile it's walking into)
+- **Enemy**: `{ id, type, def, elite, squad, x, z, tx, tz, target, hp, maxHp, attackTargetId, attackTimer, retarget, heading, moving, alive }`
+  (`tx, tz` is the tile the enemy is committed to, `target` the tile it's walking into; `attackTargetId` the
+  building it's hitting or, for ranged enemies, shooting)
+- **Projectile**: towers' shots, plus enemy shots (`hostile: true`, aimed at `building`; they only damage it)
 - **Projectile**: `{ id, kind, x, y, z, target?, damage, splash, t, flightTime, alive }`
 
 `def` points at the entry in `config.js`, so behaviour is data-driven: anything with `def.attack` acts as a tower,
@@ -99,8 +101,10 @@ so the whole battlefield is ~15 draw calls and a few hundred triangles however d
   the arm so each sorts by its own depth), which `Renderer._drawWallArms()` lays out per shape. (Baking whole
   towers per shape filled ~6 of the HD set's pages.) In-wall turrets sit at their own heights (`turretHeight(type, shape)`).
   The renderer and the build preview both use it; other towers touching walls get joint pieces.
-- **Animated enemies**: each enemy model is a rig (legs, body and arms as separate parts; see `models.js`) that
-  `poseEnemy()` puts into baked frames: 6 walk, 4 attack and 4 death (`ENEMY_ANIMS`), for each of 8 headings.
+- **Animated enemies**: each man is a rig (legs, body and arms as separate parts, plus the pike; see `models.js`)
+  that `poseEnemy()` puts into baked frames: 6 walk, 4 attack (swing, thrust or shoot) and 4 death
+  (`ENEMY_ANIMS`), for each of 8 headings. Siege engines pose themselves (`userData.pose`: the ram's log, the
+  catapult's arm) and carry crews that are men rigs.
   Sprite keys are `e:<type>[:elite]:<dir>:<anim>:<frame>`. The renderer advances walk frames by distance
   covered (`WALK_STRIDE`), takes attack frames from the sim's attack timer (the blow lands on the hit), and keeps
   killed enemies as corpses that play their death frames before vanishing.
@@ -208,8 +212,10 @@ The build bar button, hotkey, placement, targeting and health bar all follow aut
 
 ### Add an enemy
 
-1. Add an entry to `ENEMIES` (`threat`, `weight` and `minWave` control how it enters waves).
-2. Add a model to `ENEMY_MODELS`. It needs a `userData.body` group for the walk and attack animation.
+1. Add an entry to `ENEMIES` (`threat`, `weight`, `minWave` and `squad` control how it enters waves; `ranged`
+   makes it shoot from range, `siege` marks a machine).
+2. Add a model to `ENEMY_MODELS`: a men `rig()` (with an `attack` style), or a machine with its own
+   `userData.pose(anim, frame)`. Add its health-bar width, blob shadow and stride in `Renderer.js`.
 
 ### Add a new kind of attack
 

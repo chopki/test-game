@@ -104,22 +104,37 @@ Selling refunds 50% of the cost × remaining HP fraction.
 
 ## Enemies
 
-| Enemy        | HP  | Speed (tiles/s) | Damage / hit | Hit every | Gold | Threat | Appears from |
-| ------------ | --- | --------------- | ------------ | --------- | ---- | ------ | ------------ |
-| Goblin       | 60  | 1.6             | 8            | 1.0s      | 4    | 1      | wave 1 |
-| Goblin Scout | 35  | 3.0             | 6            | 0.7s      | 3    | 1      | wave 2 |
-| Orc Warrior  | 140 | 1.2             | 18           | 1.2s      | 8    | 2      | wave 3 |
-| Troll        | 320 | 0.9             | 45           | 1.6s      | 15   | 5      | wave 4 |
+A human army in blue-and-cream livery, marching in **squads**. Men walk to the Town Hall and hack at whatever
+blocks their way (walls, towers, the gatehouse); ranged enemies stop and shoot from range instead. Siege engines
+hit buildings far harder than men. Damage is against buildings (enemies don't fight anything else yet).
 
-**Elite Trolls** (gold crown, 1.3× size) join every 5th wave: ×1.5 HP, ×1.5 damage, ×3 gold.
-(Internal ids: `grunt`, `runner`, `orc`, `brute`.)
+| Enemy          | HP  | Speed (tiles/s) | Damage / hit | Hit every | Range | Gold | Threat | Squad | Appears from |
+| -------------- | --- | --------------- | ------------ | --------- | ----- | ---- | ------ | ----- | ------------ |
+| Swordsman      | 70  | 1.1             | 6            | 1.0s      | melee | 4    | 1      | 3–5   | wave 1 |
+| Pikeman        | 100 | 0.95            | 5            | 1.1s      | melee | 5    | 1      | 3–4   | wave 2 |
+| Archer         | 45  | 1.05            | 3            | 1.6s      | 5     | 4    | 1      | 3–4   | wave 3 |
+| Battering Ram  | 450 | 0.55            | 90           | 2.2s      | melee | 18   | 6      | 1 + 2 Swordsmen | wave 4 |
+| Knight         | 240 | 0.9             | 12           | 1.3s      | melee | 12   | 4      | 1–2   | wave 5 |
+| Siege Catapult | 220 | 0.5             | 70           | 5s        | 8     | 20   | 7      | 1 + 2 Pikemen   | wave 6 |
+
+- **Archers** shoot the nearest tower in range; if none, whatever blocks their route once it's in range. Towers
+  out-range them (archer tower 7, archers 5).
+- **Siege Catapults** batter the wall (or gatehouse, or tower) blocking their route from 8 tiles, else the
+  nearest tower. Only the player's Catapult (range 10) out-ranges them.
+- Enemy shots hit only the building they're aimed at.
+
+**Elite Knights** (warlords: gold crown, 1.3× size) join every 5th wave as a squad of `n / 5`: ×1.5 HP,
+×1.5 damage, ×3 gold.
+(Internal ids: `swordsman`, `pikeman`, `archer`, `ram`, `knight`, `mangonel`.)
 
 ## Waves
 
-- Each wave has a threat budget: `round(4 + 4n + 0.4n²)`. See the Threat column above.
+- Each wave has a threat budget: `round(4 + 4n + 0.4n²)`, filled with squads (each squad one type, from one
+  side; siege engines bring their escort). See the Threat and Squad columns above.
 - Enemy HP scales by `+10%` per wave.
 - Attack sides: 1 side for waves 1–2, 2 for waves 3–5, 3 for waves 6–9, and all 4 from wave 10.
-- Spawns get closer together over time (gap ≈ `max(0.2, 1 − 0.04n)` seconds, ±40% jitter).
+- A squad's men step out side by side, 0.25 s apart. Squads follow each other every `max(1.5, 4 − 0.15(n − 1))`
+  seconds (±30% jitter).
 - Wave clear bonus: `30 + 10n` gold.
 
 ## Art direction
@@ -140,7 +155,8 @@ a "Battle Chronicle" event scroll (desktop; toasts on small screens) and an "Eng
 selected building. (The reference's Upgrade button and spells arrive with those features.)
 
 Warm, storybook medieval: sandstone blocks, red clay roofs, half-timbered plaster, chunky crenellations,
-green goblins and orcs, grey trolls. Terrain follows the reference's environment sheet: blocky olive oaks and
+an enemy army of men in blue-and-cream livery (steel helms, round and kite shields, pikes, bows) with hide-roofed
+battering rams and wheeled catapults. Terrain follows the reference's environment sheet: blocky olive oaks and
 stepped pines, big flat-faced pale sandstone boulders, light straw-olive grass that's nearly flat colour with a fine painted grain, a faint tile grid over the
 map, ink lines where kinds of ground meet, sparse dark grass clumps gathered by woods, rocks and water, bright turquoise water sunk below the grass with a brown earth bank on the far side, and strong dark
 ground shadows. Sprites get a hand-drawn finish when baked: warm dark-brown ink outlines and inner lines, shading

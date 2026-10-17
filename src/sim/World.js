@@ -20,9 +20,13 @@ import { generateTerrain, spawnTilesBySide, T } from './terrain.js';
  * Phases: 'build' (countdown to next wave) → 'wave' (enemies spawning/alive)
  * → back to 'build' when the wave is cleared, or 'gameover' when the Town Hall falls.
  *
+ * Enemies march in squads (see WaveManager.js). Men walk the flow field to the Town Hall and hack at whatever
+ * blocks their way (walls, towers, the gatehouse); ranged enemies (archers, siege catapults) stop and shoot a
+ * building in range instead; rams and catapults hit buildings far harder than men.
+ *
  * Events emitted: goldChanged, buildingPlaced, buildingSold, buildingDestroyed,
  * enemySpawned, enemyKilled, projectileFired, projectileImpact, towerPulse, buildingHit, waveStarted,
- * waveCleared, gameOver.
+ * waveCleared, gameOver. Enemy shots are projectiles too (`hostile: true`, fired by `enemy`).
  */
 export class World {
   constructor({ seed = Date.now(), terrain = 'open', fort = false, river = false } = {}) {
@@ -44,6 +48,7 @@ export class World {
     this.stats = { kills: 0, wavesSurvived: 0 };
 
     this._nextId = 1;
+    this._squads = new Map(); // squad number → where its men line up on the edge (this wave)
     this._flowDirty = true;
     this._flowTimer = 0;
 
@@ -207,6 +212,7 @@ export class World {
   startWave() {
     if (this.phase !== 'build') return false;
     this.phase = 'wave';
+    this._squads = new Map();
     const plan = this.waves.start();
     this.events.emit('waveStarted', { wave: plan.wave, sides: plan.sides, count: plan.entries.length });
     return true;
@@ -409,6 +415,38 @@ export class World {
     this.events.emit('projectileFired', { projectile: p, building: b });
   }
 
+  /** An enemy's shot at building `b`: an arrow or a boulder at the nearest point of its footprint. */
+  _fireAtBuilding(e, b) {
+    const r = e.def.ranged;
+    const scale = e.elite ? 1.3 : 1;
+    const [tx, tz] = this._nearestPoint(b, e.x, e.z);
+    const p = {
+      id: this._nextId++,
+      kind: r.projectile,
+      hostile: true,
+      sx: e.x,
+      sy: e.def.height * 0.7 * scale,
+      sz: e.z,
+      x: e.x,
+      y: e.def.height * 0.7 * scale,
+      z: e.z,
+      tx,
+      ty: Math.min(1, b.def.height * 0.5),
+      tz,
+      target: null,
+      building: b,
+      damage: e.def.damage * (e.elite ? 1.5 : 1),
+      splash: r.projectile === 'boulder' ? 0.8 : 0,
+      slow: null,
+      arc: r.arc,
+      t: 0,
+      flightTime: Math.max(0.05, Math.hypot(tx - e.x, tz - e.z) / r.projectileSpeed),
+      alive: true,
+    };
+    this.projectiles.push(p);
+    this.events.emit('projectileFired', { projectile: p, enemy: e });
+  }
+
   _updateProjectile(p, dt) {
     if (!p.alive) return;
     if (p.target?.alive) {
@@ -423,7 +461,10 @@ export class World {
     if (t < 1) return;
 
     p.alive = false;
-    if (p.splash > 0) {
+    if (p.hostile) {
+      // Enemy shots only hurt the building they were aimed at (if it still stands).
+      if (this.buildings.get(p.building.id) === p.building) this._damageBuilding(p.building, p.damage, { x: p.sx, z: p.sz });
+    } else if (p.splash > 0) {
       const r2 = p.splash * p.splash;
       for (const e of this.enemies) {
         if (e.alive && (e.x - p.x) ** 2 + (e.z - p.z) ** 2 <= r2) this._damageEnemy(e, p.damage);
@@ -432,7 +473,7 @@ export class World {
       if (p.slow) this._slowEnemy(p.target, p.slow);
       this._damageEnemy(p.target, p.damage);
     }
-    this.events.emit('projectileImpact', { x: p.x, y: p.y, z: p.z, kind: p.kind, splash: p.splash });
+    this.events.emit('projectileImpact', { x: p.x, y: p.y, z: p.z, kind: p.kind, splash: p.splash, hostile: Boolean(p.hostile) });
   }
 
   // ---------------------------------------------------------------- enemies
@@ -455,15 +496,33 @@ export class World {
     }
   }
 
+  /**
+   * Where a squad's next man steps out: the first takes a random edge tile, the rest the free edge tiles nearest
+   * it, so the squad lines up side by side.
+   */
+  _squadTile(entry) {
+    if (entry.squad === undefined) return this._spawnTile(entry.side);
+    let squad = this._squads.get(entry.squad);
+    if (!squad) {
+      const anchor = this._spawnTile(entry.side);
+      const tiles = this.spawnTiles[entry.side]?.length ? this.spawnTiles[entry.side] : [anchor];
+      const near = [...tiles].sort((a, b) => Math.hypot(a[0] - anchor[0], a[1] - anchor[1]) - Math.hypot(b[0] - anchor[0], b[1] - anchor[1]));
+      squad = { tiles: near, next: 0 };
+      this._squads.set(entry.squad, squad);
+    }
+    return squad.tiles[squad.next++ % squad.tiles.length];
+  }
+
   _spawnEnemy(entry) {
     const def = ENEMIES[entry.type];
-    const [tx, tz] = this._spawnTile(entry.side);
+    const [tx, tz] = this._squadTile(entry);
     const maxHp = Math.round(def.maxHp * entry.hpMult);
     const e = {
       id: this._nextId++,
       type: entry.type,
       def,
       elite: entry.elite,
+      squad: entry.squad ?? null,
       x: tx + 0.5,
       z: tz + 0.5,
       tx,
@@ -471,11 +530,12 @@ export class World {
       target: null,
       hp: maxHp,
       maxHp,
-      attackTargetId: null,
+      attackTargetId: null, // the building it's hacking at, battering or shooting
       attackTimer: 0,
+      retarget: 0, // ranged enemies: seconds until they look for something to shoot again
       // Small per-enemy offset so groups don't walk in a single-file line.
-      offX: this.rng.range(-0.22, 0.22),
-      offZ: this.rng.range(-0.22, 0.22),
+      offX: def.siege ? 0 : this.rng.range(-0.22, 0.22),
+      offZ: def.siege ? 0 : this.rng.range(-0.22, 0.22),
       heading: 0,
       moving: false,
       slowFactor: 1,
@@ -488,21 +548,40 @@ export class World {
 
   _updateEnemy(e, dt) {
     e.moving = false;
+    const ranged = e.def.ranged;
 
     if (e.attackTargetId !== null) {
       const b = this.buildings.get(e.attackTargetId);
       if (!b) {
         e.attackTargetId = null;
       } else {
-        e.heading = Math.atan2(b.cx - e.x, b.cz - e.z);
+        const [px, pz] = this._nearestPoint(b, e.x, e.z);
+        e.heading = Math.atan2(px - e.x, pz - e.z);
         e.attackTimer -= dt;
         if (e.attackTimer <= 0) {
           e.attackTimer += e.def.attackCooldown;
-          this._damageBuilding(b, e.def.damage * (e.elite ? 1.5 : 1), e);
-          // A cheaper route may have opened up (e.g. another wall fell).
-          const next = this.flow.nextStep(e.tx, e.tz);
-          if (!next || this.grid.get(next.x, next.z) !== b.id) e.attackTargetId = null;
+          if (ranged) {
+            this._fireAtBuilding(e, b);
+            // Something better may have come into range (a tower built, or the way through opened).
+            const best = this._rangedTarget(e);
+            if (best !== b) e.attackTargetId = best?.id ?? null;
+          } else {
+            this._damageBuilding(b, e.def.damage * (e.elite ? 1.5 : 1), e);
+            // A cheaper route may have opened up (e.g. another wall fell).
+            const next = this.flow.nextStep(e.tx, e.tz);
+            if (!next || this.grid.get(next.x, next.z) !== b.id) e.attackTargetId = null;
+          }
         }
+        return;
+      }
+    }
+
+    if (ranged && (e.retarget -= dt) <= 0) {
+      e.retarget = 0.4;
+      const b = this._rangedTarget(e);
+      if (b) {
+        e.attackTargetId = b.id;
+        e.attackTimer = e.def.attackCooldown * 0.5;
         return;
       }
     }
@@ -539,6 +618,49 @@ export class World {
       e.x += (dx / dist) * step;
       e.z += (dz / dist) * step;
     }
+  }
+
+  /** The point of building `b`'s footprint nearest to (x, z). */
+  _nearestPoint(b, x, z) {
+    return [Math.min(Math.max(x, b.x), b.x + b.size), Math.min(Math.max(z, b.z), b.z + b.size)];
+  }
+
+  _distanceTo(b, x, z) {
+    const [px, pz] = this._nearestPoint(b, x, z);
+    return Math.hypot(px - x, pz - z);
+  }
+
+  /**
+   * What a ranged enemy shoots from where it stands, or null to keep walking: the nearest tower in range, or the
+   * building blocking its route (a wall, the gatehouse, the Town Hall) once that's in range. Archers prefer
+   * towers; siege catapults prefer to batter a way through.
+   */
+  _rangedTarget(e) {
+    const { range, prefer } = e.def.ranged;
+    let tower = null;
+    let towerDist = Infinity;
+    for (const b of this.buildings.values()) {
+      if (!b.def.attack) continue;
+      const d = this._distanceTo(b, e.x, e.z);
+      if (d <= range && d < towerDist) {
+        tower = b;
+        towerDist = d;
+      }
+    }
+    // Follow the route ahead to the first building on it.
+    let blocker = null;
+    let [tx, tz] = [e.tx, e.tz];
+    for (let i = 0; i < range + 2; i++) {
+      const next = this.flow.nextStep(tx, tz);
+      if (!next) break;
+      const b = this.buildingAt(next.x, next.z);
+      if (b) {
+        if (this._distanceTo(b, e.x, e.z) <= range) blocker = b;
+        break;
+      }
+      [tx, tz] = [next.x, next.z];
+    }
+    return prefer === 'towers' ? (tower ?? blocker) : (blocker ?? tower);
   }
 
   _damageEnemy(e, amount) {

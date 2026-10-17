@@ -331,11 +331,11 @@ test('draw calls stay flat as walls and enemies are added (instancing)', { tag: 
   // Same wall shapes, three times as many walls: no extra draw calls.
   expect(await calls()).toBeLessThanOrEqual(withSomeWalls + 2);
 
-  // 40 enemies of four types (half damaged, so they show health bars).
+  // 60 enemies of six types (half damaged, so they show health bars).
   await page.evaluate(() => {
     const w = window.game.world;
     w.phase = 'wave';
-    ['grunt', 'runner', 'orc', 'brute'].forEach((type) => {
+    ['swordsman', 'pikeman', 'archer', 'knight', 'ram', 'mangonel'].forEach((type) => {
       for (let i = 0; i < 10; i++) {
         w._spawnEnemy({ type, side: 'north', hpMult: 1, elite: false });
         const e = w.enemies.at(-1);
@@ -367,14 +367,14 @@ test('enemies are animated: walk frames cycle, blocked enemies attack, and the d
       const v = e && window.game.renderer.views.enemies.get(e.id);
       return v ? { anim: v.anim, frame: v.frame } : null;
     });
-  // One goblin walking south from the north edge, straight at a wall line across its path.
+  // One swordsman walking south from the north edge, straight at a wall line across its path.
   await page.evaluate(() => {
     const w = window.game.world;
     w.economy.earn(1000);
     for (let x = 3; x <= 36; x++) w.place('wall', x, 8);
     w.phase = 'wave';
     w.spawnTiles.north = [[20, 0]];
-    w._spawnEnemy({ type: 'grunt', side: 'north', hpMult: 1, elite: false });
+    w._spawnEnemy({ type: 'swordsman', side: 'north', hpMult: 1, elite: false });
   });
   // Walk frames advance as it moves (polled, as the first frames after a preset change can be slow).
   const frames = new Set();
@@ -393,6 +393,39 @@ test('enemies are animated: walk frames cycle, blocked enemies attack, and the d
   await page.evaluate(() => window.game.world._damageEnemy(window.game.world.enemies[0], 9999));
   expect(await page.evaluate(() => window.game.renderer.corpses.length)).toBe(1);
   await expect.poll(() => page.evaluate(() => window.game.renderer.corpses.length), { timeout: 5_000 }).toBe(0);
+  expect(errors).toEqual([]);
+});
+
+test('enemy archers and siege catapults stop at range and shoot at the defences (screenshot attached)', async ({ page }, testInfo) => {
+  const errors = await openGame(page, { paused: false });
+  await page.evaluate(() => {
+    const w = window.game.world;
+    w.economy.earn(2000);
+    for (let x = 6; x <= 33; x++) w.place('wall', x, 14);
+    const tower = w.place('archerTower', 22, 16).building;
+    tower.def = { ...tower.def, attack: { ...tower.def.attack, damage: 0 } }; // let them shoot for a while
+    w.phase = 'wave';
+    w.spawnTiles.north = [[17, 0], [18, 0], [19, 0], [20, 0], [21, 0], [22, 0], [23, 0]];
+    for (const type of ['archer', 'archer', 'archer', 'mangonel']) w._spawnEnemy({ type, side: 'north', squad: 0, hpMult: 1, elite: false });
+    for (const e of w.enemies) e.z += 4; // start nearer, to save walking time
+  });
+  await zoomTo(page, 20, 10, 1.6);
+  // Hostile shots fly (and are drawn as 3D projectiles), and the shooters stand off at range.
+  await expect
+    .poll(() => page.evaluate(() => window.game.world.projectiles.filter((p) => p.hostile).length), { timeout: 30_000, intervals: [100] })
+    .toBeGreaterThan(0);
+  const state = await page.evaluate(() => {
+    const w = window.game.world;
+    return {
+      drawn: window.game.renderer.views.projectiles.size,
+      shooting: w.enemies.filter((e) => e.attackTargetId !== null).map((e) => ({ type: e.type, z: e.z })),
+    };
+  });
+  expect(state.drawn).toBeGreaterThan(0);
+  expect(state.shooting.length).toBeGreaterThan(0);
+  for (const e of state.shooting) expect(e.z).toBeLessThan(13); // short of the wall line at z = 14
+  const shot = await page.screenshot({ path: testInfo.outputPath('ranged-enemies.png') });
+  await testInfo.attach('ranged-enemies', { body: shot, contentType: 'image/png' });
   expect(errors).toEqual([]);
 });
 

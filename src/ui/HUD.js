@@ -171,7 +171,7 @@ export class HUD {
     this.el.startWave.hidden = w.phase !== 'build';
     if (w.phase === 'build') {
       const next = w.waves.next;
-      const units = summarizeWave(next).map((u) => `${u.count} ${u.name}${u.count > 1 ? 's' : ''}`).join(', ');
+      const units = summarizeWave(next).map((u) => `${u.count} ${u.name}`).join(', ');
       this._set('nextWave', `Wave ${next.wave}: ${units} — from the ${joinSides(next.sides)}`);
     } else {
       this._set('nextWave', '');

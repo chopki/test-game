@@ -21,7 +21,7 @@ function customMap(paint) {
 /** Spawn one enemy from `side` with the given type and step the world until it dies or `seconds` pass. */
 function walkEnemy(world, side, seconds, onStep) {
   world.phase = 'wave';
-  world._spawnEnemy({ type: 'grunt', side, hpMult: 1, elite: false });
+  world._spawnEnemy({ type: 'swordsman', side, hpMult: 1, elite: false });
   const e = world.enemies.at(-1);
   for (let t = 0; t < seconds && e.alive && world.phase !== 'gameover'; t += DT) {
     world._updateEnemy(e, DT);
@@ -79,7 +79,7 @@ describe('terrain rules', () => {
       const world = new World({ seed: 4, terrain });
       world.spawnTiles.north = [[20, 0]];
       world.phase = 'wave';
-      world._spawnEnemy({ type: 'grunt', side: 'north', hpMult: 1, elite: false });
+      world._spawnEnemy({ type: 'swordsman', side: 'north', hpMult: 1, elite: false });
       const e = world.enemies.at(-1);
       let t = 0;
       while (e.attackTargetId === null && t < 60) {
