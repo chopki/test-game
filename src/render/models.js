@@ -1649,6 +1649,104 @@ function outcrop(p, rnd, v) {
   for (let i = 0; i < 5; i++) p.add(cone(0.04, 0.18, 4), MATERIALS.grass, { x: rnd.range(-0.5, 0.5), y: 0.08, z: rnd.range(0.2, 0.5), rz: rnd.range(-0.4, 0.4) });
 }
 
+// ------------------------------------------------------------------ cliffs
+
+/** A level's height (TERRAIN.hills.levelHeight: a unit test checks they match; re-bake after changing it). */
+export const CLIFF_HEIGHT = 0.85;
+/**
+ * A cliff face's shape along its edge: 'full' (a level high all along), 'up' (rising from nothing at local -x to a
+ * level at +x: beside a ramp) or 'down' (the other way).
+ */
+export const CLIFF_PROFILES = ['full', 'up', 'down'];
+/** Variants per profile. */
+export const CLIFF_VARIANTS = { full: 3, up: 2, down: 2 };
+/** The cliffs' rocky earth, and the grass over them (the painted ground's colour). */
+const CLIFF_EARTH = std({ map: speckleTexture('#806a50', 0.16), flatShading: true });
+const CLIFF_SOD = ['#9e9a4a', '#8e8a42', '#a8a050'].map((c) => std({ color: c, flatShading: true }));
+/** Grey-brown rock, a little darker than the loose boulders. */
+const CLIFF_ROCK = ['#a89a84', '#988a74', '#b4a68e', '#8c806c'].map((c) => std({ map: speckleTexture(c, 0.14), flatShading: true }));
+
+/**
+ * One tile's length of cliff face (for baking into a sprite), facing +z: big pale flat-faced boulders bedded in
+ * earth, under a lip of grass hanging over the top, with stones and grass round the foot. Its origin is the middle
+ * of the cliff's foot; the face stands at z = 0 and the earth behind runs back into the plateau. A little longer
+ * than a tile, so neighbouring pieces overlap and corners close.
+ */
+export function createCliffPiece(profile = 'full', variant = 0) {
+  const p = new Parts();
+  const rnd = rng(CLIFF_PROFILES.indexOf(profile) * 41 + variant * 17 + 5);
+  const H = CLIFF_HEIGHT;
+  const end = 0.56;
+  // Height of the face at x.
+  const heightAt = (x) => (profile === 'full' ? H : H * Math.min(1, Math.max(0, profile === 'up' ? x + 0.5 : 0.5 - x)));
+  // The bank of rocky earth, leaning back a little, its top following the profile; the grass lip over it.
+  p.add(bankGeometry(heightAt, 2 * end, 0.4, 0, 0), CLIFF_EARTH, { z: -0.2, rx: -0.06 });
+  p.add(bankGeometry(heightAt, 2 * end + 0.02, 0.2, -0.07, 0.02), CLIFF_SOD[0], { z: -0.09 });
+  // Angular slabs of rock standing in the bank, of all sizes, overlapping (never in neat courses).
+  const count = profile === 'full' ? 7 + variant : 5;
+  for (let i = 0; i < count; i++) {
+    const x = -0.5 + (i + rnd.range(0.1, 0.9)) / count;
+    const top = heightAt(x) - 0.05;
+    if (top < 0.1) continue;
+    const h = top * rnd.range(0.55, 1);
+    const y = rnd.next() < 0.6 ? 0 : top - h;
+    p.add(rbox(rnd.range(0.16, 0.3), h, rnd.range(0.16, 0.24), 0.025), rnd.pick(CLIFF_ROCK), {
+      x,
+      y: y + h / 2,
+      z: rnd.range(-0.07, 0),
+      ry: rnd.range(-0.45, 0.45),
+      rz: rnd.range(-0.08, 0.08),
+    });
+  }
+  // A few big pale boulders standing out of the face, as in the outcrops.
+  for (let i = 0; i < (profile === 'full' ? 2 : 1); i++) {
+    const x = rnd.range(-0.38, 0.38);
+    const top = heightAt(x);
+    if (top < 0.35) continue;
+    const h = top * rnd.range(0.35, 0.6);
+    p.add(rbox(rnd.range(0.22, 0.32), h, rnd.range(0.2, 0.26), 0.06), rnd.pick(BOULDER), { x, y: rnd.next() < 0.6 ? h / 2 : top - h / 2 - 0.08, z: rnd.range(0, 0.05), ry: rnd.range(-0.5, 0.5) });
+  }
+  // Clods of turf along the edge, so it's ragged.
+  for (let x = -0.5; x < 0.5; x += rnd.range(0.14, 0.26)) {
+    const h = heightAt(x);
+    if (h < 0.1) continue;
+    p.add(rbox(rnd.range(0.1, 0.18), rnd.range(0.05, 0.09), rnd.range(0.08, 0.14), 0.03), rnd.pick(CLIFF_SOD), { x, y: h - rnd.range(0.02, 0.05), z: rnd.range(-0.04, 0.02), ry: rnd.range(-0.4, 0.4) });
+  }
+  // Tufts hanging over the edge.
+  for (let x = -0.5; x < 0.5; x += rnd.range(0.12, 0.24)) {
+    const h = heightAt(x);
+    if (h < 0.08) continue;
+    p.add(cone(0.03, rnd.range(0.08, 0.15), 4), rnd.pick(CLIFF_SOD), { x, y: h - 0.06, z: 0.01, rx: 2.7 + rnd.range(-0.3, 0.3) });
+  }
+  // Fallen stones and grass round the foot.
+  for (let i = 0; i < 2 + variant; i++) {
+    const x = rnd.range(-0.45, 0.45);
+    if (heightAt(x) < 0.25) continue;
+    p.add(rbox(rnd.range(0.1, 0.16), rnd.range(0.06, 0.1), rnd.range(0.09, 0.13), 0.03), rnd.pick(CLIFF_ROCK), { x, y: 0.04, z: rnd.range(0.05, 0.13), ry: rnd.range(0, 3) });
+  }
+  for (let i = 0; i < 4; i++) {
+    const x = rnd.range(-0.48, 0.48);
+    if (heightAt(x) < 0.12) continue;
+    p.add(cone(0.035, 0.13, 4), rnd.pick(CLIFF_SOD), { x, y: 0.055, z: rnd.range(0.02, 0.15), rz: rnd.range(-0.4, 0.4) });
+  }
+  return p.build();
+}
+
+/**
+ * A bank `w` long (along x, centred) and `d` deep: a box whose top follows `heightAt(x)` (+ `top`) and whose bottom
+ * is the ground, or `bottom` below the top if that's not 0 (a layer along the top, like the grass lip).
+ */
+function bankGeometry(heightAt, w, d, bottom, top) {
+  const g = new THREE.BoxGeometry(w, 1, d, 12, 1, 1).toNonIndexed();
+  const pos = g.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    const h = Math.max(0.01, heightAt(Math.max(-0.5, Math.min(0.5, pos.getX(i)))));
+    pos.setY(i, pos.getY(i) > 0 ? h + top : bottom ? Math.max(0, h + bottom) : 0);
+  }
+  g.computeVertexNormals();
+  return g;
+}
+
 const SCENERY_BUILDERS = { oak, pine, birch, spruce, beech, snag, stump, bush, rock, outcrop };
 export const SCENERY_TYPES = Object.keys(SCENERY_BUILDERS);
 export const SCENERY_VARIANTS = 3;

@@ -11,7 +11,7 @@ import { DECOR_PENNANTS, WALL_DECOR_KINDS } from './wallDecor.js';
 import { waterFlow } from './waterFlow.js';
 import { cliffGeometry, cliffTexture, pushDepth, raisedGroundGeometry } from './hills.js';
 import { waterTexture } from './waterTextures.js';
-import { CHIMNEYS, createProjectileModel, IN_WALL_RADIUS, PENNANTS, SCENERY_SWAY, SCENERY_VARIANTS, WALL_VARIANTS, wallArmOffset } from './models.js';
+import { CHIMNEYS, CLIFF_VARIANTS, createProjectileModel, IN_WALL_RADIUS, PENNANTS, SCENERY_SWAY, SCENERY_VARIANTS, WALL_VARIANTS, wallArmOffset } from './models.js';
 import { BlobShadowBatch, GlowBatch, HealthBarBatch } from './batches.js';
 import { ISO_QUATERNION, isoDirection } from './iso.js';
 import { fordBridges } from './bridges.js';
@@ -275,7 +275,15 @@ export class Renderer {
     const grid = world.grid;
     const scenery = this.graphics.scenery;
     const started = performance.now();
-    const painted = paintTerrain(grid, { pxPerTile: GROUND_PX[scenery], detail: GROUND_DETAIL[scenery], seed: world.seed, coast: world.coast });
+    // Footbridges across the fords (decoration: fords stay fords for the sim), with a worn track on from each end.
+    const bridges = fordBridges(grid, waterFlow(grid));
+    const tracks = [];
+    for (const b of bridges) {
+      if (b.part === 'mid') continue;
+      const [dx, dz] = (b.axis === 'x' ? [1, 0] : [0, 1]).map((d) => (b.part === 'start' ? -d : d));
+      for (let k = 0, x = b.x, z = b.z; k <= TERRAIN.water.fordPath && [T.open, T.sand].includes(grid.terrainAt(x, z)); k++, x += dx, z += dz) tracks.push({ x, z });
+    }
+    const painted = paintTerrain(grid, { pxPerTile: GROUND_PX[scenery], detail: GROUND_DETAIL[scenery], seed: world.seed, coast: world.coast, tracks });
     this.terrainPaintMs = Math.round(performance.now() - started);
     this._terrainNoise = painted.noise;
 
@@ -333,12 +341,40 @@ export class Renderer {
         this.terrainSpots.push(this._scenerySpot(treeKind(painted.noise, x, z, rnd), variant, pos, rnd.range(0.85, 1.18)));
       }
     }
-    // Footbridges across the fords (decoration: fords stay fords for the sim).
-    for (const b of fordBridges(grid, waterFlow(grid))) {
+    this._cliffSpots(grid, rnd);
+    for (const b of bridges) {
       this.terrainSpots.push({ key: spriteKeys.bridge(b.part, b.axis), pos: this.toScene(b.x + 0.5, 0, b.z + 0.5), scale: 1, sway: 0 });
     }
     // As many decorative trees per stretch of map edge on every size of map.
     this._buildScenery(Math.round((SCENERY_COUNT[scenery] * grid.width) / GRID.width));
+  }
+
+  /**
+   * Baked cliff faces (createCliffPiece) along every edge the camera sees (south and east) where the ground drops a
+   * level: the whole way ('full'), or from nothing to a level beside a ramp ('up' / 'down' along the piece). They
+   * stand in front of the cliff mesh, which fills in behind them.
+   */
+  _cliffSpots(grid, rnd) {
+    const lh = TERRAIN.hills.levelHeight;
+    const near = (a, b) => Math.abs(a - b) < 0.01;
+    for (let z = 0; z < grid.height; z++) {
+      for (let x = 0; x < grid.width; x++) {
+        if (grid.levelAt(x, z) === 0) continue;
+        const mine = tileCorners(grid, x, z);
+        // [face, neighbour, this tile's corners along the edge, the neighbour's, the edge's middle]
+        const faces = [
+          ['s', tileCorners(grid, x, z + 1), [2, 3], [0, 1], [x + 0.5, z + 1]],
+          ['e', tileCorners(grid, x + 1, z), [3, 1], [2, 0], [x + 1, z + 0.5]], // from the south end (the piece's -x)
+        ];
+        for (const [face, other, ours, theirs, [mx, mz]] of faces) {
+          const [d0, d1] = ours.map((k, i) => mine[k] - other[theirs[i]]);
+          const profile = near(d0, lh) && near(d1, lh) ? 'full' : near(d0, 0) && near(d1, lh) ? 'up' : near(d0, lh) && near(d1, 0) ? 'down' : null;
+          if (!profile) continue;
+          const key = spriteKeys.cliff(face, profile, rnd.int(0, CLIFF_VARIANTS[profile] - 1));
+          this.terrainSpots.push({ key, pos: this.toScene(mx, 0, mz), scale: 1, sway: 0 });
+        }
+      }
+    }
   }
 
   /** Open sea to the horizon beyond the painted ground on the coast side (the painted sea fades into it). */

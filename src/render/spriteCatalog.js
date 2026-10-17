@@ -3,7 +3,7 @@ import { BUILDINGS, ENEMIES, WAVES } from '../sim/config.js';
 import { wavingPennant, withoutPennantCloth } from './modelKit.js';
 import { ANIMAL_KINDS, ANIMAL_POSES, createAnimal } from './animals.js';
 import { createWallDecor, WALL_DECOR_KINDS } from './wallDecor.js';
-import { BRIDGE_PARTS, createBridgePiece, createBuildingModel, createEnemyModel, createSceneryObject, createWallArm, ENEMY_ANIMS, IN_WALL_RADIUS, IN_WALL_TYPES, poseEnemy, SCENERY_TYPES, SCENERY_VARIANTS, WALL_VARIANTS } from './models.js';
+import { BRIDGE_PARTS, CLIFF_PROFILES, CLIFF_VARIANTS, createBridgePiece, createCliffPiece, createBuildingModel, createEnemyModel, createSceneryObject, createWallArm, ENEMY_ANIMS, IN_WALL_RADIUS, IN_WALL_TYPES, poseEnemy, SCENERY_TYPES, SCENERY_VARIANTS, WALL_VARIANTS } from './models.js';
 
 export { ENEMY_ANIMS };
 
@@ -50,6 +50,8 @@ export const spriteKeys = {
   enemy: (type, heading, elite = false, anim = 'walk', frame = 0) =>
     `e:${type}:${elite ? 'elite:' : ''}${angleIndex(heading, ENEMY_DIRECTIONS)}:${anim}:${frame}`,
   scenery: (kind, variant) => `s:${kind}:${variant}`,
+  /** A tile's length of cliff face (see createCliffPiece), facing 's' (+z) or 'e' (+x). */
+  cliff: (face, profile, variant) => `cliff:${face}:${profile}:${variant}`,
 };
 
 /** Height of a building's turret pivot above the ground (sprites are lifted by this much); `inWall`: a shape. */
@@ -250,6 +252,21 @@ export function spriteSpecs() {
 
   for (const kind of SCENERY_TYPES) {
     for (let v = 0; v < SCENERY_VARIANTS; v++) specs.push({ key: spriteKeys.scenery(kind, v), make: () => createSceneryObject(kind, v) });
+  }
+  // Cliff faces on the hills, for the two sides the camera sees.
+  for (const face of ['s', 'e']) {
+    for (const profile of CLIFF_PROFILES) {
+      for (let v = 0; v < CLIFF_VARIANTS[profile]; v++) {
+        specs.push({
+          key: spriteKeys.cliff(face, profile, v),
+          make: () => {
+            const m = createCliffPiece(profile, v);
+            if (face === 'e') m.rotation.y = Math.PI / 2;
+            return m;
+          },
+        });
+      }
+    }
   }
   // Waving pennant cloths (left out of every battlefield sprite; UI portraits keep theirs): FLAG_FRAMES frames of
   // the ripple, for cloths flying along x and turned a quarter.

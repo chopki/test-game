@@ -6,7 +6,7 @@ import { FlowField } from './FlowField.js';
 import { Economy } from './Economy.js';
 import { WaveManager } from './WaveManager.js';
 import { planWall } from './wallPlanner.js';
-import { generateMap, spawnTilesBySide, T } from './terrain.js';
+import { generateMap, groundHeight, spawnTilesBySide, T } from './terrain.js';
 import { SIDES } from './WaveManager.js';
 
 /**
@@ -372,10 +372,20 @@ export class World {
     if (b.cooldown > 0) return;
     const target = this._pickTarget(b.cx, b.cz, this.rangeOf(b), attack.minRange ?? 0);
     if (!target) return;
-    b.cooldown = attack.cooldown;
+    b.cooldown = attack.cooldown * this._uphillReload(attack.projectile, b.cx, b.cz, target.x, target.z);
     b.aim = Math.atan2(target.x - b.cx, target.z - b.cz);
     if (attack.kind === 'pulse') this._pulse(b);
     else this._fire(b, target);
+  }
+
+  /**
+   * How much longer an archer takes to reload when shooting up at higher ground: 1 + TERRAIN.hills.uphillReload for
+   * each level (part level on a ramp) the target stands above the shooter. Only arrows; anything else gives 1.
+   */
+  _uphillReload(projectile, fromX, fromZ, toX, toZ) {
+    if (projectile !== 'arrow' || !this.hills) return 1;
+    const up = (groundHeight(this.grid, toX, toZ) - groundHeight(this.grid, fromX, fromZ)) / TERRAIN.hills.levelHeight;
+    return 1 + Math.max(0, up) * TERRAIN.hills.uphillReload;
   }
 
   // Area pulse (Magic Spire): damage and slow every enemy in range.
@@ -591,13 +601,14 @@ export class World {
         e.heading = Math.atan2(px - e.x, pz - e.z);
         e.attackTimer -= dt;
         if (e.attackTimer <= 0) {
-          e.attackTimer += e.def.attackCooldown;
           if (ranged) {
+            e.attackTimer += e.def.attackCooldown * this._uphillReload(ranged.projectile, e.x, e.z, b.cx, b.cz);
             this._fireAtBuilding(e, b);
             // Something better may have come into range (a tower built, or the way through opened).
             const best = this._rangedTarget(e);
             if (best !== b) e.attackTargetId = best?.id ?? null;
           } else {
+            e.attackTimer += e.def.attackCooldown;
             this._damageBuilding(b, e.def.damage * (e.elite ? 1.5 : 1), e);
             // A cheaper route may have opened up (e.g. another wall fell).
             const next = this.flow.nextStep(e.tx, e.tz);

@@ -33,6 +33,7 @@ const N4 = [
   [0, 1],
   [0, -1],
 ];
+const N8 = [...N4, [1, 1], [1, -1], [-1, 1], [-1, -1]];
 
 /** An all-open map. */
 export function openTerrain(width, height) {
@@ -60,6 +61,7 @@ export function generateMap({ width, height, spawnMargin, hall, rng, params = TE
     map.coast = coast;
     layFeatures(map, rng, params, density, river, hillsRng);
     repair(map, rng, params);
+    if (fordPaths(map, params)) repair(map, rng, params);
     const stats = analyzeTerrain(map.types, { width, height, spawnMargin, hall });
     const result = { types: map.types, levels: map.levels };
     if (!best || stats.openFraction > best.stats.openFraction) best = { result, stats };
@@ -168,6 +170,66 @@ function layFeatures(map, rng, params, density, river = false, hillsRng = null) 
       if (Math.hypot(x + 0.5 - c.x, z + 0.5 - c.z) <= clearR) map.set(x, z, T.open);
     }
   }
+}
+
+/**
+ * A way on from each ford (its footbridge must never run straight into the woods): on both banks, each line of the
+ * ford across the stream is cleared of forest and rock for at least `water.fordPath` tiles, and on until it reaches
+ * open ground (at most `water.fordPathMax`). Stops at water, the sea or a hill. Returns whether anything changed.
+ */
+function fordPaths(map, params) {
+  const { fordPath, fordPathMax } = params.water;
+  const W = map.width;
+  const isWet = (x, z) => map.inBounds(x, z) && [T.water, T.ford, T.sea].includes(map.get(x, z));
+  const seen = new Uint8Array(W * map.height);
+  let changed = false;
+  for (let z0 = 0; z0 < map.height; z0++) {
+    for (let x0 = 0; x0 < W; x0++) {
+      if (map.get(x0, z0) !== T.ford || seen[z0 * W + x0]) continue;
+      // One ford: its connected ford tiles.
+      const tiles = [];
+      const stack = [[x0, z0]];
+      seen[z0 * W + x0] = 1;
+      while (stack.length) {
+        const [x, z] = stack.pop();
+        tiles.push([x, z]);
+        for (const [nx, nz] of [[x + 1, z], [x - 1, z], [x, z + 1], [x, z - 1]]) {
+          if (map.inBounds(nx, nz) && map.get(nx, nz) === T.ford && !seen[nz * W + nx]) {
+            seen[nz * W + nx] = 1;
+            stack.push([nx, nz]);
+          }
+        }
+      }
+      // The stream runs the way its water continues past the ford (within 3 tiles); the crossing goes the other way.
+      let alongZ = 0;
+      const water = (x, z) => map.inBounds(x, z) && map.get(x, z) === T.water;
+      for (const [x, z] of tiles) for (let d = 1; d <= 3; d++) alongZ += water(x, z - d) + water(x, z + d) - water(x - d, z) - water(x + d, z);
+      const acrossX = alongZ >= 0;
+      const at = (line, a) => (acrossX ? [a, line] : [line, a]);
+      for (const line of new Set(tiles.map(([x, z]) => (acrossX ? z : x)))) {
+        const on = tiles.filter(([x, z]) => (acrossX ? z : x) === line).map(([x, z]) => (acrossX ? x : z));
+        let lo = Math.min(...on);
+        let hi = Math.max(...on);
+        while (isWet(...at(line, lo - 1))) lo--;
+        while (isWet(...at(line, hi + 1))) hi++;
+        for (const [from, dir] of [[lo - 1, -1], [hi + 1, 1]]) {
+          for (let a = from, steps = 0; steps < fordPathMax; a += dir, steps++) {
+            const [x, z] = at(line, a);
+            // Fords are at the bottom: stop short of the hills (clearing next to one would open a way up its side).
+            if (!map.inBounds(x, z) || N8.some(([dx, dz]) => map.inBounds(x + dx, z + dz) && map.levels[(z + dz) * W + x + dx] > 0)) break;
+            const t = map.get(x, z);
+            if (t !== T.forest && t !== T.rock) {
+              if ((t !== T.open && t !== T.sand) || steps >= fordPath) break;
+              continue;
+            }
+            map.set(x, z, T.open);
+            changed = true;
+          }
+        }
+      }
+    }
+  }
+  return changed;
 }
 
 /** A stream crossing the map edge to edge (missing the hall's clearing), 2 tiles wide, with fords. */
@@ -467,7 +529,8 @@ function fillPockets(map) {
     const z = (i / map.width) | 0;
     // Don't fill spawn-edge tiles: those get connected instead.
     if (x === 0 || z === 0 || x === map.width - 1 || z === map.height - 1) continue;
-    map.types[i] = surroundingBlocker(map, x, z);
+    // A ramp is filled with cliff, so clearing it again gives a ramp, not open ground at the foot of a cliff.
+    map.types[i] = map.types[i] === T.ramp ? T.cliff : surroundingBlocker(map, x, z);
     changed = true;
   }
   return changed;

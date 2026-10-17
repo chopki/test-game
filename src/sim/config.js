@@ -41,14 +41,17 @@ export const TERRAIN = {
   fordCost: 1.5, // extra pathing cost for entering a ford tile
   forest: { scale: 0.12, threshold: 0.62, edgeBoost: 0.3 },
   rock: { scale: 0.21, threshold: 0.75, ridges: [1, 3], ridgeLength: [3, 7] },
-  water: { streamChance: 0.8, lakeChance: 0.5, fords: [1, 2], fordWidth: 3 },
+  // A way on from every ford: its band is cleared of woods and rock for at least `fordPath` tiles on each bank, and
+  // on to open ground (at most `fordPathMax`).
+  water: { streamChance: 0.8, lakeChance: 0.5, fords: [1, 2], fordWidth: 3, fordPath: 3, fordPathMax: 12 },
   // Coast: on this share of maps the sea lies along one edge (`depth` tiles of sea give or take `wobble`, then
   // `beach` tiles of sand). No enemies come from the sea.
   sea: { chance: 0.35, depth: [5, 7.5], wobble: 1.4, beach: [1.2, 2.4] },
   // Hills: on this share of maps, plateaus rise from a noise field (`scale`; level 1 above thresholds[0], level 2
   // above thresholds[1]), kept `flatMargin` tiles clear of the hall's clearing and `edgeFlat` of the map edge, no
   // smaller than `minPlateau` tiles, behind cliffs with 2-wide ramps (`ramps` per plateau, `rampSpacing` apart).
-  // Each level is `levelHeight` high; towers gain `rangePerLevel` range per level up, and ramps slow enemies.
+  // Each level is `levelHeight` high; towers gain `rangePerLevel` range per level up, and ramps slow enemies. Arrows
+  // shot up at higher ground take `uphillReload` longer to reload per level up (+50%: two-thirds the rate of fire).
   hills: {
     chance: 0.6,
     scale: 0.085,
@@ -62,6 +65,7 @@ export const TERRAIN = {
     rangePerLevel: 1,
     rampSpeed: 0.75,
     rampCost: 0.5,
+    uphillReload: 0.5,
   },
 };
 

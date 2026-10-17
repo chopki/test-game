@@ -153,14 +153,18 @@ so the whole battlefield is ~15 draw calls and a few hundred triangles however d
   `grid.levels` (`tileCorners`). Both write depth, pushed back from the camera (`pushDepth`) so a sprite card on a
   plateau isn't cut by the ground in front of its anchor. `toScene()` lifts everything to `groundHeight()` (pass
   `flat` for things at sea level), `pickGround()` tries each level's plane from the top, and the painter draws the
-  rims stony and the ramps as earth.
+  rims stony and the ramps as earth. In front of the mesh, baked cliff sprites (`createCliffPiece`, keys
+  `cliff:{s|e}:{full|up|down}:{variant}`) stand along every south and east edge that drops a level
+  (`Renderer._cliffSpots`); `CLIFF_HEIGHT` in models.js must equal `TERRAIN.hills.levelHeight` (a unit test checks).
 - Damage states: `damage.js` (pure) gives a building's stage from its health; the renderer passes it per sprite
   (`SpriteLayer.add(..., damage)`) and the sprite shader draws soot, cracks and knocked-out pieces from noise in
   the sprite's own world units, seeded by position. Badly damaged buildings also emit smoke and flame particles.
 - Ground marks: `groundMarks.js` draws flat decals (worn earth under towers, scorch marks and craters where shots
   land) from one small painted atlas as an InstancedMesh between the ground and the shadows. Footbridges:
   `bridges.js` (pure, unit-tested) finds each ford's middle line across the flow; the renderer adds the baked
-  `bridge:<axis>:<mid|start|end>` pieces to the terrain sprites. Fords stay fords for the sim.
+  `bridge:<axis>:<mid|start|end>` pieces to the terrain sprites, only where both banks lead on over open ground
+  (`fordPaths` in terrain.js clears that way when generating), and paints a worn track on from each end. Fords
+  stay fords for the sim.
 - Glow and colour (High, setting `glow`): `GlowBatch` (batches.js) draws additive halos at light sources (the
   spire's crystal, lit wall decorations via `DECOR_LIGHTS`, burning buildings), not depth-tested; the warm grade is
   a CSS filter on the canvas (`COLOUR_GRADE`), so it costs no render pass and leaves the HUD alone.

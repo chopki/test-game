@@ -1,9 +1,11 @@
+import { TERRAIN } from '../sim/config.js';
 import { T } from '../sim/terrain.js';
 
 /**
  * Where footbridges go (no three.js; unit-tested in test/bridges.test.js): one across the middle of each ford,
  * running across the flow. Returns pieces { part: 'mid' | 'start' | 'end', axis: 'x' | 'z', x, z } (tiles):
- * 'mid' on each wet tile of the crossing, 'start' / 'end' on the bank at the low / high end (if it's open ground). Decoration only:
+ * 'mid' on each wet tile of the crossing, 'start' / 'end' on the bank at the low / high end; a ford whose crossing
+ * doesn't land on open ground or beach at both ends gets no bridge. Decoration only:
  * fords stay fords for the sim.
  *
  * `flow` is waterFlow(grid) (unit flow vectors per tile).
@@ -49,11 +51,21 @@ export function fordBridges(grid, flow) {
       let hi = Math.max(...onLine);
       while (wet(...tileAt(lo - 1))) lo--;
       while (wet(...tileAt(hi + 1))) hi++;
+      // Only where both banks are dry, open ground (the map generator clears a path on from each ford): never
+      // straight into the woods, onto rock or out to sea.
+      const dry = (a) => [T.open, T.sand].includes(at(...tileAt(a)));
+      // A way on from the bank: TERRAIN.water.fordPath tiles of it (or less, up to the map edge or more water).
+      const wayOn = (from, dir) => {
+        for (let k = 0, a = from; k < TERRAIN.water.fordPath; k++, a += dir) {
+          const t = at(...tileAt(a));
+          if (dry(a)) continue;
+          return k > 0 && (t === -1 || t === T.water || t === T.ford || t === T.sea);
+        }
+        return true;
+      };
+      if (!wayOn(lo - 1, -1) || !wayOn(hi + 1, 1)) continue;
       for (let a = lo; a <= hi; a++) pieces.push({ part: 'mid', axis, x: tileAt(a)[0], z: tileAt(a)[1] });
-      for (const [part, a] of [['start', lo - 1], ['end', hi + 1]]) {
-        const [x, z] = tileAt(a);
-        if (at(x, z) === T.open) pieces.push({ part, axis, x, z }); // not onto woods or rock
-      }
+      for (const [part, a] of [['start', lo - 1], ['end', hi + 1]]) pieces.push({ part, axis, x: tileAt(a)[0], z: tileAt(a)[1] });
     }
   }
   return pieces;

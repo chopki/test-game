@@ -375,6 +375,38 @@ describe('hills', () => {
     expect(world.grid.isBlocked(8, 13)).toBe(false);
   });
 
+  it('arrows shot up at higher ground come slower; shooting down is not slowed', () => {
+    const levels = new Uint8Array(W * H);
+    const types = customMap((set) => {
+      for (let z = 4; z <= 13; z++) for (let x = 4; x <= 13; x++) levels[z * W + x] = 1;
+      for (let i = 4; i <= 13; i++) for (const [x, z] of [[i, 4], [i, 13], [4, i], [13, i]]) set(x, z, T.cliff);
+      set(8, 13, T.ramp);
+      set(9, 13, T.ramp);
+    });
+    const shots = (enemyAt, towerAt) => {
+      const world = new World({ seed: 1, terrain: types });
+      world.grid.levels = levels;
+      world.hills = true;
+      world.phase = 'wave';
+      world.economy.earn(1000);
+      const tower = world.place('archerTower', ...towerAt).building;
+      tower.def = { ...tower.def, attack: { ...tower.def.attack, damage: 0 } };
+      world._spawnEnemy({ type: 'knight', side: 'north', hpMult: 1, elite: false });
+      const e = world.enemies.at(-1);
+      Object.assign(e, { x: enemyAt[0] + 0.5, z: enemyAt[1] + 0.5, tx: enemyAt[0], tz: enemyAt[1] });
+      e.def = { ...e.def, speed: 0 };
+      let n = 0;
+      world.events.on('projectileFired', ({ projectile }) => !projectile.hostile && n++);
+      for (let t = 0; t < 20; t += DT) world.update(DT);
+      return n;
+    };
+    const level = shots([17, 9], [15, 7]); // both on the low ground
+    const up = shots([10, 9], [15, 7]); // the enemy up on the plateau
+    const down = shots([17, 9], [11, 7]); // the tower up on the plateau
+    expect(up / level).toBeCloseTo(1 / (1 + TERRAIN.hills.uphillReload), 1);
+    expect(down).toBe(level);
+  });
+
   it('a hilly world can still be played: waves reach the hall', () => {
     const world = new World({ seed: 9, terrain: 'generate', hills: true, size: GRID.sizes.medium });
     expect(world.grid.levels.some((l) => l > 0)).toBe(true);

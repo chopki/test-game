@@ -90,7 +90,7 @@ export function outsideForest(noise, x, z, width, height) {
  * canvas (white where there's water) for the shimmer effect, and `sea` / `seaDist` give, per painted tile, whether
  * it's sea and how many tiles it is from land.
  */
-export function paintTerrain(grid, { pxPerTile = 16, detail = 1, seed = 1, border = PAINT_BORDER, coast = null } = {}) {
+export function paintTerrain(grid, { pxPerTile = 16, detail = 1, seed = 1, border = PAINT_BORDER, coast = null, tracks = [] } = {}) {
   const { width: W, height: H } = grid;
   const TW = W + 2 * border;
   const TH = H + 2 * border;
@@ -105,6 +105,8 @@ export function paintTerrain(grid, { pxPerTile = 16, detail = 1, seed = 1, borde
   const sea = field();
   const sand = field();
   const ramp = field();
+  // Worn tracks (tiles { x, z }): the ways on from the footbridges.
+  for (const { x, z } of tracks) ramp[(z + border) * TW + x + border] = 1;
   let hasWater = false;
   // Beyond the coast edge it's all sea.
   const offshore = (x, z) => isOffshore(grid, coast, x, z);
@@ -222,7 +224,7 @@ export function paintTerrain(grid, { pxPerTile = 16, detail = 1, seed = 1, borde
       const r = sample(rock, u, v) + wobble * 0.4;
       mix(col, C.gravel, smooth(0.4, 0.47, r) * 0.85);
 
-      // Ramps up onto the hills: a worn earth track.
+      // Ramps up onto the hills, and the tracks on from the footbridges: worn earth.
       const rp = sample(ramp, u, v) + wobble * 0.3;
       mix(col, C.earth, smooth(0.45, 0.55, rp) * 0.9);
 
