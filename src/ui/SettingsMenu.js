@@ -93,6 +93,10 @@ export class SettingsMenu {
 
     onPress($('settings-btn'), () => this.open());
     onPress($('settings-close'), () => this.close());
+    onPress($('settings-menu'), () => {
+      this.close();
+      this.game.menu.open();
+    });
     onPress($('settings-reload'), () => {
       carrySettingsThroughReload(this.game.graphics);
       location.reload();
@@ -123,7 +127,7 @@ export class SettingsMenu {
   }
 
   /** New map: straight away on a fresh game, otherwise after a second tap within a few seconds. */
-  _newMap() {
+  async _newMap() {
     const world = this.game.world;
     const underWay = world.waves.wave > 0 || world.buildings.size > 1;
     if (underWay && performance.now() > this._confirmUntil) {
@@ -131,7 +135,7 @@ export class SettingsMenu {
       return;
     }
     this._confirmUntil = 0;
-    this.game.newGame({ seed: Math.floor(Math.random() * 1e6) });
+    await this.game.newMap();
     this.close();
   }
 

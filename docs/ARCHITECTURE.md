@@ -217,6 +217,10 @@ the maths by hand.
 - `HUD.js`: the HUD (styled after `docs/reference/ui-style.jpg`): Town Hall health and gold plaques with a wave
   progress bar, the wave sign, tower cards generated from `BUILDINGS` with rendered portraits, cog buttons,
   the Battle Chronicle (event log; toasts on small screens), the Engineer's Codex (selection panel), overlays.
+- `MainMenu.js` (main menu, Royal Codex, credits; holds the game via `Game.setHeld` while open) and
+  `LoadingScreen.js` (boot and every new map: `Game.newMap()` makes the world first with `createWorld`, sketches it
+  with `mapSketch.js`, then lets the renderer paint it). `main.js` shows the loading screen while the sprites load,
+  then the menu; `?menu=0` skips the menu (the browser tests' `openGame` passes it).
 
 `window.game` is exposed in the browser for debugging, e.g. `game.world.economy.earn(1000)`.
 

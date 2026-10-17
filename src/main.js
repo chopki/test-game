@@ -1,5 +1,6 @@
 import './style.css';
-import { Game } from './game/Game.js';
+import { createWorld, Game, readMapOptions } from './game/Game.js';
+import { LoadingScreen, painted } from './ui/LoadingScreen.js';
 import { loadSprites } from './render/spriteAssets.js';
 
 // Show failures on screen rather than leaving a blank page.
@@ -13,11 +14,21 @@ function showFatal(title, err) {
 window.addEventListener('error', (e) => showFatal('The game hit an error', e.error ?? e.message));
 window.addEventListener('unhandledrejection', (e) => showFatal('The game hit an error', e.reason));
 
+// Boot: the loading screen while the sprites load, then the first map (sketched on the loading screen while the
+// battlefield is painted), then the main menu (`?menu=0` goes straight into the battle, as the browser tests do).
+const params = new URLSearchParams(location.search);
+const loading = new LoadingScreen();
 try {
+  loading.show(null, 0.05);
+  loading.setProgress(0.6, { trickle: true });
   const atlas = await loadSprites();
+  const world = createWorld(readMapOptions());
+  loading.setWorld(world);
+  loading.setProgress(0.85, { trickle: true });
+  await painted();
   // Handy for poking at the simulation from the browser console.
-  window.game = new Game(document.getElementById('app'), atlas);
-  document.getElementById('loading').hidden = true;
+  window.game = new Game(document.getElementById('app'), atlas, { world, loading, menu: params.get('menu') !== '0' });
+  await loading.finish(params.get('menu') === '0' ? 0 : 450);
 } catch (err) {
   document.getElementById('loading').hidden = true;
   showFatal(

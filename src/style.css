@@ -1164,3 +1164,724 @@ kbd {
     padding: 16px;
   }
 }
+
+/* ================================================================== parchment & iron
+   After docs/reference/ui-menu.jpg and docs/reference/ui-hud-phone.jpg: hand-inked parchment plaques with dark iron
+   trim, a title band on phones, round bronze buttons, and the main menu and loading screen. */
+
+:root {
+  --iron: #3a3b40;
+  --iron-light: #74767e;
+  --iron-dark: #1e1f23;
+  --fell: 'IM Fell English SC', 'Cinzel', Georgia, serif;
+  --fell-body: 'IM Fell English', Georgia, serif;
+  --title: 'Cinzel Decorative', 'Cinzel', Georgia, serif;
+  /* Mottled paper: soft blotches from fractal noise. */
+  --paper-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.035' numOctaves='4' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0 0.45 0 0 0 0 0.32 0 0 0 0 0.16 0 0 0 0.55 -0.12'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23n)'/%3E%3C/svg%3E");
+  --paper:
+    var(--paper-grain),
+    radial-gradient(ellipse at 50% 40%, rgba(255, 250, 232, 0.6), transparent 72%),
+    linear-gradient(180deg, #f1e2bd, #e2c995);
+}
+
+/* Top-bar plaques: parchment in an iron frame, ink lettering. */
+.framed,
+.wave-sign {
+  color: var(--ink);
+  background: var(--paper);
+  border: 2px solid var(--iron);
+  border-radius: 5px;
+  box-shadow: inset 0 0 0 1px rgba(255, 245, 220, 0.7), inset 0 0 14px rgba(120, 80, 30, 0.35), 0 3px 8px rgba(0, 0, 0, 0.4);
+  text-shadow: none;
+}
+
+.hud-hall .heart {
+  width: 30px;
+  height: 27px;
+  transform: scale(1.3);
+  margin-right: 4px;
+  filter: drop-shadow(0 1px 0 #3a1008);
+}
+
+.hall-bar,
+.wave-bar {
+  background: #2a2420;
+  border: 2px solid var(--iron);
+  border-radius: 2px 8px 8px 2px;
+  box-shadow: inset 0 2px 3px rgba(0, 0, 0, 0.7);
+}
+
+#hall-hp {
+  color: var(--ink-muted);
+}
+
+.gold-amount {
+  color: var(--ink);
+  text-shadow: 0 1px 0 rgba(255, 245, 220, 0.8);
+  font-size: 1.35em;
+}
+
+#gold::after {
+  content: ' G';
+}
+
+.wave-sign {
+  min-width: 112px;
+  padding: 3px 12px 5px;
+  border-radius: 3px;
+  border-width: 3px;
+  outline: 1px solid rgba(58, 39, 23, 0.6);
+  outline-offset: -6px;
+}
+
+.wave-title {
+  color: var(--ink);
+  text-shadow: none;
+  font-family: var(--title);
+  font-size: 1.05em;
+}
+
+#wave {
+  font-size: 1.25em;
+}
+
+.wave-sub {
+  color: var(--ink-muted);
+  font-weight: 600;
+}
+
+/* Round bronze buttons (settings, help). */
+.square-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 2px solid #4a2e10;
+  color: #3a2010;
+  font-weight: 800;
+  background: radial-gradient(circle at 35% 30%, #f0cf86, #b08040 55%, #6e4a1c);
+  box-shadow: inset 0 0 0 3px rgba(255, 230, 170, 0.3), 0 0 0 3px rgba(58, 32, 16, 0.85), 0 3px 6px rgba(0, 0, 0, 0.5);
+  text-shadow: 0 1px 0 rgba(255, 240, 200, 0.55);
+}
+
+.square-btn:hover {
+  background: radial-gradient(circle at 35% 30%, #ffe0a0, #c89048 55%, #7a5222);
+}
+
+/* The next-wave banner: a parchment strip with a sword at each end. */
+.next-wave {
+  padding: 4px 46px;
+  font-family: var(--fell-body);
+  font-size: 0.98em;
+  font-weight: 400;
+  background: var(--paper);
+  border: 2px solid var(--wood);
+  border-radius: 2px;
+  clip-path: polygon(0 0, 100% 0, calc(100% - 8px) 50%, 100% 100%, 0 100%, 8px 50%);
+}
+
+.next-wave::before,
+.next-wave::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 34px;
+  height: 10px;
+  margin-top: -5px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 34 10'%3E%3Cpath d='M1 5 L20 3.5 L20 6.5 Z' fill='%23c9ccd2' stroke='%233a2717' stroke-width='0.8'/%3E%3Crect x='20' y='1' width='2.5' height='8' fill='%236b4524' stroke='%233a2717' stroke-width='0.6'/%3E%3Crect x='22.5' y='3.6' width='8' height='2.8' fill='%234a2e18'/%3E%3Ccircle cx='31.5' cy='5' r='2' fill='%23c9a25a' stroke='%233a2717' stroke-width='0.5'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+.next-wave::before {
+  left: 8px;
+}
+
+.next-wave::after {
+  right: 8px;
+  transform: scaleX(-1);
+}
+
+/* "Towers": a parchment ribbon with folded ends. */
+.ribbon {
+  padding: 3px 34px;
+  font-family: var(--fell);
+  font-size: 1.05em;
+  letter-spacing: 0.12em;
+  color: var(--ink);
+  text-shadow: none;
+  background: var(--paper);
+  border: none;
+  border-radius: 0;
+  clip-path: polygon(0 0, 100% 0, calc(100% - 12px) 50%, 100% 100%, 0 100%, 12px 50%);
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.45));
+}
+
+.build-btn {
+  border-color: var(--iron);
+  background: var(--paper);
+}
+
+.build-btn .cost {
+  color: var(--ink);
+  text-shadow: none;
+  background: var(--paper);
+  border: 2px solid var(--iron);
+  font-family: var(--fell);
+  font-size: 0.86em;
+}
+
+.build-btn.unaffordable .cost {
+  color: var(--danger);
+}
+
+.cog-label {
+  font-family: var(--fell);
+  font-weight: 400;
+  font-size: 0.78em;
+}
+
+.panel h2,
+.panel h3 {
+  font-family: var(--fell);
+  letter-spacing: 0.03em;
+}
+
+.panel,
+.toast,
+.confirm-label,
+.build-tag {
+  background: var(--paper);
+}
+
+.dialog-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
+
+/* Phones: the title band across the top, as in the reference. */
+.hud-title {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  .hud-title {
+    display: block;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 104px;
+    padding-top: 5px;
+    text-align: center;
+    font-family: var(--title);
+    font-weight: 700;
+    font-size: 1.45em;
+    color: var(--ink);
+    background: var(--paper);
+    border-bottom: 3px solid var(--iron);
+    box-shadow: 0 1px 0 var(--iron-light), 0 4px 10px rgba(0, 0, 0, 0.45);
+  }
+
+  .hud-title::after {
+    /* The iron bracket hanging from the middle of the band. */
+    content: '';
+    position: absolute;
+    left: 50%;
+    bottom: -14px;
+    width: 64px;
+    height: 12px;
+    margin-left: -32px;
+    background: linear-gradient(180deg, var(--iron-light), var(--iron));
+    clip-path: polygon(0 0, 100% 0, 70% 100%, 50% 60%, 30% 100%);
+  }
+
+  .topbar {
+    top: 36px;
+  }
+
+  /* Inside the band the plaques lose their frames. */
+  .topbar .framed {
+    background: none;
+    border: none;
+    box-shadow: none;
+  }
+
+  .next-wave {
+    top: 116px;
+  }
+
+  .wave-sign {
+    min-width: 0;
+    padding: 2px 8px 3px;
+    background: var(--paper);
+  }
+
+  .hud-hall .heart {
+    transform: none;
+    margin-right: 0;
+  }
+
+  .hud-hall {
+    gap: 5px;
+  }
+
+  .gold-amount {
+    white-space: nowrap;
+    font-size: 1.2em;
+  }
+
+  .square-btn {
+    width: 36px;
+    height: 36px;
+  }
+
+  .cogs {
+    gap: 20px;
+  }
+
+  .cog-label {
+    font-size: 0.72em;
+  }
+}
+
+/* ------------------------------------------------------------------ main menu */
+
+body.menu-open .topbar,
+body.menu-open .hud-title,
+body.menu-open .next-wave,
+body.menu-open .bottom-hud,
+body.menu-open .chronicle,
+body.menu-open #toasts,
+body.menu-open #info {
+  visibility: hidden;
+}
+
+/* The battlefield behind the menu is the page's picture: washed towards sepia like a painted map. */
+body.menu-open #app canvas {
+  filter: sepia(0.35) saturate(0.85) brightness(1.03) !important;
+}
+
+.main-menu {
+  background: radial-gradient(ellipse at 50% 50%, transparent 40%, rgba(40, 24, 10, 0.55));
+}
+
+.menu-page {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: min(470px, calc(100% - 20px));
+  height: min(860px, calc(100% - 20px));
+  padding: 10px 18px 12px;
+  color: var(--ink);
+  filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.5));
+}
+
+/* The parchment, with a soft hole in the middle where the battlefield shows through. */
+.menu-page::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--paper);
+  border: 2px solid rgba(90, 60, 30, 0.6);
+  clip-path: polygon(0 1%, 3% 0, 30% 0.6%, 55% 0, 80% 0.8%, 100% 0, 99.4% 20%, 100% 45%, 99.2% 70%, 100% 99%, 70% 100%, 45% 99.3%, 20% 100%, 1% 99.4%, 0.6% 70%, 0 40%);
+  -webkit-mask-image: radial-gradient(ellipse 44% 21% at 50% 43%, transparent 55%, #000 100%);
+  mask-image: radial-gradient(ellipse 44% 21% at 50% 43%, transparent 55%, #000 100%);
+}
+
+.menu-crest {
+  width: 100%;
+  max-width: 420px;
+}
+
+.crest {
+  display: block;
+  width: 100%;
+  height: auto;
+  filter: drop-shadow(0 3px 2px rgba(40, 20, 6, 0.35));
+}
+
+.crest-title {
+  font-family: var(--title);
+  font-weight: 900;
+  font-size: 36px;
+  fill: #2e1f12;
+}
+
+.menu-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(300px, 80%);
+  margin-top: auto;
+}
+
+/* Parchment plank buttons, hand-inked. */
+.plaque,
+#hud .plaque {
+  position: relative;
+  padding: 9px 12px 7px;
+  font-family: var(--fell);
+  font-size: 1.45em;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+  text-shadow: none;
+  background: var(--paper);
+  border: 2px solid #3a2717;
+  border-radius: 2px;
+  box-shadow: 3px 3px 0 rgba(58, 39, 23, 0.55), inset 0 0 10px rgba(120, 80, 30, 0.3);
+  clip-path: polygon(0 4%, 2% 0, 50% 3%, 98% 0, 100% 6%, 99% 50%, 100% 96%, 97% 100%, 50% 96%, 2% 100%, 0 94%, 1% 50%);
+  transition: transform 0.1s;
+}
+
+.plaque:hover:not(:disabled) {
+  transform: translateY(-1px) rotate(-0.4deg);
+  background: var(--paper-grain), linear-gradient(180deg, #fbf0d2, #ead6a8);
+}
+
+.plaque:disabled {
+  color: rgba(58, 39, 23, 0.45);
+  cursor: default;
+  box-shadow: 1px 1px 0 rgba(58, 39, 23, 0.3), inset 0 0 10px rgba(120, 80, 30, 0.2);
+  border-color: rgba(58, 39, 23, 0.45);
+}
+
+.plaque.warn {
+  color: var(--ink-red);
+  font-size: 1.1em;
+}
+
+.plaque .soon {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%) rotate(-8deg);
+  padding: 0 5px;
+  font-size: 0.45em;
+  color: var(--ink-red);
+  border: 1px solid var(--ink-red);
+  border-radius: 2px;
+}
+
+.menu-foot {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 40px;
+  width: 100%;
+  margin-top: 14px;
+  padding-bottom: 18px;
+}
+
+.menu-foot .cog {
+  width: 52px;
+  height: 52px;
+}
+
+.menu-foot .cog-label {
+  color: var(--ink);
+  text-shadow: none;
+}
+
+.menu-foe {
+  width: 112px;
+  height: 112px;
+  object-fit: contain;
+  margin-bottom: -6px;
+}
+
+#menu-foe-left {
+  margin-right: auto;
+}
+
+#menu-foe-right {
+  margin-left: auto;
+}
+
+/* ------------------------------------------------------------------ the Royal Codex */
+
+.codex-book {
+  max-width: 780px;
+  max-height: calc(100% - 24px);
+  overflow-y: auto;
+  text-align: left;
+}
+
+.codex-book h2,
+.codex-book > .primary {
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+  text-align: center;
+}
+
+.codex-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.codex-card {
+  display: flex;
+  gap: 10px;
+  padding: 8px;
+  border: 1px solid rgba(58, 39, 23, 0.4);
+  border-radius: 4px;
+  background: rgba(255, 248, 228, 0.45);
+}
+
+.codex-card img {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.codex-card h4 {
+  margin: 0 0 3px;
+  font-family: var(--fell);
+  font-size: 1.1em;
+  font-weight: 400;
+}
+
+.codex-card dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0 8px;
+  margin: 0;
+  font-size: 0.82em;
+}
+
+.codex-card dt {
+  color: var(--ink-muted);
+}
+
+.codex-card dd {
+  margin: 0;
+  font-weight: 600;
+}
+
+.codex-card p {
+  margin: 4px 0 0;
+  font-family: var(--fell-body);
+  font-size: 0.86em;
+  line-height: 1.25;
+}
+
+/* ------------------------------------------------------------------ loading screen */
+
+.loading-screen {
+  z-index: 5;
+  background:
+    radial-gradient(circle at 8% 70%, rgba(40, 24, 10, 0.75) 0 4px, transparent 5px),
+    radial-gradient(circle at 6% 74%, rgba(40, 24, 10, 0.6) 0 2px, transparent 3px),
+    radial-gradient(circle at 94% 22%, rgba(40, 24, 10, 0.7) 0 5px, transparent 6px),
+    radial-gradient(circle at 96% 26%, rgba(40, 24, 10, 0.55) 0 2px, transparent 3px),
+    var(--paper-grain),
+    #d8c193;
+  transition: opacity 0.3s;
+}
+
+.loading-screen.done {
+  opacity: 0;
+}
+
+/* Iron frame with rivets. */
+.iron-frame {
+  position: relative;
+  width: min(560px, calc(100% - 20px));
+  max-height: calc(100% - 20px);
+  padding: 14px;
+  border-radius: 4px;
+  background:
+    radial-gradient(circle at 9px 9px, #9a9ca4 0 3px, var(--iron-dark) 4px, transparent 5px),
+    radial-gradient(circle at calc(100% - 9px) 9px, #9a9ca4 0 3px, var(--iron-dark) 4px, transparent 5px),
+    radial-gradient(circle at 9px calc(100% - 9px), #9a9ca4 0 3px, var(--iron-dark) 4px, transparent 5px),
+    radial-gradient(circle at calc(100% - 9px) calc(100% - 9px), #9a9ca4 0 3px, var(--iron-dark) 4px, transparent 5px),
+    radial-gradient(circle at 50% 7px, #9a9ca4 0 3px, var(--iron-dark) 4px, transparent 5px),
+    radial-gradient(circle at 50% calc(100% - 7px), #9a9ca4 0 3px, var(--iron-dark) 4px, transparent 5px),
+    linear-gradient(135deg, #5a5c64, var(--iron) 40%, #2a2b30);
+  box-shadow: inset 0 0 0 1px #8a8c94, 0 10px 30px rgba(0, 0, 0, 0.55);
+  overflow: hidden;
+}
+
+.loading-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 18px 14px;
+  color: var(--ink);
+  background: var(--paper);
+  box-shadow: inset 0 0 0 2px rgba(20, 12, 4, 0.7), inset 0 0 24px rgba(110, 70, 20, 0.4);
+}
+
+.loading-title {
+  margin: 0;
+  font-family: var(--fell);
+  font-weight: 400;
+  font-size: 1.45em;
+  line-height: 1.2;
+  text-align: center;
+  color: var(--ink);
+}
+
+.loading-title span {
+  display: block;
+}
+
+.ink-rule {
+  width: 86%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--ink) 15%, var(--ink) 85%, transparent);
+}
+
+.loading-map {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  max-height: 34vh;
+}
+
+.loading-ground {
+  font-family: var(--fell);
+  font-size: 1em;
+  letter-spacing: 0.04em;
+}
+
+/* A rolled scroll with the tip. */
+.tip-scroll {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 74px;
+  padding: 8px 22px;
+  background: var(--paper-grain), linear-gradient(180deg, #f6ead0, #e5cfa2);
+  border: 1.5px solid var(--ink);
+  border-radius: 3px;
+  box-shadow: 2px 3px 0 rgba(58, 39, 23, 0.35);
+}
+
+.tip-scroll::before,
+.tip-scroll::after {
+  content: '';
+  position: absolute;
+  top: -6px;
+  bottom: -6px;
+  width: 12px;
+  border: 1.5px solid var(--ink);
+  border-radius: 6px;
+  background: linear-gradient(90deg, #d8bf8c, #f6e8c8 50%, #c9ab72);
+}
+
+.tip-scroll::before {
+  left: -7px;
+}
+
+.tip-scroll::after {
+  right: -7px;
+}
+
+.tip-scroll p {
+  flex: 1;
+  margin: 0;
+  font-family: var(--fell-body);
+  font-size: 1.02em;
+  line-height: 1.25;
+}
+
+.tip-scroll strong {
+  font-family: var(--fell);
+  font-weight: 400;
+}
+
+#loading-tip-art {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+}
+
+/* The progress bar: iron, with spear-point end caps. */
+.loading-bar {
+  position: relative;
+  width: 82%;
+  height: 18px;
+  margin-top: 10px;
+  background: #2a2420;
+  border: 3px solid var(--iron);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.8);
+}
+
+.loading-bar::before,
+.loading-bar::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 22px;
+  height: 22px;
+  margin-top: -11px;
+  background: linear-gradient(135deg, var(--iron-light), var(--iron-dark));
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+}
+
+.loading-bar::before {
+  left: -20px;
+}
+
+.loading-bar::after {
+  right: -20px;
+}
+
+.loading-fill {
+  height: 100%;
+  width: 0;
+  background: linear-gradient(90deg, #a8231a, #d86a28 60%, #f0b642);
+  box-shadow: inset 0 2px 0 rgba(255, 220, 160, 0.35);
+}
+
+.loading-text {
+  font-family: var(--fell);
+  font-size: 1.3em;
+}
+
+.compass {
+  position: absolute;
+  right: -10px;
+  bottom: -10px;
+  width: 92px;
+  height: 92px;
+  filter: drop-shadow(-2px -2px 3px rgba(0, 0, 0, 0.45));
+  pointer-events: none;
+}
+
+@media (max-width: 720px) {
+  .menu-page {
+    height: calc(100% - 12px);
+    padding: 6px 12px 8px;
+  }
+
+  .plaque,
+  #hud .plaque {
+    font-size: 1.3em;
+  }
+
+  .menu-foe {
+    width: 64px;
+    height: 64px;
+  }
+
+  .loading-title {
+    font-size: 1.2em;
+  }
+
+  .tip-scroll p {
+    font-size: 0.9em;
+  }
+
+  .compass {
+    width: 70px;
+    height: 70px;
+  }
+}

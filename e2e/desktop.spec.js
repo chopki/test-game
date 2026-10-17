@@ -911,3 +911,54 @@ test('wildlife: deer and rabbits at the woods edge bolt when startled, birds fly
   expect(after.scattered).toBeGreaterThan(0);
   expect(errors).toEqual([]);
 });
+
+test('main menu: holds the battle at the start; Endless Mode begins it, Continue returns, New Battle loads a new map', async ({ page }) => {
+  const errors = await openGame(page, { map: 'terrain', paused: false, query: 'menu=1' });
+  const menu = page.locator('#menu');
+  await expect(menu).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Continue' })).toBeDisabled();
+  // Held: the build timer doesn't run behind the menu.
+  const timer = () => page.evaluate(() => window.game.world.phaseTimer);
+  const before = await timer();
+  await page.waitForTimeout(600);
+  expect(await timer()).toBe(before);
+
+  // The Royal Codex: a card for every tower and every foe.
+  await page.getByRole('button', { name: 'The Royal Codex' }).click();
+  await expect(page.locator('#codex')).toBeVisible();
+  expect(await page.locator('#codex-towers .codex-card').count()).toBe(5);
+  expect(await page.locator('#codex-foes .codex-card').count()).toBe(6);
+  await page.getByRole('button', { name: 'Close' }).click();
+
+  await page.getByRole('button', { name: 'Endless Mode' }).click();
+  await expect(menu).toBeHidden();
+  await page.waitForTimeout(300);
+  expect(await timer()).toBeLessThan(before);
+
+  // Settings → Main menu, then Continue: the same battle.
+  const seed = await page.evaluate(() => window.game.world.seed);
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await page.getByRole('button', { name: 'Main menu' }).click();
+  await expect(menu).toBeVisible();
+  await page.getByRole('button', { name: 'Continue' }).click();
+  await expect(menu).toBeHidden();
+  expect(await page.evaluate(() => window.game.world.seed)).toBe(seed);
+
+  // New Battle: a new map, behind the loading screen with that map's battle and battleground.
+  await page.evaluate(() => {
+    window.__loading = [];
+    const el = document.getElementById('loading');
+    new MutationObserver(() => !el.hidden && window.__loading.push([document.getElementById('loading-wave').textContent, document.getElementById('loading-ground').textContent])).observe(el, { attributes: true });
+  });
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await page.getByRole('button', { name: 'Main menu' }).click();
+  await page.getByRole('button', { name: 'New Battle' }).click();
+  await expect(menu).toBeHidden();
+  expect(await page.evaluate(() => window.game.world.seed)).not.toBe(seed);
+  const shown = await page.evaluate(() => window.__loading);
+  expect(shown.length).toBeGreaterThan(0);
+  expect(shown[0][0]).toMatch(/^Wave 1 — The (Northern|Southern|Eastern|Western)/);
+  expect(shown[0][1]).toMatch(/^Battleground outline: The /);
+  await expect(page.locator('#loading')).toBeHidden();
+  expect(errors).toEqual([]);
+});

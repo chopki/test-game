@@ -171,6 +171,18 @@ and gold, a wooden wave sign, arch-topped parchment tower cards with portraits a
 a "Battle Chronicle" event scroll (desktop; toasts on small screens) and an "Engineer's Codex" panel for the
 selected building. (The reference's Upgrade button and spells arrive with those features.)
 
+![Menu and loading screen reference](reference/ui-menu.jpg)
+
+The menus and HUD dress follow [`docs/reference/ui-menu.jpg`](reference/ui-menu.jpg) and
+[`docs/reference/ui-hud-phone.jpg`](reference/ui-hud-phone.jpg): hand-inked parchment with dark iron trim. The
+**main menu** is a parchment page with the crest (shield, crossed swords, title ribbon) and plank buttons
+(Campaign, coming later; Continue; Endless Mode, or New Battle once one is under way; the Royal Codex of every tower
+and foe; Options), the live battlefield showing through it as its picture. The **loading screen** is an
+iron-framed page: the coming wave and its approach, an ink sketch of the generated battleground with the first
+wave's arrows, its name ("The River Crossing"…), a lore & tactics tip and a progress bar. On phones the HUD's top
+plaques sit in a parchment title band; plaques, ribbons and cost tags are parchment, with round bronze buttons.
+(There is no sound yet, so the reference's mute button waits for it.)
+
 Warm, storybook medieval: sandstone blocks, red clay roofs, half-timbered plaster, chunky crenellations,
 an enemy army of men in blue-and-cream livery (steel helms, round and kite shields, pikes, bows) with hide-roofed
 battering rams and wheeled catapults. Terrain follows the reference's environment sheet: blocky olive oaks and

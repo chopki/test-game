@@ -17,7 +17,9 @@ export async function openGame(page, { paused = true, map = 'open', fort = false
   // A small map (40 tiles across) with no coast or hills unless a test asks otherwise (`query: 'size=…'`, `'sea=1'`,
   // `'hills=1'`), so map 8 stays the map the tests were written for.
   const defaults = ['size=small', 'sea=0', 'hills=0'].filter((d) => !new RegExp(`(^|&)${d.split('=')[0]}=`).test(query)).map((d) => `&${d}`).join('');
-  const params = `seed=${TERRAIN_SEED}${map === 'open' ? '&map=open' : ''}${fort ? '' : '&fort=0'}${defaults}${query ? `&${query}` : ''}`;
+  // Straight into the battle, past the main menu (menu=0), unless a test asks for it (`query: 'menu=1'`).
+  const menu = /(^|&)menu=/.test(query) ? '' : '&menu=0';
+  const params = `seed=${TERRAIN_SEED}${map === 'open' ? '&map=open' : ''}${fort ? '' : '&fort=0'}${defaults}${menu}${query ? `&${query}` : ''}`;
   await page.goto(`/?${params}`);
   await page.waitForFunction(() => window.game?.world && window.game.renderer.renderer.info.render.frame > 2);
   if (paused) await page.evaluate(() => window.game.togglePause());

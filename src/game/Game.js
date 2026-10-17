@@ -3,6 +3,8 @@ import { World } from '../sim/World.js';
 import { Renderer } from '../render/Renderer.js';
 import { HUD } from '../ui/HUD.js';
 import { SettingsMenu } from '../ui/SettingsMenu.js';
+import { MainMenu } from '../ui/MainMenu.js';
+import { LoadingScreen, painted } from '../ui/LoadingScreen.js';
 import { AUTO_RESOLUTION, startupSettings, stepDown } from '../render/graphicsSettings.js';
 import { DynamicResolution } from '../render/dynamicResolution.js';
 import { BuildController } from './BuildController.js';
@@ -13,8 +15,11 @@ const BEST_KEY = 'hold-the-hall:best-wave';
 
 /** Wires the simulation, renderer, input and HUD together and runs the main loop. */
 export class Game {
-  /** `atlas` is the battlefield sprite atlas (see render/spriteAssets.js). */
-  constructor(container, atlas) {
+  /**
+   * `atlas` is the battlefield sprite atlas (see render/spriteAssets.js). `world`: the first map, if it's already
+   * been made (createWorld); `loading`: the loading screen; `menu`: whether to open the main menu at the start.
+   */
+  constructor(container, atlas, { world = null, loading = new LoadingScreen(), menu = false } = {}) {
     this.graphics = startupSettings(); // always Low on a fresh start (see graphicsSettings.js)
     // Settings fixed when the WebGL context was created (anti-aliasing); used to flag "reload to apply".
     this.startupGraphics = { ...this.graphics };
@@ -45,21 +50,18 @@ export class Game {
     this.speed = 1;
     this.paused = false;
     this.keys = new Set();
-    // Options for new maps (Settings → Map size, Rivers, Coast, Hills): `size` is a key of GRID.sizes; `river` makes
-    // every new map have a stream; `sea` and `hills` are false (never), 'sometimes' (the default) or true (always a
-    // coast / plateaus). Lasts for the session. `?size=` takes a size name or its tiles across.
-    const params = new URLSearchParams(location.search);
-    const sea = { 0: false, 1: true }[params.get('sea')] ?? 'sometimes';
-    const hills = { 0: false, 1: true }[params.get('hills')] ?? 'sometimes';
-    const asked = params.get('size');
-    const size = Object.keys(GRID.sizes).find((k) => k === asked || String(GRID.sizes[k]) === asked) ?? GRID.defaultSize;
-    this.mapOptions = { size, river: params.get('river') === '1', sea, hills };
+    this.mapOptions = readMapOptions();
+    this.held = false; // while the main menu or the loading screen is up: the battle waits
+    this.loading = loading;
 
     window.addEventListener('keydown', (e) => this._onKeyDown(e));
     window.addEventListener('keyup', (e) => this.keys.delete(e.key.toLowerCase()));
     window.addEventListener('blur', () => this.keys.clear());
 
-    this.newGame();
+    this.newGame({ world });
+    this.loading.icons = this.hud.icons;
+    this.menu = new MainMenu(this);
+    if (menu) this.menu.open();
     this._last = performance.now();
     this._fpsFrames = 0;
     this._fpsSince = this._last;
@@ -67,18 +69,10 @@ export class Game {
     requestAnimationFrame((t) => this._frame(t));
   }
 
-  /**
-   * Start a game on a newly generated map. `seed` picks the map (and its waves); without it, the URL's `?seed=N`
-   * is used if given (to replay a map), else a random one. `?map=open` starts without terrain (the browser tests
-   * use it to place buildings anywhere), and `?fort=0` without the starting fort. With `mapOptions.river` (or
-   * `?river=1`), the map always has a stream; `mapOptions.sea` (`?sea=0` / `?sea=1`) says whether it has a coast, and
-   * `mapOptions.hills` (`?hills=0` / `?hills=1`) whether it has plateaus.
-   */
-  newGame({ seed } = {}) {
-    const params = new URLSearchParams(location.search);
-    seed ??= params.has('seed') ? Number(params.get('seed')) : Math.floor(Math.random() * 1e6);
-    const fort = params.get('fort') !== '0';
-    this.world = new World({ seed, terrain: params.get('map') === 'open' ? 'open' : 'generate', fort, river: this.mapOptions.river, sea: this.mapOptions.sea, hills: this.mapOptions.hills, size: GRID.sizes[this.mapOptions.size] });
+  /** Start a game on `world` (default: a new one, see createWorld: `seed` or the URL's, else a random map). */
+  newGame({ seed, world } = {}) {
+    this.world = world ?? createWorld(this.mapOptions, { seed });
+    const fort = this.world.buildings.size > 1;
     this.renderer.attach(this.world);
     this.hud.attach(this.world);
     this.build.reset();
@@ -86,6 +80,26 @@ export class Game {
     this.hud.setPaused(false);
     const tip = fort ? 'Close the gaps in the fort wall before the first wave.' : "Use the woods, rocks and water: enemies can't pass them.";
     this.hud.toast(`Protect the Town Hall! ${tip} (Map ${this.world.seed})`, 'info');
+  }
+
+  /**
+   * A new game on a new random map, behind the loading screen (with a sketch of the map while the battlefield is
+   * painted). Resolves once the new map is in place.
+   */
+  async newMap() {
+    const world = createWorld(this.mapOptions, { seed: Math.floor(Math.random() * 1e6) });
+    this.setHeld(true);
+    this.loading.show(world, 0.2);
+    this.loading.setProgress(0.7, { trickle: true });
+    await painted();
+    this.newGame({ world });
+    await this.loading.finish();
+    this.setHeld(this.menu.isOpen);
+  }
+
+  /** Hold the battle (main menu, loading screen) or let it go on. */
+  setHeld(held) {
+    this.held = held;
   }
 
   cycleSpeed() {
@@ -133,6 +147,7 @@ export class Game {
   _onKeyDown(e) {
     if (e.target instanceof HTMLInputElement) return;
     const key = e.key.toLowerCase();
+    if (this.menu.isOpen || this.loading.isOpen) return;
     if (this.settingsMenu.isOpen && key !== 'escape') return;
     this.keys.add(key);
 
@@ -166,7 +181,7 @@ export class Game {
         this.hud.toggleHelp();
         break;
       case 'r':
-        if (this.world.phase === 'gameover') this.newGame();
+        if (this.world.phase === 'gameover') this.newMap();
         break;
       default:
         break;
@@ -201,7 +216,10 @@ export class Game {
       if (scale !== null) this.renderer.setRenderScale(scale);
     }
 
-    if (!this.paused) {
+    if (this.held) {
+      // Behind the main menu, the camera drifts slowly to and fro over the battlefield.
+      if (this.menu?.isOpen) this.renderer.pan(0, Math.cos(now / 9000) * 0.5 * dt);
+    } else if (!this.paused) {
       // Run extra fixed-size steps rather than one big one so fast-forward stays stable.
       for (let i = 0; i < this.speed; i++) this.world.update(dt);
     }
@@ -217,4 +235,31 @@ export class Game {
     this.renderer.render();
     requestAnimationFrame((t) => this._frame(t));
   }
+}
+
+/**
+ * Options for new maps (Settings → Map size, Rivers, Coast, Hills), from the URL: `size` is a key of GRID.sizes
+ * (`?size=` takes a size name or its tiles across); `river` makes every new map have a stream; `sea` and `hills` are
+ * false (never), 'sometimes' (the default) or true (always a coast / plateaus). They last for the session.
+ */
+export function readMapOptions() {
+  const params = new URLSearchParams(location.search);
+  const sea = { 0: false, 1: true }[params.get('sea')] ?? 'sometimes';
+  const hills = { 0: false, 1: true }[params.get('hills')] ?? 'sometimes';
+  const asked = params.get('size');
+  const size = Object.keys(GRID.sizes).find((k) => k === asked || String(GRID.sizes[k]) === asked) ?? GRID.defaultSize;
+  return { size, river: params.get('river') === '1', sea, hills };
+}
+
+/**
+ * A new map (with `mapOptions`, see readMapOptions). `seed` picks the map (and its waves); without it, the URL's
+ * `?seed=N` is used if given (to replay a map), else a random one. `?map=open` starts without terrain (the browser
+ * tests use it to place buildings anywhere), and `?fort=0` without the starting fort.
+ */
+export function createWorld(mapOptions, { seed } = {}) {
+  const params = new URLSearchParams(location.search);
+  seed ??= params.has('seed') ? Number(params.get('seed')) : Math.floor(Math.random() * 1e6);
+  const fort = params.get('fort') !== '0';
+  const { river, sea, hills, size } = mapOptions;
+  return new World({ seed, terrain: params.get('map') === 'open' ? 'open' : 'generate', fort, river, sea, hills, size: GRID.sizes[size] });
 }

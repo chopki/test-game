@@ -91,7 +91,7 @@ export class HUD {
     onPress(this.el.pause, () => game.togglePause());
     onPress($('help-btn'), () => this.toggleHelp());
     onPress($('help-close'), () => this.toggleHelp(false));
-    onPress($('restart'), () => game.newGame());
+    onPress($('restart'), () => game.newMap());
     onPress($('confirm-yes'), () => game.build.confirmPending());
     onPress($('confirm-no'), () => game.build.cancelPending());
   }

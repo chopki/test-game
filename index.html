@@ -6,12 +6,13 @@
     <title>Hold the Hall</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Cinzel+Decorative:wght@700;900&family=IM+Fell+English+SC&family=IM+Fell+English:ital@0;1&display=swap" rel="stylesheet" />
   </head>
   <body>
     <div id="app"></div>
 
     <div id="hud">
+      <div class="hud-title" aria-hidden="true">Hold the Hall</div>
       <div class="topbar">
         <div class="hud-hall framed" title="Town Hall health">
           <span class="heart" aria-hidden="true"></span>
@@ -65,6 +66,72 @@
         </div>
       </div>
 
+      <div id="menu" class="overlay main-menu" hidden>
+        <div class="menu-page">
+          <div class="menu-crest">
+            <svg class="crest" viewBox="0 -10 400 240" aria-hidden="true">
+              <defs>
+                <linearGradient id="steel" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#d9dde2" /><stop offset="1" stop-color="#7c828c" /></linearGradient>
+                <linearGradient id="ribbon" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#f3e3bd" /><stop offset="1" stop-color="#cfb27a" /></linearGradient>
+              </defs>
+              <g stroke="#2e1f12" stroke-width="3" stroke-linejoin="round">
+                <!-- Crossed swords behind the shield. -->
+                <g transform="rotate(-42 200 150)"><path d="M200 -40 L209 -26 L209 150 L191 150 L191 -26 Z" fill="url(#steel)" /><path d="M200 -32 V146" stroke="#8a9098" stroke-width="1.5" /><rect x="164" y="148" width="72" height="13" rx="5" fill="#6b4524" /><rect x="192" y="160" width="16" height="40" rx="4" fill="#4a2e18" /><circle cx="200" cy="206" r="10" fill="#c9a25a" /></g>
+                <g transform="rotate(42 200 150)"><path d="M200 -40 L209 -26 L209 150 L191 150 L191 -26 Z" fill="url(#steel)" /><path d="M200 -32 V146" stroke="#8a9098" stroke-width="1.5" /><rect x="164" y="148" width="72" height="13" rx="5" fill="#6b4524" /><rect x="192" y="160" width="16" height="40" rx="4" fill="#4a2e18" /><circle cx="200" cy="206" r="10" fill="#c9a25a" /></g>
+                <!-- The shield: gold and red, rimmed in iron. -->
+                <path d="M140 40 H260 V120 C260 168 228 192 200 206 C172 192 140 168 140 120 Z" fill="#4a4c52" />
+                <path d="M150 50 H200 V194 C176 180 150 160 150 120 Z" fill="#d9a83e" />
+                <path d="M200 50 H250 V120 C250 160 224 180 200 194 Z" fill="#a8301e" />
+              </g>
+              <!-- The ribbon with the title. -->
+              <g stroke="#2e1f12" stroke-width="3" stroke-linejoin="round">
+                <path d="M14 120 L64 112 L56 140 L64 168 L14 172 L34 146 Z" fill="#b89a62" />
+                <path d="M386 120 L336 112 L344 140 L336 168 L386 172 L366 146 Z" fill="#b89a62" />
+                <path d="M50 104 Q200 70 350 104 L350 160 Q200 126 50 160 Z" fill="url(#ribbon)" />
+              </g>
+              <text x="200" y="134" text-anchor="middle" class="crest-title">Hold the Hall</text>
+            </svg>
+          </div>
+          <nav class="menu-buttons" aria-label="Main menu">
+            <button class="plaque" type="button" disabled title="Coming soon">Campaign<span class="soon">Coming soon</span></button>
+            <button id="menu-continue" class="plaque" type="button">Continue</button>
+            <button id="menu-endless" class="plaque" type="button"><span id="menu-endless-label">Endless Mode</span></button>
+            <button id="menu-codex" class="plaque" type="button">The Royal Codex</button>
+            <button id="menu-options" class="plaque" type="button">Options</button>
+          </nav>
+          <div class="menu-foot">
+            <img id="menu-foe-left" class="menu-foe" alt="" draggable="false" />
+            <button id="menu-help" class="cog small-cog" type="button" aria-label="How to play"><span class="cog-icon">?</span><span class="cog-label">Help</span></button>
+            <button id="menu-credits" class="cog small-cog" type="button" aria-label="Credits"><span class="cog-icon">✦</span><span class="cog-label">Credits</span></button>
+            <img id="menu-foe-right" class="menu-foe" alt="" draggable="false" />
+          </div>
+        </div>
+      </div>
+
+      <div id="codex" class="overlay" hidden>
+        <div class="panel dialog codex-book">
+          <h2>The Royal Codex</h2>
+          <h3>Towers &amp; Walls</h3>
+          <div id="codex-towers" class="codex-cards"></div>
+          <h3>The Enemy</h3>
+          <div id="codex-foes" class="codex-cards"></div>
+          <button id="codex-close" class="primary" type="button">Close</button>
+        </div>
+      </div>
+
+      <div id="credits" class="overlay" hidden>
+        <div class="panel dialog">
+          <h2>Credits</h2>
+          <p>
+            <strong>Hold the Hall</strong>: a tower-defence game of walls, towers and siege.<br />
+            Built with three.js and Vite; models are made in code and baked to sprites.<br />
+            Type: Cinzel, Cinzel Decorative and IM Fell English (Google Fonts).<br />
+            Made with Claude Code.
+          </p>
+          <button id="credits-close" class="primary" type="button">Close</button>
+        </div>
+      </div>
+
       <div id="help" class="overlay" hidden>
         <div class="panel dialog">
           <h2>Hold the Hall</h2>
@@ -106,12 +173,35 @@
             Anti-aliasing changes after a reload, which restarts the current game.
             <button id="settings-reload" type="button">Reload now</button>
           </p>
-          <button id="settings-close" class="primary" type="button">Done</button>
+          <div class="dialog-buttons">
+            <button id="settings-menu" type="button">Main menu</button>
+            <button id="settings-close" class="primary" type="button">Done</button>
+          </div>
         </div>
       </div>
 
-      <div id="loading" class="overlay">
-        <div class="panel dialog"><h2>Raising the walls…</h2></div>
+      <div id="loading" class="overlay loading-screen">
+        <div class="iron-frame">
+          <div class="loading-page">
+            <h2 class="loading-title"><span class="kicker">Preparing for battle:</span><span id="loading-wave">Surveying the land…</span></h2>
+            <div class="ink-rule"></div>
+            <canvas id="loading-map" class="loading-map"></canvas>
+            <div id="loading-ground" class="loading-ground"></div>
+            <div class="tip-scroll">
+              <p><strong>Lore &amp; tactics:</strong> <span id="loading-tip"></span></p>
+              <img id="loading-tip-art" alt="" hidden />
+            </div>
+            <div class="loading-bar"><div id="loading-fill" class="loading-fill"></div></div>
+            <div id="loading-text" class="loading-text">Loading…</div>
+          </div>
+          <svg class="compass" viewBox="0 0 100 100" aria-hidden="true">
+            <circle cx="50" cy="50" r="46" fill="#c9a25a" stroke="#5a3e18" stroke-width="4" />
+            <circle cx="50" cy="50" r="36" fill="#f0e2bc" stroke="#7a5a2a" stroke-width="2" />
+            <path d="M50 16 L57 50 L50 84 L43 50 Z" fill="#a8301e" stroke="#3a2614" stroke-width="1.5" />
+            <path d="M16 50 L50 43 L84 50 L50 57 Z" fill="#6b5a3a" stroke="#3a2614" stroke-width="1.5" />
+            <circle cx="50" cy="50" r="4" fill="#3a2614" />
+          </svg>
+        </div>
       </div>
 
       <div id="error" class="overlay" hidden>

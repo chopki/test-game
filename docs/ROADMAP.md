@@ -114,6 +114,10 @@ Pre-rendered sprites on a fixed isometric camera (see ARCHITECTURE.md), working 
       near them; fish leap from streams and lakes with a splash; deer and rabbits graze at the woods' edge, away
       from the hall, and bolt into the trees when enemies come near, shots land close or something is built on
       their spot, coming back in quiet times (`wildlife.js`, `animals.js`; decoration only)
+- [x] **Main menu and loading screen** (after `docs/reference/ui-menu.jpg`): parchment menu over the live map,
+      the Royal Codex, an iron-framed loading screen with an ink sketch of the battleground and tactics tips; the
+      HUD restyled in parchment and iron (phone title band, after `docs/reference/ui-hud-phone.jpg`). Later: the
+      campaign, sound (and its mute button)
 - [ ] **Models from our drawings (image-to-3D trial)**: send crops of `docs/reference/art-style.jpg` (Town Hall,
       catapult, watchtower, trees) to an image-to-3D service (open models such as Hunyuan3D-2 or TRELLIS, or Tripo /
       Meshy with an API key), restyle the returned `.glb` with our materials and bake it with our ink style, and add
