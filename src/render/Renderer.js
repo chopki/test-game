@@ -10,7 +10,7 @@ import { wallSeat } from './wallSeat.js';
 import { WALL_DECOR_KINDS } from './wallDecor.js';
 import { waterFlow } from './waterFlow.js';
 import { waterTexture } from './waterTextures.js';
-import { createProjectileModel, SCENERY_VARIANTS, WALL_VARIANTS } from './models.js';
+import { createProjectileModel, SCENERY_SWAY, SCENERY_VARIANTS, WALL_VARIANTS } from './models.js';
 import { BlobShadowBatch, HealthBarBatch } from './batches.js';
 import { ISO_QUATERNION, isoDirection } from './iso.js';
 import { SpriteLayer } from './spriteLayer.js';
@@ -241,7 +241,7 @@ export class Renderer {
     this._blockedTint = this._createBlockedTint(grid);
     this.grid.add(this._blockedTint);
 
-    // Terrain sprites: one tree per forest tile (oak or pine woods by region), an outcrop per rock tile.
+    // Terrain sprites: one tree per forest tile (a mix of kinds, by region: see treeKind), an outcrop per rock tile.
     this.terrainSpots = [];
     const rnd = createRng(world.seed ^ 0x7ee5);
     for (let z = 0; z < grid.height; z++) {
@@ -252,11 +252,10 @@ export class Renderer {
         const pos = this.toScene(x + 0.5 + rnd.range(-jitter, jitter), 0, z + 0.5 + rnd.range(-jitter, jitter));
         const variant = rnd.int(0, SCENERY_VARIANTS - 1);
         if (t === T.rock) {
-          this.terrainSpots.push({ key: spriteKeys.scenery('outcrop', variant), pos, scale: rnd.range(0.95, 1.1) });
+          this.terrainSpots.push(this._scenerySpot('outcrop', variant, pos, rnd.range(0.95, 1.1)));
           continue;
         }
-        const pines = painted.noise.fbm(x * 0.1 + 500, z * 0.1) > 0.52;
-        this.terrainSpots.push({ key: spriteKeys.scenery(pines ? 'pine' : 'oak', variant), pos, scale: rnd.range(0.9, 1.15) });
+        this.terrainSpots.push(this._scenerySpot(treeKind(painted.noise, x, z, rnd), variant, pos, rnd.range(0.85, 1.18)));
       }
     }
     this._buildScenery(SCENERY_COUNT[scenery]);
@@ -404,6 +403,10 @@ export class Renderer {
     return mesh;
   }
 
+  _scenerySpot(kind, variant, pos, scale) {
+    return { key: spriteKeys.scenery(kind, variant), pos, scale, sway: (SCENERY_SWAY[kind] ?? 0) * TREE_SWAY };
+  }
+
   /** Scatter decorative trees, bushes and rocks in the woods outside the map. */
   _buildScenery(count) {
     this.scenerySpots = [];
@@ -419,12 +422,8 @@ export class Renderer {
       if (wood <= 0.05) continue;
       const dense = wood > 0.5;
       if (!dense && rnd.next() > 0.12) continue;
-      const kind = dense ? (noise.fbm(x * 0.1 + 500, z * 0.1) > 0.52 ? 'pine' : 'oak') : rnd.pick(['bush', 'rock', 'oak']);
-      this.scenerySpots.push({
-        key: spriteKeys.scenery(kind, rnd.int(0, SCENERY_VARIANTS - 1)),
-        pos: this.toScene(x, 0, z),
-        scale: rnd.range(0.85, 1.25),
-      });
+      const kind = dense ? treeKind(noise, x, z, rnd) : rnd.pick(['bush', 'bush', 'rock', 'oak', 'birch', 'stump']);
+      this.scenerySpots.push(this._scenerySpot(kind, rnd.int(0, SCENERY_VARIANTS - 1), this.toScene(x, 0, z), rnd.range(0.85, 1.25)));
     }
   }
 
@@ -548,9 +547,11 @@ export class Renderer {
     this.shadowSprites.begin();
     this.healthBars.begin(this.camera.quaternion);
     this.blobShadows.begin();
+    this.sprites.time = this._time;
+    const wind = this.graphics.effects ? 1 : 0;
     for (const spots of [this.terrainSpots, this.scenerySpots]) {
       for (const s of spots) {
-        this.sprites.add(s.key, s.pos, s.scale);
+        this.sprites.add(s.key, s.pos, s.scale, 0, s.sway * wind);
         this.shadowSprites.add(s.key, s.pos, s.scale);
       }
     }
@@ -801,6 +802,21 @@ export function wallVariant(x, z) {
 
 /** About one straight wall tile in nine carries a decoration; which tile and which kind come from its position. */
 export const WALL_DECOR_EVERY = 6;
+
+/** How far a typical tree's top sways in the wind, as a fraction of its sprite's width (see SpriteLayer). */
+export const TREE_SWAY = 0.025;
+
+/**
+ * Which tree grows at (x, z) in a wood: pine woods (pines with spruce) and broadleaf woods (oak and beech, with
+ * birch groves) by region, a ragged mix where they meet, and the odd dead tree.
+ */
+export function treeKind(noise, x, z, rnd) {
+  const r = rnd.next();
+  if (r < 0.04) return 'snag';
+  if (noise.fbm(x * 0.1 + 500, z * 0.1) > 0.52 + rnd.range(-0.035, 0.035)) return r < 0.62 ? 'pine' : 'spruce';
+  if (noise.fbm(x * 0.16 + 900, z * 0.16 + 300) > 0.56) return r < 0.65 ? 'birch' : r < 0.85 ? 'oak' : 'beech';
+  return r < 0.58 ? 'oak' : r < 0.86 ? 'beech' : 'birch';
+}
 export function wallDecorAt(x, z) {
   const h = Math.imul(x * 83492791 ^ z * 2654435761, 0x85ebca6b) >>> 0;
   if ((h >>> 3) % WALL_DECOR_EVERY) return null;

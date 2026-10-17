@@ -881,8 +881,27 @@ const LEAF_COLORS = {
     ['#627a2e', '#7a9439'],
     ['#78903a', '#90a848'],
   ],
+  birch: [
+    ['#8a9c3c', '#a0ae48', '#70822e'],
+    ['#94a03c', '#aab24a', '#788630'],
+    ['#82983a', '#98ac46', '#6a7e2e'],
+  ],
+  spruce: [
+    ['#4e6a2c', '#62803a'],
+    ['#48622e', '#5c783a'],
+    ['#56702e', '#6a883c'],
+  ],
+  beech: [
+    ['#5e7a2a', '#74903a', '#4a6222'],
+    ['#66802c', '#7c963c', '#506624'],
+    ['#587428', '#6e8a36', '#465e20'],
+  ],
 };
 const TRUNK = std({ color: 0x6b3f22 });
+const BIRCH_BARK = std({ color: 0xfaf4e6, roughness: 0.8 });
+const BIRCH_MARK = std({ color: 0x2e2a26 });
+const DEADWOOD = std({ color: 0xa09280 });
+const MUSHROOM = std({ color: 0xc8502e });
 
 function oak(p, rnd, v) {
   const [mid, light, dark] = LEAF_COLORS.oak[v];
@@ -909,6 +928,97 @@ function pine(p, rnd, v) {
     const r = 0.6 - i * 0.12;
     p.add(cone(r, 0.66, 6), foliage(i % 2 ? light : dark), { y: 0.62 + i * 0.38, ry: ry + i * 0.5 });
   }
+}
+
+/** A slim, pale-barked birch with a light, narrow canopy. */
+function birch(p, rnd, v) {
+  const [mid, light, dark] = LEAF_COLORS.birch[v];
+  const lean = rnd.range(-0.1, 0.1);
+  const shift = (y) => -Math.sin(lean) * (y - 0.75); // x offset of the leaning trunk at height y
+  p.add(cyl(0.065, 0.09, 1.5, 7), BIRCH_BARK, { y: 0.75, rz: lean });
+  for (let i = 0; i < 5; i++) {
+    const y = 0.18 + i * 0.24 + rnd.range(-0.05, 0.05);
+    p.add(box(0.09, 0.025, 0.05), BIRCH_MARK, { x: shift(y) + rnd.range(-0.02, 0.02), y, z: 0.06, rz: rnd.range(-0.3, 0.3) });
+  }
+  const cx = shift(1.6);
+  const ry = rnd.range(0, Math.PI / 2);
+  p.add(rbox(0.76, 0.6, 0.72, 0.13), foliage(mid), { x: cx, y: 1.45, ry });
+  p.add(rbox(0.58, 0.52, 0.56, 0.12), foliage(light), { x: cx + rnd.range(-0.06, 0.06), y: 1.86, ry: ry + 0.4 });
+  p.add(rbox(0.32, 0.34, 0.32, 0.09), foliage(light), { x: cx + rnd.range(-0.05, 0.05), y: 2.16, ry: ry + 0.8 });
+  for (let i = 0; i < 2; i++) {
+    const a = ry + i * Math.PI + rnd.range(-0.4, 0.4);
+    p.add(rbox(0.34, 0.32, 0.32, 0.09), foliage(dark), { x: cx + Math.cos(a) * 0.32, y: rnd.range(1.3, 1.6), z: Math.sin(a) * 0.3, ry: a });
+  }
+}
+
+/** A tall, narrow, dark spruce: more, tighter tiers than the pine. */
+function spruce(p, rnd, v) {
+  const [dark, light] = LEAF_COLORS.spruce[v];
+  p.add(box(0.13, 0.5, 0.13), TRUNK, { y: 0.25 });
+  const tiers = 6;
+  const ry = rnd.range(0, 1);
+  for (let i = 0; i < tiers; i++) {
+    const r = 0.5 - i * 0.065;
+    p.add(cone(r, 0.56, 6), foliage(i % 2 ? light : dark), { y: 0.5 + i * 0.3, ry: ry + i * 0.45 });
+  }
+  p.add(cone(0.1, 0.3, 5), foliage(light), { y: 0.5 + tiers * 0.3 + 0.02, ry });
+}
+
+/** A broad old beech: a thick forked trunk and a wide, deep-green dome of lumps. */
+function beech(p, rnd, v) {
+  const [mid, light, dark] = LEAF_COLORS.beech[v];
+  const ry = rnd.range(0, Math.PI / 2);
+  p.add(box(0.26, 0.8, 0.26), TRUNK, { y: 0.4, ry });
+  p.add(box(0.13, 0.5, 0.13), TRUNK, { x: -0.14, y: 0.92, rz: 0.5 });
+  p.add(box(0.12, 0.46, 0.12), TRUNK, { x: 0.15, y: 0.9, rz: -0.55 });
+  for (let i = 0; i < 3; i++) {
+    const a = ry + (i / 3) * Math.PI * 2;
+    p.add(box(0.1, 0.12, 0.26), TRUNK, { x: Math.cos(a) * 0.16, y: 0.05, z: Math.sin(a) * 0.16, ry: -a + Math.PI / 2 });
+  }
+  p.add(rbox(1.2, 0.56, 1.1, 0.16), foliage(mid), { y: 1.32, ry });
+  p.add(rbox(0.8, 0.44, 0.76, 0.14), foliage(light), { x: rnd.range(-0.1, 0.1), y: 1.72, z: rnd.range(-0.1, 0.1), ry: ry + 0.3 });
+  const lumps = 4;
+  for (let i = 0; i < lumps; i++) {
+    const a = ry + (i / lumps) * Math.PI * 2 + rnd.range(-0.3, 0.3);
+    p.add(rbox(0.5, 0.4, 0.48, 0.12), foliage(i % 2 ? dark : light), { x: Math.cos(a) * 0.55, y: rnd.range(1.14, 1.5), z: Math.sin(a) * 0.5, ry: a });
+  }
+}
+
+/** A dead, bare tree: grey wood, a snapped top and a few crooked branches. */
+function snag(p, rnd, v) {
+  const lean = rnd.range(-0.12, 0.12);
+  const shift = (y) => -Math.sin(lean) * (y - 0.7);
+  p.add(cyl(0.07, 0.12, 1.4, 6), DEADWOOD, { y: 0.7, rz: lean });
+  p.add(cone(0.075, 0.18, 5), DEADWOOD, { x: shift(1.48), y: 1.48, rz: lean + 0.3 }); // the jagged break
+  const branches = 3 + v;
+  for (let i = 0; i < branches; i++) {
+    const y = 0.7 + i * (0.6 / branches) + rnd.range(0, 0.1);
+    const a = rnd.range(0, Math.PI * 2);
+    const len = rnd.range(0.4, 0.65);
+    const tilt = rnd.range(0.7, 1.1);
+    p.add(cyl(0.02, 0.04, len, 5), DEADWOOD, { x: shift(y) + Math.cos(a) * len * 0.4, y: y + len * 0.3, z: Math.sin(a) * len * 0.4, ry: -a, rz: -tilt, order: 'YZX' });
+  }
+  for (let i = 0; i < 3; i++) {
+    const a = rnd.range(0, Math.PI * 2);
+    p.add(box(0.08, 0.1, 0.3), DEADWOOD, { x: Math.cos(a) * 0.14, y: 0.04, z: Math.sin(a) * 0.14, ry: -a + Math.PI / 2 });
+  }
+  p.add(rbox(0.3, 0.2, 0.26, 0.07), foliage(LEAF_COLORS.oak[v][2]), { x: 0.16, y: 0.1, z: 0.12, ry: 0.5 }); // undergrowth
+}
+
+/** An old stump with a mushroom or two (decoration outside the map). */
+function stump(p, rnd, v) {
+  p.add(cyl(0.19, 0.24, 0.26, 9), TRUNK, { y: 0.13 });
+  p.add(cyl(0.18, 0.18, 0.02, 9), MATERIALS.woodLight, { y: 0.265 });
+  for (let i = 0; i < 3; i++) {
+    const a = (i / 3) * Math.PI * 2 + rnd.range(0, 1);
+    p.add(box(0.08, 0.08, 0.22), TRUNK, { x: Math.cos(a) * 0.22, y: 0.04, z: Math.sin(a) * 0.22, ry: -a + Math.PI / 2 });
+  }
+  for (let i = 0; i < 1 + v; i++) {
+    const x = rnd.range(-0.25, 0.3);
+    p.add(cyl(0.015, 0.02, 0.07, 5), MATERIALS.bone, { x, y: 0.035, z: 0.24 });
+    p.add(sphere(0.045, 8, 5), MUSHROOM, { x, y: 0.075, z: 0.24, sy: 0.55 });
+  }
+  p.add(rbox(0.26, 0.18, 0.22, 0.06), foliage(LEAF_COLORS.oak[v][0]), { x: -0.24, y: 0.09, z: 0.1, ry: 0.4 });
 }
 
 function bush(p, rnd, v) {
@@ -955,9 +1065,12 @@ function outcrop(p, rnd, v) {
   for (let i = 0; i < 5; i++) p.add(cone(0.04, 0.18, 4), MATERIALS.grass, { x: rnd.range(-0.5, 0.5), y: 0.08, z: rnd.range(0.2, 0.5), rz: rnd.range(-0.4, 0.4) });
 }
 
-const SCENERY_BUILDERS = { oak, pine, bush, rock, outcrop };
+const SCENERY_BUILDERS = { oak, pine, birch, spruce, beech, snag, stump, bush, rock, outcrop };
 export const SCENERY_TYPES = Object.keys(SCENERY_BUILDERS);
 export const SCENERY_VARIANTS = 3;
+
+/** How much each kind sways in the wind (1 = a typical tree; slim birches more, stiff dead wood barely). */
+export const SCENERY_SWAY = { oak: 1, pine: 0.8, birch: 1.35, spruce: 0.7, beech: 0.85, snag: 0.2, bush: 0.35 };
 
 /** One tree, bush or rock (for baking into a sprite). `variant` picks its shape and colour. */
 export function createSceneryObject(kind, variant = 0) {

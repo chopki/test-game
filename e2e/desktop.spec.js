@@ -488,3 +488,37 @@ test('long walls carry the odd decoration (flags, torches, shields…), sparsely
   await testInfo.attach('wall-decor', { body: await page.screenshot({ path: testInfo.outputPath('wall-decor.png') }), contentType: 'image/png' });
   expect(errors).toEqual([]);
 });
+
+test('woods mix several kinds of tree, and the trees (not the rocks) sway in the wind', async ({ page }, testInfo) => {
+  const errors = await openGame(page, { map: 'terrain' });
+  const spots = await page.evaluate(() => window.game.renderer.terrainSpots.map((s) => ({ kind: s.key.split(':')[1], sway: s.sway })));
+  const kinds = new Set(spots.map((s) => s.kind));
+  expect(kinds.has('oak') && kinds.has('pine')).toBe(true);
+  expect(['birch', 'spruce', 'beech', 'snag'].filter((k) => kinds.has(k)).length).toBeGreaterThanOrEqual(3);
+  expect(spots.filter((s) => s.kind === 'outcrop').every((s) => s.sway === 0)).toBe(true);
+  expect(spots.filter((s) => s.kind !== 'outcrop').every((s) => s.sway > 0)).toBe(true);
+  // The sway reaches the GPU, and the wind's clock runs.
+  const swaying = () =>
+    page.evaluate(() => window.game.renderer.sprites.layers.reduce((n, p) => n + p.sway.array.subarray(0, p.count).filter((v) => v > 0).length, 0));
+  await expect.poll(swaying).toBeGreaterThan(50);
+  const clock = () => page.evaluate(() => window.game.renderer.sprites._time.value);
+  const t0 = await clock();
+  await expect.poll(clock).toBeGreaterThan(t0);
+  // Effects off stills them.
+  await page.evaluate(() => window.game.setGraphics({ ...window.game.graphics, effects: false }));
+  await expect.poll(swaying).toBe(0);
+  // A close look at a wood, for the report.
+  const forest = await nearestTerrainTile(page, 'forest');
+  await page.evaluate(({ x, z }) => {
+    const r = window.game.renderer;
+    const to = r.toScene(x + 0.5, 0, z + 0.5);
+    r.camera.position.add(to.clone().sub(r.controls.target));
+    r.controls.target.copy(to);
+    r.camera.zoom = 2.5;
+    r.camera.updateProjectionMatrix();
+  }, forest);
+  await page.evaluate(() => window.game.setGraphics({ ...window.game.graphics, effects: true }));
+  await page.waitForTimeout(500);
+  await testInfo.attach('woods', { body: await page.screenshot({ path: testInfo.outputPath('woods.png') }), contentType: 'image/png' });
+  expect(errors).toEqual([]);
+});

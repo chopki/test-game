@@ -131,6 +131,9 @@ so the whole battlefield is ~15 draw calls and a few hundred triangles however d
   to face up, or they're culled.
 - Cloud shadows: `Renderer._createClouds()` draws one ground plane after the sprites that multiplies a drifting,
   tileable cloud mask (`cloudTexture()` in textures.js) into the frame. Shown with the Effects setting.
+- Tree sway: `SpriteLayer.add(..., sway)` shears a sprite's top sideways in the vertex shader on a gusting wave
+  (no extra frames or draw calls). Per-kind amounts are `SCENERY_SWAY` in models.js, scaled by `TREE_SWAY` in
+  Renderer.js; woods mix kinds via `treeKind()`. Also off when Effects is off.
 - `terrainPainter.js`: paints each map's ground into one canvas texture (`paintTerrain`). A low-res colour pass
   blends the terrain with noise for natural edges (forest floor, gravel, banks, water), then it's scaled up and
   small details are stamped in. Resolution and detail follow the Scenery setting (`GROUND_PX`, `GROUND_DETAIL`).

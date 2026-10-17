@@ -71,7 +71,9 @@ Pre-rendered sprites on a fixed isometric camera (see ARCHITECTURE.md), working 
       sprite (e.g. above 66%, 33–66%, under 33%): cracks and missing stones, broken or leaning stakes and gaps in
       palisades, holed roofs, scorch marks, then smoke and small fires at the lowest stage. Repairs (see Repair)
       put them back
-- [ ] Tree sway (a small vertex wobble on tree sprites)
+- [x] Tree sway: tree tops sway in gusts of wind (a vertex shear on the sprite; slim birches most, dead trees barely)
+- [x] Mixed woods: birch, spruce, beech and dead trees join the oaks and pines; pine woods and broadleaf woods by
+      region, birch groves, a ragged mix where they meet; stumps and birches among the scenery outside the map
 - [x] WebP atlas pages (6.1 MB of PNG → 1.5 MB) and an HD sprite set for desktops (2.5 MB), sharp when zoomed in
 - [ ] Ground marks: worn earth round buildings, scorch marks where boulders land, bridges at fords
 - [ ] Rivers more often (about half of maps have one today), or a map option to ask for one
