@@ -82,17 +82,18 @@ export function bakeSprites(specs, { pxPerUnit = 64, supersample = 2, ink = true
     renderer.setPixelRatio(1);
     renderer.setClearColor(0x000000, 0);
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.VSMShadowMap; // soft, blurred shadows (affordable: this runs once)
+    renderer.shadowMap.type = THREE.VSMShadowMap; // filtered shadows (affordable: this runs once)
 
     const scene = new THREE.Scene();
     // Studio lighting: warm key from the sun direction, cool sky fill, a soft rim from behind.
     scene.add(new THREE.HemisphereLight(0xfff2dc, 0x6a5a3a, 1.35));
     const sun = new THREE.DirectionalLight(0xffe2b8, 2.6);
     sun.castShadow = true;
-    sun.shadow.mapSize.set(1024, 1024);
-    sun.shadow.bias = -0.0004;
-    sun.shadow.normalBias = 0.02;
-    sun.shadow.radius = 6;
+    // Crisp ground shadows with just a slightly softened edge, like the reference's strong cast shadows.
+    sun.shadow.mapSize.set(2048, 2048);
+    sun.shadow.bias = -0.0003;
+    sun.shadow.normalBias = 0.015;
+    sun.shadow.radius = 1.5;
     sun.shadow.blurSamples = 8;
     scene.add(sun, sun.target);
     const rim = new THREE.DirectionalLight(0xc8dcff, 0.6);
