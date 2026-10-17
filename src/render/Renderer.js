@@ -4,7 +4,7 @@ import { GRID } from '../sim/config.js';
 import { T } from '../sim/terrain.js';
 import { createRng } from '../sim/rng.js';
 import { AUTO_RESOLUTION, GROUND_DETAIL, GROUND_PX, SCENERY_COUNT } from './graphicsSettings.js';
-import { isOffshore, OCEAN, OUTER_GROUND, outsideForest, paintTerrain } from './terrainPainter.js';
+import { isOffshore, OCEAN, OUTER_GROUND, outsideForest, PAINT_BORDER, paintTerrain } from './terrainPainter.js';
 import { cloudTexture } from './textures.js';
 import { wallSeat } from './wallSeat.js';
 import { DECOR_PENNANTS, WALL_DECOR_KINDS } from './wallDecor.js';
@@ -182,11 +182,10 @@ export class Renderer {
   }
 
   _setupTerrain() {
-    const W = GRID.width;
-    const H = GRID.height;
-    const m = GRID.spawnMargin;
     // Flat ground to the horizon; each map's painted ground (see _buildTerrain) fades into it.
     const outer = new THREE.Mesh(new THREE.PlaneGeometry(600, 600), new THREE.MeshBasicMaterial({ color: OUTER_GROUND, depthWrite: false }));
+    this._outerGround = outer;
+    this._dampGround = new THREE.Color();
     outer.rotation.x = -Math.PI / 2;
     outer.position.y = -0.03;
     outer.renderOrder = -2;
@@ -196,11 +195,6 @@ export class Renderer {
     // terrain can't be built on (added per map).
     this.grid = new THREE.Group();
     this.grid.visible = false;
-    const lines = new THREE.GridHelper(W - 2 * m, W - 2 * m, 0x2b4a1c, 0x2b4a1c);
-    underlay(lines.material, 0.25);
-    lines.position.y = 0.01;
-    lines.renderOrder = 1;
-    this.grid.add(lines);
     this.scene.add(this.grid);
     this._clouds = this._createClouds();
   }
@@ -265,6 +259,12 @@ export class Renderer {
       obj.material.dispose();
     }
     this._ground = this._shimmer = this._blockedTint = this._ocean = null;
+    if (this._gridLines) {
+      this._gridLines.removeFromParent();
+      this._gridLines.geometry.dispose();
+      this._gridLines.material.dispose();
+      this._gridLines = null;
+    }
     this._cover?.dispose();
     this._cover = null;
     if (!world) return;
@@ -290,6 +290,13 @@ export class Renderer {
     this._cover = new GroundCover(this.scene, painted.tiles, painted.waterMask);
     this._blockedTint = this._createBlockedTint(grid);
     this.grid.add(this._blockedTint);
+    // The build grid over the buildable area (inside the spawn margin).
+    const span = grid.width - 2 * grid.spawnMargin;
+    this._gridLines = new THREE.GridHelper(span, span, 0x2b4a1c, 0x2b4a1c);
+    underlay(this._gridLines.material, 0.25);
+    this._gridLines.position.y = 0.01;
+    this._gridLines.renderOrder = 1;
+    this.grid.add(this._gridLines);
 
     // Terrain sprites: one tree per forest tile (a mix of kinds, by region: see treeKind), an outcrop per rock tile.
     this.terrainSpots = [];
@@ -312,13 +319,13 @@ export class Renderer {
     for (const b of fordBridges(grid, waterFlow(grid))) {
       this.terrainSpots.push({ key: spriteKeys.bridge(b.part, b.axis), pos: this.toScene(b.x + 0.5, 0, b.z + 0.5), scale: 1, sway: 0 });
     }
-    this._buildScenery(SCENERY_COUNT[scenery]);
+    // As many decorative trees per stretch of map edge on every size of map.
+    this._buildScenery(Math.round((SCENERY_COUNT[scenery] * grid.width) / GRID.width));
   }
 
   /** Open sea to the horizon beyond the painted ground on the coast side (the painted sea fades into it). */
   _createOcean(coast) {
-    const W = GRID.width;
-    const H = GRID.height;
+    const { width: W, height: H } = this.world.grid;
     const S = 600;
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(S, S), new THREE.MeshBasicMaterial({ color: OCEAN, depthWrite: false }));
     mesh.rotation.x = -Math.PI / 2;
@@ -525,8 +532,7 @@ export class Renderer {
     this.scenerySpots = [];
     const noise = this._terrainNoise;
     if (!noise || !count) return;
-    const W = GRID.width;
-    const H = GRID.height;
+    const { width: W, height: H } = this.world.grid;
     const rnd = createRng(0x5ce7e);
     for (let tries = 0; this.scenerySpots.length < count && tries < count * 30; tries++) {
       const x = rnd.range(-16, W + 16);
@@ -597,6 +603,15 @@ export class Renderer {
     this.corpses = [];
 
     this.world = world;
+    // The scene is centred on the map, whatever its size. Bigger maps let the camera zoom further out, but never so
+    // far that the edge of the painted ground (map + border) comes into view.
+    this.offsetX = world.grid.width / 2;
+    this.offsetZ = world.grid.height / 2;
+    this.controls.minZoom = (0.55 * (GRID.width + 2 * PAINT_BORDER)) / (world.grid.width + 2 * PAINT_BORDER);
+    if (this.camera.zoom < this.controls.minZoom) {
+      this.camera.zoom = this.controls.minZoom;
+      this.camera.updateProjectionMatrix();
+    }
     this._buildTerrain();
     // This map's season, and its weather before the first wave (?season= / ?weather= override them).
     const params = new URLSearchParams(location.search);
@@ -660,7 +675,7 @@ export class Renderer {
     dir.normalize();
     const side = new THREE.Vector3().crossVectors(dir, this.camera.up).normalize();
     const delta = dir.multiplyScalar(forward).add(side.multiplyScalar(right));
-    const limit = GRID.width / 2 + 5;
+    const limit = (this.world?.grid.width ?? GRID.width) / 2 + 5;
     const target = this.controls.target.clone().add(delta);
     target.x = THREE.MathUtils.clamp(target.x, -limit, limit);
     target.z = THREE.MathUtils.clamp(target.z, -limit, limit);
@@ -877,6 +892,10 @@ export class Renderer {
     const look = this._look;
     this.sprites.setSeason(look.autumn, look.snowCover);
     this._cover?.set(look);
+    // Rain darkens the ground beyond the painted map just as GroundCover darkens the map (same blend), so the
+    // edge of the painted ground never shows.
+    const wet = 0.2 * look.wet;
+    this._outerGround.material.color.set(OUTER_GROUND).lerp(this._dampGround.setRGB(0.1, 0.12, 0.15, THREE.SRGBColorSpace), wet);
     if (this._shimmer) this._shimmer.material.uniforms.rain.value = look.rain;
     // Falling rain and snow are effects (off with the Effects setting).
     const falling = this.graphics.effects ? look : { rain: 0, snowfall: 0 };

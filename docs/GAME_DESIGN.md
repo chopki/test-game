@@ -52,6 +52,9 @@ The flow field is recomputed whenever buildings change and every 0.5s during wav
 
 ## Terrain
 
+Maps come in three sizes (Settings → Map size, for new maps): **Small** 40 × 40 tiles, **Medium** 52 × 52 (the
+default) and **Large** 64 × 64. Bigger maps give more room to build and longer marches for the enemy.
+
 There are no roads: the map's terrain shapes the routes. Every game generates a new map from its seed (shown in
 the Battle Chronicle; `?seed=N` in the URL replays it). Values live in `TERRAIN` in `config.js`.
 

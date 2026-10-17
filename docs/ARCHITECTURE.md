@@ -36,7 +36,7 @@ to a fixed-timestep server, replays or AI opponents later.
 
 | File             | Responsibility |
 | ---------------- | -------------- |
-| `config.js`      | **All balance data**: grid, economy, timings, building and enemy tables, wave tuning |
+| `config.js`      | **All balance data**: grid (and the map sizes), economy, timings, building and enemy tables, wave tuning |
 | `World.js`       | Game state and rules: phases, placement, combat, enemy AI, projectiles, events |
 | `Grid.js`        | Tile occupancy (building id per cell), terrain per cell (`isBlocked`, `isBuildable`), footprints, spawn zone |
 | `terrain.js`     | Terrain types (incl. `sea` and `sand`) and the seeded map generator (`generateTerrain`, with an optional `coast` side): features, then repair passes; `analyzeTerrain` checks the map rules |

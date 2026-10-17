@@ -1,3 +1,4 @@
+import { GRID } from '../sim/config.js';
 import { carrySettingsThroughReload, OPTIONS, PRESET_ORDER, RELOAD_REQUIRED, withPreset, withSetting } from '../render/graphicsSettings.js';
 import { onPress } from './press.js';
 
@@ -30,6 +31,16 @@ export class SettingsMenu {
     this.mapRow = this._row('Map', '', [this.mapButton]);
     this.body.appendChild(this.mapRow);
     this._confirmUntil = 0;
+    // Map size: how big new maps are (applies from the next new map).
+    this.sizeButtons = Object.keys(GRID.sizes).map((size) =>
+      this._button(capitalize(size), () => {
+        this.game.mapOptions.size = size;
+        this.refresh();
+      }),
+    );
+    this.body.appendChild(
+      this._row('Map size', `For new maps: Small is ${GRID.sizes.small} tiles across, Medium ${GRID.sizes.medium}, Large ${GRID.sizes.large}. Bigger maps have more room to build and longer marches for the enemy. Takes effect from the next new map.`, this.sizeButtons),
+    );
     // Rivers: whether new maps always get a stream (applies from the next new map).
     this.riverButtons = [
       [false, 'Sometimes'],
@@ -121,6 +132,7 @@ export class SettingsMenu {
     this.mapButton.textContent = confirming ? 'Tap again: this game ends' : 'New map';
     this.mapButton.classList.toggle('warn', confirming);
     this.mapRow.querySelector('small').textContent = `Map ${this.game.world.seed}. A new map starts a new game (woods, rocks and water are different every time).`;
+    Object.keys(GRID.sizes).forEach((size, i) => this.sizeButtons[i].classList.toggle('active', this.game.mapOptions.size === size));
     this.riverButtons.forEach((b, i) => b.classList.toggle('active', this.game.mapOptions.river === (i === 1)));
     this.seaButtons.forEach((b, i) => b.classList.toggle('active', this.game.mapOptions.sea === this.seaChoices[i]));
     const g = this.game.graphics;

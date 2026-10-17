@@ -572,6 +572,21 @@ test('a coast: sea along one edge, drawn out to the horizon, and no attacks from
   expect(errors).toEqual([]);
 });
 
+test('settings: Map size picks how big the next new map is', async ({ page }) => {
+  const errors = await openGame(page, { map: 'terrain', query: 'size=large' });
+  const size = () => page.evaluate(() => [window.game.world.grid.width, window.game.world.townHall.x]);
+  expect(await size()).toEqual([64, 30]);
+  // A building can go out near the far corner of the big map.
+  expect(await page.evaluate(() => window.game.world.canPlace('wall', 60, 60).reason ?? 'ok')).not.toBe('Out of bounds');
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await expect(settingButton(page, 'Map size', 'Large')).toHaveClass(/active/);
+  await settingButton(page, 'Map size', 'Medium').click();
+  await page.getByRole('button', { name: 'New map' }).click();
+  await expect(page.locator('#settings')).toBeHidden();
+  expect(await size()).toEqual([52, 24]);
+  expect(errors).toEqual([]);
+});
+
 test('long walls carry the odd decoration (flags, torches, shields…), sparsely and on both wall directions', async ({ page }, testInfo) => {
   const errors = await openGame(page);
   await page.evaluate(() => {

@@ -1,4 +1,4 @@
-import { BUILDINGS } from '../sim/config.js';
+import { BUILDINGS, GRID } from '../sim/config.js';
 import { World } from '../sim/World.js';
 import { Renderer } from '../render/Renderer.js';
 import { HUD } from '../ui/HUD.js';
@@ -45,11 +45,14 @@ export class Game {
     this.speed = 1;
     this.paused = false;
     this.keys = new Set();
-    // Options for new maps (Settings → Rivers, Coast): `river` makes every new map have a stream; `sea` is false
-    // (never), 'sometimes' (the default) or true (always a coast). Lasts for the session.
+    // Options for new maps (Settings → Map size, Rivers, Coast): `size` is a key of GRID.sizes; `river` makes every
+    // new map have a stream; `sea` is false (never), 'sometimes' (the default) or true (always a coast). Lasts for
+    // the session. `?size=` takes a size name or its tiles across.
     const params = new URLSearchParams(location.search);
     const sea = { 0: false, 1: true }[params.get('sea')] ?? 'sometimes';
-    this.mapOptions = { river: params.get('river') === '1', sea };
+    const asked = params.get('size');
+    const size = Object.keys(GRID.sizes).find((k) => k === asked || String(GRID.sizes[k]) === asked) ?? GRID.defaultSize;
+    this.mapOptions = { size, river: params.get('river') === '1', sea };
 
     window.addEventListener('keydown', (e) => this._onKeyDown(e));
     window.addEventListener('keyup', (e) => this.keys.delete(e.key.toLowerCase()));
@@ -73,7 +76,7 @@ export class Game {
     const params = new URLSearchParams(location.search);
     seed ??= params.has('seed') ? Number(params.get('seed')) : Math.floor(Math.random() * 1e6);
     const fort = params.get('fort') !== '0';
-    this.world = new World({ seed, terrain: params.get('map') === 'open' ? 'open' : 'generate', fort, river: this.mapOptions.river, sea: this.mapOptions.sea });
+    this.world = new World({ seed, terrain: params.get('map') === 'open' ? 'open' : 'generate', fort, river: this.mapOptions.river, sea: this.mapOptions.sea, size: GRID.sizes[this.mapOptions.size] });
     this.renderer.attach(this.world);
     this.hud.attach(this.world);
     this.build.reset();

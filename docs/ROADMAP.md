@@ -87,6 +87,8 @@ Pre-rendered sprites on a fixed isometric camera (see ARCHITECTURE.md), working 
 - [x] **Coast**: on about 35% of maps the sea lies along one edge behind a sandy beach, deepening out to an ocean
       on the horizon, with surf rolling in; no enemies come from the sea (Settings → Coast). Later: raiders
       landing from ships
+- [x] **Bigger maps**: Settings → Map size: Small 40, Medium 52 (now the default), Large 64 tiles across; the camera
+      zooms out further on bigger maps
 - [x] Warm colour grade and a soft glow on crystals, torches, braziers, lanterns and fires: Settings → Glow and
       colour, on with High (the grade is a CSS filter on the canvas, the halos one additive instanced draw)
 - [x] **Varied wall tiles**: previously every wall tile of the same shape was the identical sprite, so long straight runs

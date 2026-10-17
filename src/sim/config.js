@@ -2,9 +2,15 @@
 // else should hard-code balance numbers. Adding a new building or enemy is
 // (mostly) a matter of adding an entry below and a model in render/models.js.
 
+/**
+ * The map grid. `width` × `height` is the default size (World's, and the tests'); the game picks one of `sizes`
+ * (square, in tiles) per map: Settings → Map size, `?size=`.
+ */
 export const GRID = {
   width: 40,
   height: 40,
+  sizes: { small: 40, medium: 52, large: 64 },
+  defaultSize: 'medium',
   // Tiles this close to the map edge are the enemy spawn zone and can't be built on.
   spawnMargin: 2,
 };

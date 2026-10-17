@@ -265,3 +265,38 @@ describe('coast', () => {
     expect(coasts / 80).toBeLessThan(TERRAIN.sea.chance + 0.15);
   });
 });
+
+describe('map sizes', () => {
+  for (const [name, size] of Object.entries(GRID.sizes)) {
+    it(`${name} maps (${size} tiles) meet the map rules, with and without a coast`, () => {
+      const s = BUILDINGS.townHall.size;
+      const hallAt = { x: Math.floor((size - s) / 2), z: Math.floor((size - s) / 2), size: s };
+      const info = { width: size, height: size, spawnMargin: GRID.spawnMargin, hall: hallAt };
+      const started = performance.now();
+      for (let seed = 1; seed <= 16; seed++) {
+        const coast = seed % 2 ? null : ['north', 'south', 'west', 'east'][seed % 4];
+        const types = generateTerrain({ ...info, rng: createRng(seed * 31), coast });
+        const stats = analyzeTerrain(types, info);
+        const where = `${name}, seed ${seed}, coast ${coast}`;
+        expect(stats.unreachable, where).toBe(0);
+        expect(stats.pinches, where).toBe(0);
+        expect(stats.openFraction, where).toBeGreaterThanOrEqual(TERRAIN.minOpenFraction);
+        for (const [side, n] of Object.entries(stats.spawnTiles)) if (side !== coast) expect(n, where).toBeGreaterThanOrEqual(TERRAIN.minSpawnTilesPerSide);
+      }
+      expect((performance.now() - started) / 16).toBeLessThan(120);
+    });
+  }
+
+  it('a world of any size centres the Town Hall, and its waves still reach it', () => {
+    const world = new World({ seed: 5, terrain: 'generate', size: GRID.sizes.large, fort: true });
+    expect(world.grid.width).toBe(GRID.sizes.large);
+    expect(Math.abs(world.townHall.cx - GRID.sizes.large / 2)).toBeLessThanOrEqual(0.5); // a 3-tile hall on an even map
+    world.startWave();
+    let hit = false;
+    for (let t = 0; t < 300 && !hit; t += DT) {
+      world.update(DT);
+      hit = [...world.buildings.values()].some((b) => b.hp < b.maxHp);
+    }
+    expect(hit).toBe(true);
+  });
+});

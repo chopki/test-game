@@ -18,7 +18,8 @@ import { SIDES } from './WaveManager.js';
  * `terrain`: 'open' (no terrain, the default, used by most tests), 'generate' (a map generated from the seed,
  * as the game uses), or a Uint8Array of terrain types (see terrain.js). For generated maps, `river` forces a
  * stream and `sea` picks the coast: false (none, the default), 'sometimes' (TERRAIN.sea.chance of maps) or
- * true (always); `this.coast` is the side the sea lies along, or null.
+ * true (always); `this.coast` is the side the sea lies along, or null. `size`: the map's width and height in
+ * tiles (default GRID.width × GRID.height); the Town Hall sits in the middle.
  *
  * Phases: 'build' (countdown to next wave) → 'wave' (enemies spawning/alive)
  * → back to 'build' when the wave is cleared, or 'gameover' when the Town Hall falls.
@@ -32,11 +33,11 @@ import { SIDES } from './WaveManager.js';
  * waveCleared, gameOver. Enemy shots are projectiles too (`hostile: true`, fired by `enemy`).
  */
 export class World {
-  constructor({ seed = Date.now(), terrain = 'open', fort = false, river = false, sea = false } = {}) {
+  constructor({ seed = Date.now(), terrain = 'open', fort = false, river = false, sea = false, size = null } = {}) {
     this.seed = seed >>> 0;
     this.rng = createRng(seed);
     this.events = new EventBus();
-    this.grid = new Grid(GRID.width, GRID.height, GRID.spawnMargin);
+    this.grid = new Grid(size ?? GRID.width, size ?? GRID.height, GRID.spawnMargin);
     this.flow = new FlowField(this.grid);
     this.economy = new Economy(ECONOMY.startingGold, this.events);
 
@@ -55,8 +56,9 @@ export class World {
     this._flowTimer = 0;
 
     const s = BUILDINGS.townHall.size;
-    const hall = { x: Math.floor((GRID.width - s) / 2), z: Math.floor((GRID.height - s) / 2), size: s };
-    const mapInfo = { width: GRID.width, height: GRID.height, spawnMargin: GRID.spawnMargin, hall };
+    const { width: W, height: H } = this.grid;
+    const hall = { x: Math.floor((W - s) / 2), z: Math.floor((H - s) / 2), size: s };
+    const mapInfo = { width: W, height: H, spawnMargin: GRID.spawnMargin, hall };
     this.coast = null;
     if (terrain === 'generate') {
       // The coast is decided on a random stream of its own, so maps without one are just as they were.

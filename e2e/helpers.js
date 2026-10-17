@@ -14,8 +14,10 @@ export async function openGame(page, { paused = true, map = 'open', fort = false
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
-  // No coast unless a test asks for one (`query: 'sea=1'`), so map 8 stays the map the tests were written for.
-  const params = `seed=${TERRAIN_SEED}${map === 'open' ? '&map=open' : ''}${fort ? '' : '&fort=0'}${/(^|&)sea=/.test(query) ? '' : '&sea=0'}${query ? `&${query}` : ''}`;
+  // A small map (40 tiles across) and no coast unless a test asks otherwise (`query: 'size=…'`, `'sea=1'`), so map 8
+  // stays the map the tests were written for.
+  const defaults = `${/(^|&)size=/.test(query) ? '' : '&size=small'}${/(^|&)sea=/.test(query) ? '' : '&sea=0'}`;
+  const params = `seed=${TERRAIN_SEED}${map === 'open' ? '&map=open' : ''}${fort ? '' : '&fort=0'}${defaults}${query ? `&${query}` : ''}`;
   await page.goto(`/?${params}`);
   await page.waitForFunction(() => window.game?.world && window.game.renderer.renderer.info.render.frame > 2);
   if (paused) await page.evaluate(() => window.game.togglePause());
