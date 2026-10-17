@@ -104,6 +104,7 @@ export function paintTerrain(grid, { pxPerTile = 16, detail = 1, seed = 1, borde
   const rock = field();
   const sea = field();
   const sand = field();
+  const ramp = field();
   let hasWater = false;
   // Beyond the coast edge it's all sea.
   const offshore = (x, z) => isOffshore(grid, coast, x, z);
@@ -132,6 +133,8 @@ export function paintTerrain(grid, { pxPerTile = 16, detail = 1, seed = 1, borde
       if (t === T.rock) rock[i] = 1;
       if (t === T.sea) sea[i] = water[i] = 1;
       if (t === T.sand) sand[i] = 1;
+      if (t === T.cliff) rock[i] = 0.45; // a plateau's rim: patches of stony ground at the cliff top
+      if (t === T.ramp) ramp[i] = 1;
       if (t === T.water || t === T.ford || t === T.sea) hasWater = true;
     }
   }
@@ -218,6 +221,10 @@ export function paintTerrain(grid, { pxPerTile = 16, detail = 1, seed = 1, borde
 
       const r = sample(rock, u, v) + wobble * 0.4;
       mix(col, C.gravel, smooth(0.4, 0.47, r) * 0.85);
+
+      // Ramps up onto the hills: a worn earth track.
+      const rp = sample(ramp, u, v) + wobble * 0.3;
+      mix(col, C.earth, smooth(0.45, 0.55, rp) * 0.9);
 
       // Beach: pale sand, damper where the sea reaches it.
       const sd = sample(sand, u, v) + wobble * 0.3;

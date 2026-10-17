@@ -6,7 +6,7 @@ import { FlowField } from './FlowField.js';
 import { Economy } from './Economy.js';
 import { WaveManager } from './WaveManager.js';
 import { planWall } from './wallPlanner.js';
-import { generateTerrain, spawnTilesBySide, T } from './terrain.js';
+import { generateMap, spawnTilesBySide, T } from './terrain.js';
 import { SIDES } from './WaveManager.js';
 
 /**
@@ -19,7 +19,8 @@ import { SIDES } from './WaveManager.js';
  * as the game uses), or a Uint8Array of terrain types (see terrain.js). For generated maps, `river` forces a
  * stream and `sea` picks the coast: false (none, the default), 'sometimes' (TERRAIN.sea.chance of maps) or
  * true (always); `this.coast` is the side the sea lies along, or null. `size`: the map's width and height in
- * tiles (default GRID.width × GRID.height); the Town Hall sits in the middle.
+ * tiles (default GRID.width × GRID.height); the Town Hall sits in the middle. `hills`: false (flat, the default),
+ * 'sometimes' (TERRAIN.hills.chance of maps) or true: plateaus with cliffs and ramps (`grid.levels`).
  *
  * Phases: 'build' (countdown to next wave) → 'wave' (enemies spawning/alive)
  * → back to 'build' when the wave is cleared, or 'gameover' when the Town Hall falls.
@@ -33,7 +34,7 @@ import { SIDES } from './WaveManager.js';
  * waveCleared, gameOver. Enemy shots are projectiles too (`hostile: true`, fired by `enemy`).
  */
 export class World {
-  constructor({ seed = Date.now(), terrain = 'open', fort = false, river = false, sea = false, size = null } = {}) {
+  constructor({ seed = Date.now(), terrain = 'open', fort = false, river = false, sea = false, size = null, hills = false } = {}) {
     this.seed = seed >>> 0;
     this.rng = createRng(seed);
     this.events = new EventBus();
@@ -60,12 +61,19 @@ export class World {
     const hall = { x: Math.floor((W - s) / 2), z: Math.floor((H - s) / 2), size: s };
     const mapInfo = { width: W, height: H, spawnMargin: GRID.spawnMargin, hall };
     this.coast = null;
+    this.hills = false; // whether this map was given hills
     if (terrain === 'generate') {
       // The coast is decided on a random stream of its own, so maps without one are just as they were.
       const coastRng = createRng(this.seed ^ 0x5ea5ea);
       if (sea === true || (sea === 'sometimes' && coastRng.next() < TERRAIN.sea.chance)) this.coast = coastRng.pick(SIDES);
+      // Hills too: on a stream of their own (the roll and the shapes).
+      const hillsRng = createRng(this.seed ^ 0x411e5);
+      const hilly = hills === true || (hills === 'sometimes' && hillsRng.next() < TERRAIN.hills.chance);
+      this.hills = hilly;
       // Its own random stream, so the map doesn't change the waves that follow.
-      this.grid.terrain = generateTerrain({ ...mapInfo, rng: createRng(this.seed ^ 0x9e3779b9), river, coast: this.coast });
+      const map = generateMap({ ...mapInfo, rng: createRng(this.seed ^ 0x9e3779b9), river, coast: this.coast, hillsRng: hilly ? hillsRng : null });
+      this.grid.terrain = map.types;
+      this.grid.levels = map.levels;
     } else if (terrain instanceof Uint8Array) {
       this.grid.terrain = Uint8Array.from(terrain);
     }
@@ -139,8 +147,10 @@ export class World {
       if (!this.grid.inBounds(tx, tz)) return { ok: false, reason: 'Out of bounds' };
       if (this.grid.isInSpawnZone(tx, tz)) return { ok: false, reason: 'Too close to the edge' };
     }
+    const level = this.grid.levelAt(x, z);
     for (const [tx, tz] of this.grid.footprint(x, z, def.size)) {
       if (!this.grid.isBuildable(tx, tz)) return { ok: false, reason: 'Blocked by terrain' };
+      if (this.grid.levelAt(tx, tz) !== level) return { ok: false, reason: 'Uneven ground' };
     }
     const replaces = this.wallsUnder(type, x, z);
     if (!replaces) return { ok: false, reason: 'Space is occupied' };
@@ -345,11 +355,22 @@ export class World {
     this.flow.compute([...this.grid.footprint(x, z, size)], (tx, tz) => this._penaltyAt(tx, tz));
   }
 
+  /** A tower's reach: its attack range, plus TERRAIN.hills.rangePerLevel for each level it stands above the lowest. */
+  rangeOf(b) {
+    return this.rangeAt(b.type, b.x, b.z);
+  }
+
+  /** The range a building of `type` would have with its top-left tile at (x, z) (for the build preview too). */
+  rangeAt(type, x, z) {
+    const attack = BUILDINGS[type].attack;
+    return attack ? attack.range + this.grid.levelAt(x, z) * TERRAIN.hills.rangePerLevel : 0;
+  }
+
   _updateTower(b, dt) {
     const attack = b.def.attack;
     b.cooldown = Math.max(0, b.cooldown - dt);
     if (b.cooldown > 0) return;
-    const target = this._pickTarget(b.cx, b.cz, attack.range, attack.minRange ?? 0);
+    const target = this._pickTarget(b.cx, b.cz, this.rangeOf(b), attack.minRange ?? 0);
     if (!target) return;
     b.cooldown = attack.cooldown;
     b.aim = Math.atan2(target.x - b.cx, target.z - b.cz);
@@ -360,13 +381,14 @@ export class World {
   // Area pulse (Magic Spire): damage and slow every enemy in range.
   _pulse(b) {
     const a = b.def.attack;
-    const r2 = a.range * a.range;
+    const range = this.rangeOf(b);
+    const r2 = range * range;
     for (const e of this.enemies) {
       if (!e.alive || (e.x - b.cx) ** 2 + (e.z - b.cz) ** 2 > r2) continue;
       if (a.slow) this._slowEnemy(e, a.slow);
       this._damageEnemy(e, a.damage);
     }
-    this.events.emit('towerPulse', { building: b, x: b.cx, z: b.cz, radius: a.range });
+    this.events.emit('towerPulse', { building: b, x: b.cx, z: b.cz, radius: range });
   }
 
   _slowEnemy(e, { factor, duration }) {
@@ -614,8 +636,9 @@ export class World {
     const dz = gz - e.z;
     const dist = Math.hypot(dx, dz);
     if (e.slowUntil <= this.time) e.slowFactor = 1;
-    const wading = this.grid.terrainAt(e.target.x, e.target.z) === T.ford;
-    const step = e.def.speed * e.slowFactor * (wading ? TERRAIN.fordSpeed : 1) * dt;
+    const ground = this.grid.terrainAt(e.target.x, e.target.z);
+    const slow = ground === T.ford ? TERRAIN.fordSpeed : ground === T.ramp ? TERRAIN.hills.rampSpeed : 1;
+    const step = e.def.speed * e.slowFactor * slow * dt;
     e.moving = true;
     if (dist > 1e-6) e.heading = Math.atan2(dx, dz);
     if (dist <= step) {

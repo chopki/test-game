@@ -67,6 +67,8 @@ the Battle Chronicle; `?seed=N` in the URL replays it). Values live in `TERRAIN`
 | Forest | blocked | no | denser towards the map edge |
 | Sea | blocked | no | along one edge on coastal maps; no enemies come from it |
 | Beach (sand) | walk | yes | 1–2 tiles between the sea and the land |
+| Cliff | blocked | no | the rim of a plateau, standing one level above the ground below |
+| Ramp | walk at 75% speed (+0.5 path cost) | no | 2 tiles wide; the only way up or down a level |
 
 About 62% of maps have a stream (crossed at 1–2 fords); the rest may have a lake. Settings → Rivers → Always gives
 every new map a stream.
@@ -74,6 +76,12 @@ every new map a stream.
 About 35% of maps have a **coast**: the sea along one edge (5–7.5 tiles deep, with coves and headlands) behind a
 sandy beach. No attacks come from the sea, so there's one side less to defend; a stream that reaches the coast runs
 out to sea. Settings → Coast → Never / Sometimes / Always.
+
+About 60% of maps have **hills**: raised plateaus (level 1, sometimes with a level-2 top) ringed by cliffs and
+climbed by 1–2 ramps each, kept 2+ tiles from the Town Hall's open area and 3 from the map edge. Walkable ground of
+different levels only meets at a ramp. A tower reaches **+1 range per level** it stands on; a building's footprint
+must sit on one level ("Uneven ground" otherwise). Each level is 0.85 units high. Settings → Hills → Never /
+Sometimes / Always.
 
 Enemies can't break terrain, so a full enclosure always includes some wall. Every generated map guarantees:
 

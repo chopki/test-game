@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { MapControls } from 'three/addons/controls/MapControls.js';
-import { GRID } from '../sim/config.js';
-import { T } from '../sim/terrain.js';
+import { GRID, TERRAIN } from '../sim/config.js';
+import { groundHeight, T, tileCorners } from '../sim/terrain.js';
 import { createRng } from '../sim/rng.js';
 import { AUTO_RESOLUTION, GROUND_DETAIL, GROUND_PX, SCENERY_COUNT } from './graphicsSettings.js';
 import { isOffshore, OCEAN, OUTER_GROUND, outsideForest, PAINT_BORDER, paintTerrain } from './terrainPainter.js';
@@ -9,6 +9,7 @@ import { cloudTexture } from './textures.js';
 import { wallSeat } from './wallSeat.js';
 import { DECOR_PENNANTS, WALL_DECOR_KINDS } from './wallDecor.js';
 import { waterFlow } from './waterFlow.js';
+import { cliffGeometry, cliffTexture, pushDepth, raisedGroundGeometry } from './hills.js';
 import { waterTexture } from './waterTextures.js';
 import { CHIMNEYS, createProjectileModel, IN_WALL_RADIUS, PENNANTS, SCENERY_SWAY, SCENERY_VARIANTS, WALL_VARIANTS, wallArmOffset } from './models.js';
 import { BlobShadowBatch, GlowBatch, HealthBarBatch } from './batches.js';
@@ -250,7 +251,7 @@ export class Renderer {
    */
   _buildTerrain() {
     const world = this.world;
-    for (const obj of [this._ground, this._shimmer, this._blockedTint, this._ocean]) {
+    for (const obj of [this._ground, this._shimmer, this._blockedTint, this._ocean, this._raised, this._cliffs]) {
       if (!obj) continue;
       obj.removeFromParent();
       obj.geometry.dispose();
@@ -258,7 +259,9 @@ export class Renderer {
       obj.material.uniforms?.mask.value.dispose();
       obj.material.dispose();
     }
-    this._ground = this._shimmer = this._blockedTint = this._ocean = null;
+    this._ground = this._shimmer = this._blockedTint = this._ocean = this._raised = this._cliffs = null;
+    this._raisedCover?.dispose();
+    this._raisedCover = null;
     if (this._gridLines) {
       this._gridLines.removeFromParent();
       this._gridLines.geometry.dispose();
@@ -285,17 +288,26 @@ export class Renderer {
     this._ground.renderOrder = -1;
     this.scene.add(this._ground);
 
+    // Hills: the plateau tops wear the same painted ground, raised to their level, above cliff faces (hills.js).
+    const raised = raisedGroundGeometry(grid, painted, this.offsetX, this.offsetZ);
+    if (raised) {
+      this._raised = new THREE.Mesh(raised, pushDepth(new THREE.MeshBasicMaterial({ map: texture }), this.camera));
+      this._cliffTexture ??= cliffTexture();
+      const cliffs = cliffGeometry(grid, this.offsetX, this.offsetZ, TERRAIN.hills.levelHeight);
+      this._cliffs = new THREE.Mesh(cliffs, pushDepth(new THREE.MeshBasicMaterial({ map: this._cliffTexture, vertexColors: true, side: THREE.DoubleSide }), this.camera));
+      // Drawn after the flat ground and its weather cover, before everything else on the ground.
+      this._raised.renderOrder = this._cliffs.renderOrder = -0.9;
+      this.scene.add(this._raised, this._cliffs);
+      this._raisedCover = new GroundCover(this.scene, painted.tiles, painted.waterMask, { geometry: raised.clone(), renderOrder: -0.85 });
+    }
+
     if (world.coast) this._ocean = this._createOcean(world.coast);
     if (painted.hasWater) this._shimmer = this._createShimmer(painted);
-    this._cover = new GroundCover(this.scene, painted.tiles, painted.waterMask);
+    this._cover = new GroundCover(this.scene, painted.tiles, painted.waterMask, { renderOrder: -0.95 });
     this._blockedTint = this._createBlockedTint(grid);
     this.grid.add(this._blockedTint);
-    // The build grid over the buildable area (inside the spawn margin).
-    const span = grid.width - 2 * grid.spawnMargin;
-    this._gridLines = new THREE.GridHelper(span, span, 0x2b4a1c, 0x2b4a1c);
-    underlay(this._gridLines.material, 0.25);
-    this._gridLines.position.y = 0.01;
-    this._gridLines.renderOrder = 1;
+    // The build grid over the buildable area (inside the spawn margin), each tile's edges at its own height.
+    this._gridLines = this._createGridLines(grid);
     this.grid.add(this._gridLines);
 
     // Terrain sprites: one tree per forest tile (a mix of kinds, by region: see treeKind), an outcrop per rock tile.
@@ -304,6 +316,12 @@ export class Renderer {
     for (let z = 0; z < grid.height; z++) {
       for (let x = 0; x < grid.width; x++) {
         const t = grid.terrain[z * grid.width + x];
+        if (t === T.cliff && rnd.next() < 0.3) {
+          // Boulders here and there along the cliff tops.
+          const pos = this.toScene(x + 0.5 + rnd.range(-0.2, 0.2), 0, z + 0.5 + rnd.range(-0.2, 0.2));
+          this.terrainSpots.push(this._scenerySpot('rock', rnd.int(0, SCENERY_VARIANTS - 1), pos, rnd.range(0.55, 0.85)));
+          continue;
+        }
         if (t !== T.forest && t !== T.rock) continue;
         const jitter = t === T.forest ? 0.18 : 0.06;
         const pos = this.toScene(x + 0.5 + rnd.range(-jitter, jitter), 0, z + 0.5 + rnd.range(-jitter, jitter));
@@ -333,7 +351,7 @@ export class Renderer {
     mesh.renderOrder = -1.5; // over the outer ground, under the painted ground
     // Its inner edge on the map's coast edge; it reaches out along the whole horizon.
     const [cx, cz] = { north: [W / 2, -S / 2], south: [W / 2, H + S / 2], west: [-S / 2, H / 2], east: [W + S / 2, H / 2] }[coast];
-    this.toScene(cx, -0.02, cz, mesh.position);
+    this.toScene(cx, -0.02, cz, mesh.position, true);
     this.scene.add(mesh);
     return mesh;
   }
@@ -502,6 +520,28 @@ export class Renderer {
     return mesh;
   }
 
+  /** Build-mode grid lines: the edges of every tile inside the spawn margin, on the ground (hills included). */
+  _createGridLines(grid) {
+    const m = grid.spawnMargin;
+    const positions = [];
+    for (let z = m; z < grid.height - m; z++) {
+      for (let x = m; x < grid.width - m; x++) {
+        const [a, b, c, d] = tileCorners(grid, x, z).map((h) => h + 0.01);
+        const [x0, z0, x1, z1] = [x - this.offsetX, z - this.offsetZ, x + 1 - this.offsetX, z + 1 - this.offsetZ];
+        positions.push(x0, a, z0, x1, b, z0, x0, a, z0, x0, c, z1); // north and west edges
+        if (x === grid.width - m - 1) positions.push(x1, b, z0, x1, d, z1);
+        if (z === grid.height - m - 1) positions.push(x0, c, z1, x1, d, z1);
+      }
+    }
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    const material = new THREE.LineBasicMaterial({ color: 0x2b4a1c });
+    underlay(material, 0.25);
+    const lines = new THREE.LineSegments(geometry, material);
+    lines.renderOrder = 1;
+    return lines;
+  }
+
   /** Build-mode tint over tiles whose terrain can't be built on. */
   _createBlockedTint(grid) {
     const m = grid.spawnMargin;
@@ -510,7 +550,8 @@ export class Renderer {
       for (let x = m; x < grid.width - m; x++) {
         if (grid.isBuildable(x, z)) continue;
         const [x0, z0, x1, z1] = [x - this.offsetX, z - this.offsetZ, x + 1 - this.offsetX, z + 1 - this.offsetZ];
-        positions.push(x0, 0.012, z0, x1, 0.012, z1, x1, 0.012, z0, x0, 0.012, z0, x0, 0.012, z1, x1, 0.012, z1);
+        const [a, b, c, d] = tileCorners(grid, x, z).map((h) => h + 0.012);
+        positions.push(x0, a, z0, x1, d, z1, x1, b, z0, x0, a, z0, x0, c, z1, x1, d, z1);
       }
     }
     const geometry = new THREE.BufferGeometry();
@@ -645,8 +686,13 @@ export class Renderer {
     ];
   }
 
-  toScene(x, y, z, out = new THREE.Vector3()) {
-    return out.set(x - this.offsetX, y, z - this.offsetZ);
+  /**
+   * Scene position for map position (x, z) at height `y` above the ground there (hills raise it), or with `flat`,
+   * at height `y` above level 0.
+   */
+  toScene(x, y, z, out = new THREE.Vector3(), flat = false) {
+    const ground = flat || !this.world ? 0 : groundHeight(this.world.grid, x, z);
+    return out.set(x - this.offsetX, y + ground, z - this.offsetZ);
   }
 
   /** Project sim coords to client (CSS pixel) coordinates; null if behind the camera. */
@@ -663,6 +709,20 @@ export class Renderer {
     const ndc = new THREE.Vector2(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1);
     this._raycaster.setFromCamera(ndc, this.camera);
     const hit = new THREE.Vector3();
+    // On hills, the highest level whose ground is where the ray crosses that level's height.
+    const grid = this.world?.grid;
+    const lh = TERRAIN.hills.levelHeight;
+    for (let level = 2; level >= 1 && grid; level--) {
+      this._groundPlane.constant = -level * lh;
+      if (!this._raycaster.ray.intersectPlane(this._groundPlane, hit)) continue;
+      const x = hit.x + this.offsetX;
+      const z = hit.z + this.offsetZ;
+      if (grid.levelAt(Math.floor(x), Math.floor(z)) >= level) {
+        this._groundPlane.constant = 0;
+        return { x, z };
+      }
+    }
+    this._groundPlane.constant = 0;
     if (!this._raycaster.ray.intersectPlane(this._groundPlane, hit)) return null;
     return { x: hit.x + this.offsetX, z: hit.z + this.offsetZ };
   }
@@ -892,6 +952,7 @@ export class Renderer {
     const look = this._look;
     this.sprites.setSeason(look.autumn, look.snowCover);
     this._cover?.set(look);
+    this._raisedCover?.set(look);
     // Rain darkens the ground beyond the painted map just as GroundCover darkens the map (same blend), so the
     // edge of the painted ground never shows.
     const wet = 0.2 * look.wet;
@@ -1049,14 +1110,21 @@ export class Renderer {
   _createProjectileView(p) {
     const obj = createProjectileModel(p.kind);
     obj.traverse((o) => (o.renderOrder = 3));
-    this.toScene(p.x, p.y, p.z, obj.position);
+    this.toScene(p.x, p.y + this._projectileLift(p), p.z, obj.position, true);
     this.entityLayer.add(obj);
     return { obj };
   }
 
+  /** A shot flies from the ground height it was fired from to that of where it lands (hills). */
+  _projectileLift(p) {
+    const g = this.world.grid;
+    const from = groundHeight(g, p.sx, p.sz);
+    return from + (groundHeight(g, p.tx, p.tz) - from) * p.t;
+  }
+
   _updateProjectileView(view, p) {
     const prev = view.obj.position.clone();
-    this.toScene(p.x, p.y, p.z, view.obj.position);
+    this.toScene(p.x, p.y + this._projectileLift(p), p.z, view.obj.position, true);
     if (p.kind === 'arrow' && prev.distanceToSquared(view.obj.position) > 1e-8) {
       view.obj.lookAt(view.obj.position.clone().multiplyScalar(2).sub(prev));
       // A faint trail: small pale puffs left behind, fading fast.

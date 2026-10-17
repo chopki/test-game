@@ -45,6 +45,24 @@ export const TERRAIN = {
   // Coast: on this share of maps the sea lies along one edge (`depth` tiles of sea give or take `wobble`, then
   // `beach` tiles of sand). No enemies come from the sea.
   sea: { chance: 0.35, depth: [5, 7.5], wobble: 1.4, beach: [1.2, 2.4] },
+  // Hills: on this share of maps, plateaus rise from a noise field (`scale`; level 1 above thresholds[0], level 2
+  // above thresholds[1]), kept `flatMargin` tiles clear of the hall's clearing and `edgeFlat` of the map edge, no
+  // smaller than `minPlateau` tiles, behind cliffs with 2-wide ramps (`ramps` per plateau, `rampSpacing` apart).
+  // Each level is `levelHeight` high; towers gain `rangePerLevel` range per level up, and ramps slow enemies.
+  hills: {
+    chance: 0.6,
+    scale: 0.085,
+    thresholds: [0.56, 0.7],
+    flatMargin: 2,
+    edgeFlat: 3,
+    minPlateau: 16,
+    ramps: [1, 2],
+    rampSpacing: 6,
+    levelHeight: 0.85,
+    rangePerLevel: 1,
+    rampSpeed: 0.75,
+    rampCost: 0.5,
+  },
 };
 
 /**

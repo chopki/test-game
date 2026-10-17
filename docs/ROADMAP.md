@@ -89,6 +89,9 @@ Pre-rendered sprites on a fixed isometric camera (see ARCHITECTURE.md), working 
       landing from ships
 - [x] **Bigger maps**: Settings → Map size: Small 40, Medium 52 (now the default), Large 64 tiles across; the camera
       zooms out further on bigger maps
+- [x] **Hills**: on about 60% of maps, raised plateaus behind cliffs, climbed by ramps (slower going); towers on
+      high ground reach further (Settings → Hills). Later: baked cliff and ramp sprites, arrows that can't shoot
+      up a cliff
 - [x] Warm colour grade and a soft glow on crystals, torches, braziers, lanterns and fires: Settings → Glow and
       colour, on with High (the grade is a CSS filter on the canvas, the halos one additive instanced draw)
 - [x] **Varied wall tiles**: previously every wall tile of the same shape was the identical sprite, so long straight runs

@@ -11,7 +11,8 @@
 - `World` defaults to an open map (`terrain: 'open'`); the game passes `terrain: 'generate'`. In e2e,
   `openGame(page)` loads `?map=open`; pass `{ map: 'terrain' }` for the generated map (fixed `TERRAIN_SEED`).
   The game starts with a partly built fort (`fort: true`); `openGame` leaves it out (`?fort=0`) unless `{ fort: true }`.
-  Some maps have a coast (`?sea=0|1`); `openGame` turns it off (`sea=0`) unless the test passes `query: 'sea=1'`.
+  Some maps have a coast (`?sea=0|1`); `openGame` turns it off (`sea=0`) unless the test passes `query: 'sea=1'`;
+  likewise hills (`?hills=0|1`, plateaus with cliffs and ramps) are off unless `query: 'hills=1'`.
   The game's default map is Medium (52 tiles); `World` and `openGame` use the small 40-tile map (`size=small`) unless
   told otherwise (`World({ size })`, `query: 'size=large'`).
 - Tag a new browser test `{ tag: '@smoke' }` only if it guards something vital; otherwise it's full-suite only. `npm run dev` starts

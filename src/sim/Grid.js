@@ -10,10 +10,15 @@ export class Grid {
     this.spawnMargin = spawnMargin;
     this.cells = new Array(width * height).fill(null);
     this.terrain = new Uint8Array(width * height);
+    this.levels = new Uint8Array(width * height); // ground level per tile (0 = lowest; see hills in terrain.js)
   }
 
   terrainAt(x, z) {
     return this.inBounds(x, z) ? this.terrain[this.index(x, z)] : T.open;
+  }
+
+  levelAt(x, z) {
+    return this.inBounds(x, z) ? this.levels[this.index(x, z)] : 0;
   }
 
   /** Terrain enemies can't walk through (water, rock, forest). */

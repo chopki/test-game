@@ -72,7 +72,7 @@ export class FlowField {
   enterCost(x, z) {
     const i = this.grid.index(x, z);
     if (this.goal[i]) return 0;
-    const wade = this.grid.terrain[i] === T.ford ? TERRAIN.fordCost : 0;
+    const wade = this.grid.terrain[i] === T.ford ? TERRAIN.fordCost : this.grid.terrain[i] === T.ramp ? TERRAIN.hills.rampCost : 0;
     return this.grid.cells[i] === null ? wade : wade + this.penalty(x, z);
   }
 

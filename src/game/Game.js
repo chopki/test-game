@@ -45,14 +45,15 @@ export class Game {
     this.speed = 1;
     this.paused = false;
     this.keys = new Set();
-    // Options for new maps (Settings → Map size, Rivers, Coast): `size` is a key of GRID.sizes; `river` makes every
-    // new map have a stream; `sea` is false (never), 'sometimes' (the default) or true (always a coast). Lasts for
-    // the session. `?size=` takes a size name or its tiles across.
+    // Options for new maps (Settings → Map size, Rivers, Coast, Hills): `size` is a key of GRID.sizes; `river` makes
+    // every new map have a stream; `sea` and `hills` are false (never), 'sometimes' (the default) or true (always a
+    // coast / plateaus). Lasts for the session. `?size=` takes a size name or its tiles across.
     const params = new URLSearchParams(location.search);
     const sea = { 0: false, 1: true }[params.get('sea')] ?? 'sometimes';
+    const hills = { 0: false, 1: true }[params.get('hills')] ?? 'sometimes';
     const asked = params.get('size');
     const size = Object.keys(GRID.sizes).find((k) => k === asked || String(GRID.sizes[k]) === asked) ?? GRID.defaultSize;
-    this.mapOptions = { size, river: params.get('river') === '1', sea };
+    this.mapOptions = { size, river: params.get('river') === '1', sea, hills };
 
     window.addEventListener('keydown', (e) => this._onKeyDown(e));
     window.addEventListener('keyup', (e) => this.keys.delete(e.key.toLowerCase()));
@@ -70,13 +71,14 @@ export class Game {
    * Start a game on a newly generated map. `seed` picks the map (and its waves); without it, the URL's `?seed=N`
    * is used if given (to replay a map), else a random one. `?map=open` starts without terrain (the browser tests
    * use it to place buildings anywhere), and `?fort=0` without the starting fort. With `mapOptions.river` (or
-   * `?river=1`), the map always has a stream; `mapOptions.sea` (`?sea=0` / `?sea=1`) says whether it has a coast.
+   * `?river=1`), the map always has a stream; `mapOptions.sea` (`?sea=0` / `?sea=1`) says whether it has a coast, and
+   * `mapOptions.hills` (`?hills=0` / `?hills=1`) whether it has plateaus.
    */
   newGame({ seed } = {}) {
     const params = new URLSearchParams(location.search);
     seed ??= params.has('seed') ? Number(params.get('seed')) : Math.floor(Math.random() * 1e6);
     const fort = params.get('fort') !== '0';
-    this.world = new World({ seed, terrain: params.get('map') === 'open' ? 'open' : 'generate', fort, river: this.mapOptions.river, sea: this.mapOptions.sea, size: GRID.sizes[this.mapOptions.size] });
+    this.world = new World({ seed, terrain: params.get('map') === 'open' ? 'open' : 'generate', fort, river: this.mapOptions.river, sea: this.mapOptions.sea, hills: this.mapOptions.hills, size: GRID.sizes[this.mapOptions.size] });
     this.renderer.attach(this.world);
     this.hud.attach(this.world);
     this.build.reset();

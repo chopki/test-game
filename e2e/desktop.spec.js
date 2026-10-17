@@ -572,6 +572,46 @@ test('a coast: sea along one edge, drawn out to the horizon, and no attacks from
   expect(errors).toEqual([]);
 });
 
+test('hills: raised plateaus behind cliffs, picked at their height, with longer reach from the top (screenshot attached)', async ({ page }, testInfo) => {
+  const errors = await openGame(page, { map: 'terrain', query: 'hills=1' });
+  const state = await page.evaluate(() => {
+    const { world, renderer } = window.game;
+    const g = world.grid;
+    // A buildable tile on a plateau, and where its centre is on screen.
+    let tile = null;
+    for (let z = 0; z < g.height && !tile; z++) for (let x = 0; x < g.width && !tile; x++) if (g.levelAt(x, z) > 0 && world.canPlace('archerTower', x, z).ok) tile = { x, z };
+    const p = renderer.toScene(tile.x + 0.5, 0, tile.z + 0.5, new renderer.camera.position.constructor()).project(renderer.camera);
+    const rect = renderer.canvas.getBoundingClientRect();
+    const screen = { x: rect.left + ((p.x + 1) / 2) * rect.width, y: rect.top + ((1 - p.y) / 2) * rect.height };
+    const picked = renderer.pickGround(screen.x, screen.y);
+    return {
+      hills: world.hills,
+      cliffs: [...g.terrain].filter((t) => t === 7).length,
+      ramps: [...g.terrain].filter((t) => t === 8).length,
+      meshes: Boolean(renderer._raised && renderer._cliffs),
+      tile,
+      picked: picked && { x: Math.floor(picked.x), z: Math.floor(picked.z) },
+      reach: [world.rangeAt('archerTower', tile.x, tile.z), world.rangeAt('archerTower', world.townHall.x + 3, world.townHall.z)],
+    };
+  });
+  expect(state.hills).toBe(true);
+  expect(state.cliffs).toBeGreaterThan(20);
+  expect(state.ramps).toBeGreaterThan(1);
+  expect(state.meshes).toBe(true);
+  expect(state.picked).toEqual(state.tile);
+  expect(state.reach[0]).toBeGreaterThan(state.reach[1]);
+  const shot = await page.screenshot({ path: testInfo.outputPath('hills.png') });
+  await testInfo.attach('hills', { body: shot, contentType: 'image/png' });
+  // Settings → Hills: Never gives the next new map flat ground.
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await expect(settingButton(page, 'Hills', 'Always')).toHaveClass(/active/);
+  await settingButton(page, 'Hills', 'Never').click();
+  await page.getByRole('button', { name: 'New map' }).click();
+  await expect(page.locator('#settings')).toBeHidden();
+  expect(await page.evaluate(() => [window.game.world.hills, Boolean(window.game.renderer._cliffs)])).toEqual([false, false]);
+  expect(errors).toEqual([]);
+});
+
 test('settings: Map size picks how big the next new map is', async ({ page }) => {
   const errors = await openGame(page, { map: 'terrain', query: 'size=large' });
   const size = () => page.evaluate(() => [window.game.world.grid.width, window.game.world.townHall.x]);

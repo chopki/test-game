@@ -39,7 +39,7 @@ to a fixed-timestep server, replays or AI opponents later.
 | `config.js`      | **All balance data**: grid (and the map sizes), economy, timings, building and enemy tables, wave tuning |
 | `World.js`       | Game state and rules: phases, placement, combat, enemy AI, projectiles, events |
 | `Grid.js`        | Tile occupancy (building id per cell), terrain per cell (`isBlocked`, `isBuildable`), footprints, spawn zone |
-| `terrain.js`     | Terrain types (incl. `sea` and `sand`) and the seeded map generator (`generateTerrain`, with an optional `coast` side): features, then repair passes; `analyzeTerrain` checks the map rules |
+| `terrain.js`     | Terrain types (incl. `sea`, `sand`, `cliff`, `ramp`) and the seeded map generator (`generateMap` → `{ types, levels }`, with an optional `coast` side and `hillsRng`; `generateTerrain` returns just the types); height helpers `tileCorners` / `groundHeight`: features, then repair passes; `analyzeTerrain` checks the map rules |
 | `noise.js`       | Seeded value noise and fBm for the generator (and the ground painter) |
 | `FlowField.js`   | Dijkstra distance-to-Town-Hall map with building "breach cost"; terrain can't be entered, fords cost extra; `nextStep()` for enemies |
 | `WaveManager.js` | Procedural wave generation (`generateWave`) and the spawn queue |
@@ -149,6 +149,11 @@ so the whole battlefield is ~15 draw calls and a few hundred triangles however d
   `seaDist`), which drives lines of surf rolling in to the beach and a slow swell further out; an `OCEAN` plane
   carries the sea on to the horizon (`isOffshore()` keeps scenery trees out of it). Its quads must stay wound
   to face up, or they're culled.
+- Hills: `hills.js` builds the raised plateau tops (wearing the painted ground) and the cliff faces from
+  `grid.levels` (`tileCorners`). Both write depth, pushed back from the camera (`pushDepth`) so a sprite card on a
+  plateau isn't cut by the ground in front of its anchor. `toScene()` lifts everything to `groundHeight()` (pass
+  `flat` for things at sea level), `pickGround()` tries each level's plane from the top, and the painter draws the
+  rims stony and the ramps as earth.
 - Damage states: `damage.js` (pure) gives a building's stage from its health; the renderer passes it per sprite
   (`SpriteLayer.add(..., damage)`) and the sprite shader draws soot, cracks and knocked-out pieces from noise in
   the sprite's own world units, seeded by position. Badly damaged buildings also emit smoke and flame particles.

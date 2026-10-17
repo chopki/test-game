@@ -61,6 +61,14 @@ export class SettingsMenu {
       }),
     );
     this.body.appendChild(this._row('Coast', 'For new maps: the sea along one edge, behind a sandy beach. No enemies come from the sea, so there is one side less to defend. Takes effect from the next new map.', this.seaButtons));
+    // Hills: raised plateaus with cliff edges, climbed by ramps.
+    this.hillsButtons = ['Never', 'Sometimes', 'Always'].map((text, i) =>
+      this._button(text, () => {
+        this.game.mapOptions.hills = this.seaChoices[i];
+        this.refresh();
+      }),
+    );
+    this.body.appendChild(this._row('Hills', 'For new maps: raised ground behind cliffs, climbed by ramps. Towers on high ground reach further; nothing can be built on a ramp or cliff. Takes effect from the next new map.', this.hillsButtons));
 
     this.presetButtons = PRESET_ORDER.map((preset) =>
       this._button(capitalize(preset), () => this.game.setGraphics(withPreset(this.game.graphics, preset))),
@@ -135,6 +143,7 @@ export class SettingsMenu {
     Object.keys(GRID.sizes).forEach((size, i) => this.sizeButtons[i].classList.toggle('active', this.game.mapOptions.size === size));
     this.riverButtons.forEach((b, i) => b.classList.toggle('active', this.game.mapOptions.river === (i === 1)));
     this.seaButtons.forEach((b, i) => b.classList.toggle('active', this.game.mapOptions.sea === this.seaChoices[i]));
+    this.hillsButtons.forEach((b, i) => b.classList.toggle('active', this.game.mapOptions.hills === this.seaChoices[i]));
     const g = this.game.graphics;
     PRESET_ORDER.forEach((preset, i) => this.presetButtons[i].classList.toggle('active', g.preset === preset));
     this.customTag.hidden = g.preset !== 'custom';

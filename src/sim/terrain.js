@@ -10,16 +10,20 @@ import { createNoise } from './noise.js';
  * Some maps have a coast: sea along one edge (it blocks like water, and no enemies come from that side), behind
  * a sandy beach that can be walked and built on.
  *
+ * Some maps have hills: raised plateaus (each tile has a level, 0–2). A plateau's rim is a cliff (blocks like rock),
+ * except at ramps, which are walked up (slowly) and can't be built on. So walkable tiles of different levels only
+ * ever meet at a ramp, and everything that reads tile types (pathing, the map rules) works unchanged.
+ *
  * The generator lays down features (a coast, forest clumps, rock outcrops and ridges, a stream with fords or a
  * lake), then repairs the map until it meets the rules in `analyzeTerrain`: every walkable tile reaches the Town
  * Hall, every land side keeps reachable spawn tiles on its edge, passages are at least 2 tiles wide, and enough of
  * the land is open.
  */
 
-export const T = { open: 0, water: 1, ford: 2, rock: 3, forest: 4, sea: 5, sand: 6 };
-export const TERRAIN_NAMES = ['open', 'water', 'ford', 'rock', 'forest', 'sea', 'sand'];
+export const T = { open: 0, water: 1, ford: 2, rock: 3, forest: 4, sea: 5, sand: 6, cliff: 7, ramp: 8 };
+export const TERRAIN_NAMES = ['open', 'water', 'ford', 'rock', 'forest', 'sea', 'sand', 'cliff', 'ramp'];
 
-export const blocksMovement = (t) => t === T.water || t === T.rock || t === T.forest || t === T.sea;
+export const blocksMovement = (t) => t === T.water || t === T.rock || t === T.forest || t === T.sea || t === T.cliff;
 export const isBuildableTerrain = (t) => t === T.open || t === T.sand;
 
 const SIDES = ['north', 'south', 'west', 'east'];
@@ -40,20 +44,29 @@ export function openTerrain(width, height) {
  * map always gets a stream. `coast`: the side ('north', 'south', 'west' or 'east') the sea lies along, or null.
  * Returns a Uint8Array of T values (index z * width + x). Deterministic for a given rng state.
  */
-export function generateTerrain({ width, height, spawnMargin, hall, rng, params = TERRAIN, river = false, coast = null }) {
+export function generateTerrain(options) {
+  return generateMap(options).types;
+}
+
+/**
+ * Like generateTerrain, and with `hillsRng` (a random stream of its own, so maps without hills are unchanged) the
+ * map gets hills. Returns { types, levels } (levels: a Uint8Array of tile levels, all 0 without hills).
+ */
+export function generateMap({ width, height, spawnMargin, hall, rng, params = TERRAIN, river = false, coast = null, hillsRng = null }) {
   let density = 1;
   let best = null;
   for (let attempt = 0; attempt < 6; attempt++) {
     const map = new TerrainMap(width, height, spawnMargin, hall);
     map.coast = coast;
-    layFeatures(map, rng, params, density, river);
+    layFeatures(map, rng, params, density, river, hillsRng);
     repair(map, rng, params);
     const stats = analyzeTerrain(map.types, { width, height, spawnMargin, hall });
-    if (!best || stats.openFraction > best.stats.openFraction) best = { types: map.types, stats };
-    if (stats.openFraction >= params.minOpenFraction) return map.types;
+    const result = { types: map.types, levels: map.levels };
+    if (!best || stats.openFraction > best.stats.openFraction) best = { result, stats };
+    if (stats.openFraction >= params.minOpenFraction) return result;
     density *= 0.8;
   }
-  return best.types;
+  return best.result;
 }
 
 class TerrainMap {
@@ -63,6 +76,7 @@ class TerrainMap {
     this.spawnMargin = spawnMargin;
     this.hall = hall;
     this.types = openTerrain(width, height);
+    this.levels = new Uint8Array(width * height);
     this.coast = null;
   }
 
@@ -82,11 +96,14 @@ class TerrainMap {
     return this.inBounds(x, z) && blocksMovement(this.get(x, z));
   }
 
-  /** Make a blocking tile walkable: water becomes a ford, sea becomes beach, rock and forest become open ground. */
+  /**
+   * Make a blocking tile walkable: water becomes a ford, sea becomes beach, a cliff becomes a ramp, rock and forest
+   * become open ground.
+   */
   clear(x, z) {
     if (!this.blocked(x, z)) return;
     const t = this.get(x, z);
-    this.set(x, z, t === T.water ? T.ford : t === T.sea ? T.sand : T.open);
+    this.set(x, z, { [T.water]: T.ford, [T.sea]: T.sand, [T.cliff]: T.ramp }[t] ?? T.open);
   }
 
   hallCentre() {
@@ -96,7 +113,7 @@ class TerrainMap {
 
 // ---------------------------------------------------------------- features
 
-function layFeatures(map, rng, params, density, river = false) {
+function layFeatures(map, rng, params, density, river = false, hillsRng = null) {
   const { width: W, height: H } = map;
   const noise = createNoise(rng);
   const c = map.hallCentre();
@@ -106,6 +123,8 @@ function layFeatures(map, rng, params, density, river = false) {
   if (map.coast) coastline(map, rng, noise, params);
   if (river || rng.next() < params.water.streamChance * Math.min(1, density + 0.2)) stream(map, rng, params, clearR);
   else if (rng.next() < params.water.lakeChance * density) lake(map, rng, noise, clearR);
+  // Hills next (they keep clear of the water), so woods and rocks can grow on the plateaus.
+  if (hillsRng) hills(map, hillsRng, params, clearR);
 
   // Forest: fractal noise above a threshold that drops towards the map edges (dense woods frame the map).
   const f = params.forest;
@@ -221,6 +240,125 @@ function coastline(map, rng, noise, params) {
       const [x, z] = side === 'north' ? [i, d] : side === 'south' ? [i, map.height - 1 - d] : side === 'west' ? [d, i] : [map.width - 1 - d, i];
       map.set(x, z, d < shore ? T.sea : T.sand);
     }
+  }
+}
+
+/**
+ * Plateaus from a noise field: level 1 where it's high, level 2 where it's higher. Flat round the hall, near the
+ * water and along the map edge; no strips thinner than 3 tiles, no plateau smaller than `minPlateau`, and levels
+ * change one step at a time. Each plateau's rim becomes cliff, with a 2-wide ramp or two cut into it.
+ */
+function hills(map, rng, params, clearR) {
+  const h = params.hills;
+  const { width: W, height: H } = map;
+  const noise = createNoise(rng);
+  const ox = rng.range(0, 100);
+  const oz = rng.range(0, 100);
+  const c = map.hallCentre();
+  const lv = map.levels;
+  const idx = (x, z) => z * W + x;
+  const inB = (x, z) => x >= 0 && z >= 0 && x < W && z < H;
+  const wet = (t) => t === T.water || t === T.ford || t === T.sea || t === T.sand;
+  const nearWet = (x, z) => {
+    for (let dz = -2; dz <= 2; dz++) for (let dx = -2; dx <= 2; dx++) if (inB(x + dx, z + dz) && wet(map.get(x + dx, z + dz))) return true;
+    return false;
+  };
+  for (let z = 0; z < H; z++) {
+    for (let x = 0; x < W; x++) {
+      if (map.get(x, z) !== T.open || Math.hypot(x + 0.5 - c.x, z + 0.5 - c.z) < clearR + h.flatMargin) continue;
+      if (Math.min(x, z, W - 1 - x, H - 1 - z) < h.edgeFlat || nearWet(x, z)) continue;
+      const n = noise.fbm(x * h.scale + ox, z * h.scale + oz);
+      lv[idx(x, z)] = n > h.thresholds[1] ? 2 : n > h.thresholds[0] ? 1 : 0;
+    }
+  }
+  const N8 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
+  const tidy = () => {
+    // Opening (erode, then dilate) at each level drops strips too thin to stand on.
+    for (const k of [2, 1]) {
+      const mask = (x, z) => inB(x, z) && lv[idx(x, z)] >= k;
+      const core = new Uint8Array(W * H);
+      for (let z = 0; z < H; z++) for (let x = 0; x < W; x++) core[idx(x, z)] = mask(x, z) && N8.every(([dx, dz]) => mask(x + dx, z + dz)) ? 1 : 0;
+      for (let z = 0; z < H; z++) {
+        for (let x = 0; x < W; x++) {
+          if (!mask(x, z)) continue;
+          const kept = core[idx(x, z)] || N8.some(([dx, dz]) => inB(x + dx, z + dz) && core[idx(x + dx, z + dz)]);
+          if (!kept) lv[idx(x, z)] = k - 1;
+        }
+      }
+      // Plateaus too small to be worth it.
+      const seen = new Uint8Array(W * H);
+      for (let i = 0; i < W * H; i++) {
+        if (seen[i] || lv[i] < k) continue;
+        const region = [i];
+        seen[i] = 1;
+        for (let r = 0; r < region.length; r++) {
+          const x = region[r] % W;
+          const z = (region[r] / W) | 0;
+          for (const [dx, dz] of N4) {
+            const j = idx(x + dx, z + dz);
+            if (inB(x + dx, z + dz) && !seen[j] && lv[j] >= k) {
+              seen[j] = 1;
+              region.push(j);
+            }
+          }
+        }
+        if (region.length < h.minPlateau) for (const j of region) lv[j] = k - 1;
+      }
+    }
+    // One step at a time: no level-2 ground right beside level 0.
+    for (let changed = true; changed; ) {
+      changed = false;
+      for (let z = 0; z < H; z++) {
+        for (let x = 0; x < W; x++) {
+          let low = lv[idx(x, z)];
+          for (const [dx, dz] of N8) if (inB(x + dx, z + dz)) low = Math.min(low, lv[idx(x + dx, z + dz)] + 1);
+          // Level 2 keeps a band of level 1 at least 2 tiles wide round it (room for both cliffs and a path).
+          if (low === 2) {
+            for (let dz = -2; dz <= 2 && low === 2; dz++) for (let dx = -2; dx <= 2; dx++) if (inB(x + dx, z + dz) && lv[idx(x + dx, z + dz)] === 0) low = 1;
+          }
+          if (low < lv[idx(x, z)]) {
+            lv[idx(x, z)] = low;
+            changed = true;
+          }
+        }
+      }
+    }
+  };
+  tidy();
+  tidy();
+  // The rim of every plateau is cliff.
+  for (let z = 0; z < H; z++) {
+    for (let x = 0; x < W; x++) {
+      const l = lv[idx(x, z)];
+      if (l > 0 && N8.some(([dx, dz]) => inB(x + dx, z + dz) && lv[idx(x + dx, z + dz)] < l)) map.set(x, z, T.cliff);
+    }
+  }
+  // Ramps: 2-wide, straight up the cliff from walkable ground below to the plateau top. A ramp or two per plateau,
+  // spread apart (the repair passes add more if any ground is still cut off).
+  const flat = (x, z, l) => inB(x, z) && map.get(x, z) === T.open && lv[idx(x, z)] === l;
+  const cliffAt = (x, z, l) => inB(x, z) && map.get(x, z) === T.cliff && lv[idx(x, z)] === l;
+  const candidates = [];
+  for (let z = 0; z < H; z++) {
+    for (let x = 0; x < W; x++) {
+      const l = lv[idx(x, z)];
+      if (!cliffAt(x, z, l)) continue;
+      for (const [dx, dz] of N4) {
+        // (dx, dz) points down the ramp; (px, pz) along the cliff to its second lane.
+        const [px, pz] = [dz, dx];
+        if (!flat(x - dx, z - dz, l) || !flat(x + dx, z + dz, l - 1)) continue;
+        if (!cliffAt(x + px, z + pz, l) || !flat(x + px - dx, z + pz - dz, l) || !flat(x + px + dx, z + pz + dz, l - 1)) continue;
+        candidates.push([x, z, px, pz]);
+      }
+    }
+  }
+  const ramps = [];
+  const want = Math.round(candidates.length / 18) + rng.int(h.ramps[0], h.ramps[1]);
+  for (const cand of rng.shuffle(candidates)) {
+    if (ramps.length >= want) break;
+    if (ramps.some(([x, z]) => Math.hypot(x - cand[0], z - cand[1]) < h.rampSpacing)) continue;
+    ramps.push(cand);
+    map.set(cand[0], cand[1], T.ramp);
+    map.set(cand[0] + cand[2], cand[1] + cand[3], T.ramp);
   }
 }
 
@@ -436,9 +574,9 @@ function widenPinches(map) {
   return changed;
 }
 
-/** Of two blocking tiles, the better one to remove: rock/forest before water before sea (shores keep their shape). */
+/** Of two blocking tiles, the better one to remove: rock/forest before cliff, water and sea (shores keep their shape). */
 function preferClear(map, a, b) {
-  const score = ([x, z]) => ({ [T.water]: 1, [T.sea]: 2 })[map.get(x, z)] ?? 0;
+  const score = ([x, z]) => ({ [T.cliff]: 0.5, [T.water]: 1, [T.sea]: 2 })[map.get(x, z)] ?? 0;
   return score(a) <= score(b) ? a : b;
 }
 
@@ -487,4 +625,49 @@ export function spawnTilesBySide(types, { width, height, spawnMargin, hall }) {
   const { label } = regions(map);
   const home = hallRegion(map, label);
   return Object.fromEntries(SIDES.map((side) => [side, edgeTiles(map, side).filter(([x, z]) => label[z * width + x] === home)]));
+}
+
+// ---------------------------------------------------------------- heights
+
+/** Which way a ramp tile slopes down: the 4-neighbour direction [dx, dz] of the walkable ground below it, or null. */
+export function rampDown(grid, x, z) {
+  const l = grid.levelAt(x, z);
+  let fallback = null;
+  for (const [dx, dz] of N4) {
+    if (!grid.inBounds(x + dx, z + dz) || grid.levelAt(x + dx, z + dz) >= l) continue;
+    if (!blocksMovement(grid.terrain[(z + dz) * grid.width + x + dx])) return [dx, dz];
+    fallback ??= [dx, dz];
+  }
+  return fallback;
+}
+
+/**
+ * Heights of tile (x, z)'s corners, [north-west, north-east, south-west, south-east] (corner (x, z), (x + 1, z),
+ * (x, z + 1), (x + 1, z + 1)): flat at its level, except a ramp, whose downhill edge is a level lower. Outside the
+ * map, 0.
+ */
+export function tileCorners(grid, x, z, levelHeight = TERRAIN.hills.levelHeight) {
+  if (!grid.inBounds(x, z)) return [0, 0, 0, 0];
+  const top = grid.levelAt(x, z) * levelHeight;
+  const corners = [top, top, top, top];
+  if (top === 0 || grid.terrain[z * grid.width + x] !== T.ramp) return corners;
+  const d = rampDown(grid, x, z);
+  if (!d) return corners;
+  const low = top - levelHeight;
+  if (d[0] === 1) corners[1] = corners[3] = low;
+  if (d[0] === -1) corners[0] = corners[2] = low;
+  if (d[1] === 1) corners[2] = corners[3] = low;
+  if (d[1] === -1) corners[0] = corners[1] = low;
+  return corners;
+}
+
+/** The ground's height at (x, z) (tile coordinates; ramps slope smoothly). 0 off the map. */
+export function groundHeight(grid, x, z) {
+  const tx = Math.floor(x);
+  const tz = Math.floor(z);
+  if (!grid.inBounds(tx, tz) || grid.levels[tz * grid.width + tx] === 0) return 0;
+  const [a, b, c, d] = tileCorners(grid, tx, tz);
+  const fx = x - tx;
+  const fz = z - tz;
+  return (a * (1 - fx) + b * fx) * (1 - fz) + (c * (1 - fx) + d * fx) * fz;
 }

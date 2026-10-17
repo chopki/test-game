@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { World } from '../src/sim/World.js';
 import { BUILDINGS, GRID, TERRAIN } from '../src/sim/config.js';
-import { analyzeTerrain, generateTerrain, openTerrain, T } from '../src/sim/terrain.js';
+import { analyzeTerrain, blocksMovement, generateMap, generateTerrain, openTerrain, T } from '../src/sim/terrain.js';
 import { createRng } from '../src/sim/rng.js';
 
 const DT = 1 / 30;
@@ -298,5 +298,115 @@ describe('map sizes', () => {
       hit = [...world.buildings.values()].some((b) => b.hp < b.maxHp);
     }
     expect(hit).toBe(true);
+  });
+});
+
+describe('hills', () => {
+  const SEEDS = Array.from({ length: 40 }, (_, i) => i * 6007 + 3);
+  const hilly = (seed, extra = {}) => generateMap({ ...mapInfo, rng: createRng(seed), hillsRng: createRng(seed ^ 77), ...extra });
+  const N8 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
+
+  it('hilly maps meet the map rules; walkable ground of different levels only meets at a ramp', () => {
+    let plateaus = 0;
+    for (const seed of SEEDS) {
+      const { types, levels } = hilly(seed);
+      const stats = analyzeTerrain(types, mapInfo);
+      const where = `seed ${seed}`;
+      expect(stats.unreachable, where).toBe(0);
+      expect(stats.pinches, where).toBe(0);
+      expect(stats.openFraction, where).toBeGreaterThanOrEqual(TERRAIN.minOpenFraction);
+      for (const n of Object.values(stats.spawnTiles)) expect(n, where).toBeGreaterThanOrEqual(TERRAIN.minSpawnTilesPerSide);
+      if (levels.some((l) => l > 0)) plateaus++;
+      for (let z = 0; z < H; z++) {
+        for (let x = 0; x < W; x++) {
+          const i = z * W + x;
+          if (blocksMovement(types[i]) || types[i] === T.ramp) continue;
+          for (const [dx, dz] of N8) {
+            const nx = x + dx;
+            const nz = z + dz;
+            if (nx < 0 || nz < 0 || nx >= W || nz >= H) continue;
+            const j = nz * W + nx;
+            if (blocksMovement(types[j]) || types[j] === T.ramp) continue;
+            expect(levels[j], `${where} at ${x},${z}`).toBe(levels[i]);
+          }
+          // Levels change one step at a time, and the hall's clearing and the water stay at the bottom.
+          if (types[i] === T.water || types[i] === T.ford) expect(levels[i], where).toBe(0);
+        }
+      }
+      const c = hall.x + size / 2;
+      for (let z = 0; z < H; z++) for (let x = 0; x < W; x++) if (Math.hypot(x + 0.5 - c, z + 0.5 - c) <= TERRAIN.clearingRadius) expect(levels[z * W + x], where).toBe(0);
+    }
+    expect(plateaus / SEEDS.length).toBeGreaterThan(0.6);
+  });
+
+  it('ramps lead up onto the plateaus', () => {
+    let ramps = 0;
+    for (const seed of SEEDS) ramps += [...hilly(seed).types].filter((t) => t === T.ramp).length;
+    expect(ramps).toBeGreaterThan(SEEDS.length);
+  });
+
+  it('a map without hills is just as it was', () => {
+    for (const seed of SEEDS.slice(0, 10)) expect(generateMap({ ...mapInfo, rng: createRng(seed) }).types).toEqual(generateTerrain({ ...mapInfo, rng: createRng(seed) }));
+    for (let seed = 1; seed <= 30; seed++) {
+      const world = new World({ seed, terrain: 'generate', hills: 'sometimes' });
+      if (!world.hills) expect(world.grid.terrain, `seed ${seed}`).toEqual(new World({ seed, terrain: 'generate' }).grid.terrain);
+    }
+  });
+
+  it('towers gain range on high ground; buildings need level ground; ramps slow enemies', () => {
+    const levels = new Uint8Array(W * H);
+    const types = customMap((set) => {
+      // A level-1 plateau from x 4 to 13, z 4 to 13, with its rim of cliff and a ramp on the south side.
+      for (let z = 4; z <= 13; z++) for (let x = 4; x <= 13; x++) levels[z * W + x] = 1;
+      for (let i = 4; i <= 13; i++) for (const [x, z] of [[i, 4], [i, 13], [4, i], [13, i]]) set(x, z, T.cliff);
+      set(8, 13, T.ramp);
+      set(9, 13, T.ramp);
+    });
+    const world = new World({ seed: 1, terrain: types });
+    world.grid.levels = levels;
+    expect(world.rangeAt('archerTower', 7, 7)).toBe(BUILDINGS.archerTower.attack.range + TERRAIN.hills.rangePerLevel);
+    expect(world.rangeAt('archerTower', 20, 20)).toBe(BUILDINGS.archerTower.attack.range);
+    world.economy.earn(1000);
+    expect(world.place('archerTower', 7, 7).ok).toBe(true);
+    expect(world.rangeOf(world.buildingAt(7, 7))).toBe(BUILDINGS.archerTower.attack.range + 1);
+    // A footprint across the plateau's edge can't be built (the rim is cliff, and the levels differ anyway).
+    expect(world.canPlace('archerTower', 12, 7).ok).toBe(false);
+    expect(world.grid.isBlocked(4, 8)).toBe(true);
+    expect(world.grid.isBlocked(8, 13)).toBe(false);
+  });
+
+  it('a hilly world can still be played: waves reach the hall', () => {
+    const world = new World({ seed: 9, terrain: 'generate', hills: true, size: GRID.sizes.medium });
+    expect(world.grid.levels.some((l) => l > 0)).toBe(true);
+    world.startWave();
+    let hit = false;
+    for (let t = 0; t < 300 && !hit; t += DT) {
+      world.update(DT);
+      for (const e of world.enemies) expect(world.grid.isBlocked(e.tx, e.tz)).toBe(false);
+      hit = world.townHall.hp < world.townHall.maxHp;
+    }
+    expect(hit).toBe(true);
+  });
+});
+
+describe('ground height', () => {
+  it('is flat on each level and slopes down a ramp', async () => {
+    const { groundHeight } = await import('../src/sim/terrain.js');
+    const levels = new Uint8Array(W * H);
+    const types = customMap((set) => {
+      for (let z = 4; z <= 13; z++) for (let x = 4; x <= 13; x++) levels[z * W + x] = 1;
+      for (let i = 4; i <= 13; i++) for (const [x, z] of [[i, 4], [i, 13], [4, i], [13, i]]) set(x, z, T.cliff);
+      set(8, 13, T.ramp);
+      set(9, 13, T.ramp);
+    });
+    const world = new World({ seed: 1, terrain: types });
+    world.grid.levels = levels;
+    const h = TERRAIN.hills.levelHeight;
+    expect(groundHeight(world.grid, 7.5, 7.5)).toBe(h);
+    expect(groundHeight(world.grid, 20.5, 20.5)).toBe(0);
+    // The ramp at z = 13 runs down to the south (z = 14 is the ground below).
+    expect(groundHeight(world.grid, 8.5, 13.0)).toBeCloseTo(h);
+    expect(groundHeight(world.grid, 8.5, 13.5)).toBeCloseTo(h / 2);
+    expect(groundHeight(world.grid, 8.5, 13.999)).toBeCloseTo(0, 2);
   });
 });

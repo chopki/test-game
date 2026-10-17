@@ -31,8 +31,11 @@ const blendOver = {
 };
 
 export class GroundCover {
-  /** `size`: the painted ground's size in tiles ({ width, height }); `waterMask`: its water mask canvas. */
-  constructor(parent, size, waterMask) {
+  /**
+   * `size`: the painted ground's size in tiles ({ width, height }); `waterMask`: its water mask canvas. Covers the
+   * flat ground, or with `geometry` (UVs into the painted ground), that: the raised plateau tops.
+   */
+  constructor(parent, size, waterMask, { geometry = null, renderOrder = -0.5 } = {}) {
     this.uniforms = {
       mask: { value: new THREE.CanvasTexture(waterMask) },
       snow: { value: 0 },
@@ -84,9 +87,8 @@ export class GroundCover {
           #include <colorspace_fragment>
         }`,
     });
-    const geometry = new THREE.PlaneGeometry(size.width, size.height).rotateX(-Math.PI / 2);
-    this.mesh = new THREE.Mesh(geometry, material);
-    this.mesh.renderOrder = -0.5; // over the painted ground (-1), under the water (0) and everything else
+    this.mesh = new THREE.Mesh(geometry ?? new THREE.PlaneGeometry(size.width, size.height).rotateX(-Math.PI / 2), material);
+    this.mesh.renderOrder = renderOrder; // flat: over the painted ground (-1), under the water (0) and everything else
     this.mesh.position.y = 0.005;
     parent.add(this.mesh);
   }

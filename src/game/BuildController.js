@@ -433,7 +433,7 @@ export class BuildController {
     this.game.renderer.toScene(cx + seat.dx, 0, cz + seat.dz, this.ghost.position);
     this.ghost.visible = true;
     this._showFootprint(cx, cz, def.size, color);
-    if (def.attack) this._showRange(cx, cz, def.attack.range);
+    if (def.attack) this._showRange(cx, cz, this.world.rangeAt(this.mode, a.x, a.z)); // longer from high ground
   }
 
   _showWallPlan(plan) {
