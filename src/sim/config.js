@@ -178,7 +178,7 @@ export const BUILDINGS = {
   },
   gatehouse: {
     name: 'Gatehouse',
-    description: "The fort's stone gate tower. The gate stays shut: enemies must smash it or find another way in.",
+    description: "The fort's log gatehouse. While it stands, enemies can't get through: they must smash it or find another way in.",
     size: 2,
     maxHp: 1200,
     cost: 0,

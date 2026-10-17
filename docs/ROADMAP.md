@@ -98,8 +98,8 @@ Pre-rendered sprites on a fixed isometric camera (see ARCHITECTURE.md), working 
 - [ ] **Upgrades, 5 stages each** (per the art reference): Town Hall levels; Archer/Cannon/Spire/Catapult stages
       that improve stats and change the model; wall stages wooden palisade → reinforced wood → dry stone →
       stone battlements → heavy citadel wall
-- [x] **Starting fort**: the game opens with a partly built palisade round the Town Hall, a stone gatehouse (the
-      reference's wall-to-gatehouse connection) and an archer tower built into the wall
+- [x] **Starting fort**: the game opens with a partly built palisade round the Town Hall, a log gatehouse (twin
+      open-topped towers and a walkway over a wide gateway) and an archer tower built into the wall
 - [ ] Gatehouse as a buildable wall piece (today only the starting fort has one), and gates troops can use
 - [ ] **Repair**: pay to restore HP between waves (or a slow auto-repair upgrade)
 - [ ] **Gates**: walls your future troops can pass through but enemies can't

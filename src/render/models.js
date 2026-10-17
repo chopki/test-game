@@ -603,74 +603,73 @@ const IN_WALL_MODELS = {
 };
 
 // ------------------------------------------------------------------ gatehouse
-// The fort's gate, after the reference's "wall to gatehouse connection": a square sandstone tower over an arched
-// gateway, with a corbelled, crenellated top, a red shield over the arch and a pennant. The way through runs
-// along z (across a west–east wall); in a north–south wall the tower is turned so it runs along x.
+// The fort's gate, in the palisade's logs: two square log towers set wide apart, open-topped behind plank
+// battlements (a guard on one, a pennant on the other), joined by a railed walkway over a wide gateway, with the
+// gates swung back and a banner hung under the walkway. The way through runs along z (across a west–east wall);
+// in a north–south wall the whole thing is turned so it runs along x.
 
-const SHIELD = std({ color: 0xa8321f });
+/** Square log tower: sharpened logs on every side of a square of half-width `r`, iron-banded corner posts. */
+function logTower(p, rnd, { x = 0, z = 0, r, h }) {
+  const n = Math.max(2, Math.round((2 * r) / (1 / 7)));
+  for (let i = 0; i < n; i++) {
+    const t = -r + ((i + 0.5) * 2 * r) / n;
+    for (const [lx, lz] of [[t, r], [t, -r], [r, t], [-r, t]]) palisadeLog(p, rnd, x + lx, z + lz, { h: h * rnd.range(0.95, 1.03) });
+  }
+  for (const sx of [-1, 1]) {
+    for (const sz of [-1, 1]) {
+      p.add(cyl(0.1, 0.11, h + 0.15, 10), rnd.pick(LOGS), { x: x + sx * r, y: (h + 0.15) / 2, z: z + sz * r });
+      for (const y of [0.3, h - 0.15]) p.add(torus(0.105, 0.02, 12), MATERIALS.iron, { x: x + sx * r, y, z: z + sz * r, rx: Math.PI / 2 });
+    }
+  }
+}
+
+/** Plank battlements (alternately tall and short boards) round a `w` x `d` deck at height `y`. */
+function boardParapet(p, { x = 0, y, z = 0, w, d, h = 0.3 }) {
+  for (const [ry, fx, fz, len] of [[0, 0, 1, w], [0, 0, -1, w], [Math.PI / 2, 1, 0, d], [Math.PI / 2, -1, 0, d]]) {
+    const n = Math.max(2, Math.round(len / 0.24));
+    for (let i = 0; i < n; i++) {
+      const at = place(x + (fx * w) / 2, z + (fz * d) / 2, ry, -len / 2 + ((i + 0.5) * len) / n, 0);
+      const bh = h * (i % 2 ? 0.7 : 1);
+      p.add(box(len / n - 0.06, bh, 0.06), MATERIALS.wood, { x: at.x, y: y + bh / 2, z: at.z, ry });
+    }
+  }
+}
+
+/** A plank gate leaf hinged at x = `hinge` (gate line at depth z), reaching towards the middle, swung `open` radians inwards (towards -z). */
+function gateLeaf(p, { hinge, z, w, h, open = 0, y = 0.04 }) {
+  const M = MATERIALS;
+  const dir = -Math.sign(hinge);
+  const ry = dir * open;
+  const along = (t, out = 0) => ({ x: hinge + dir * t * Math.cos(open), z: z - t * Math.sin(open) + out });
+  const n = Math.max(3, Math.round(w / 0.1));
+  for (let i = 0; i < n; i++) p.add(box(w / n - 0.012, h, 0.06), i % 3 === 1 ? M.woodDark : M.wood, { ...along(((i + 0.5) * w) / n), y: y + h / 2, ry });
+  for (const yy of [0.22, h * 0.55, h - 0.14]) p.add(box(w - 0.02, 0.05, 0.02), M.iron, { ...along(w / 2, 0.035), y: y + yy, ry });
+}
 
 function gatehouseBody() {
   const M = MATERIALS;
   const p = new Parts();
-  const rnd = rng(41);
-  const W = 1.5; // across the gate (x)
-  const D = 1.24; // through the gate (z)
-  const top = 1.95;
-  // A packed-earth track through the gate.
-  p.add(box(0.7, 0.04, 2.0), M.dirt, { y: 0.02 });
-  stoneBlocks(p, { y: 0.03, w: W + 0.14, d: D + 0.14, h: 0.2, rows: 1, rnd, minBlock: 0.3, maxBlock: 0.5 });
-  const courses = 7;
-  const rowH = (top - 0.23) / courses;
-  for (let i = 0; i < courses; i++) stoneBlocks(p, { y: 0.23 + i * rowH, w: W, d: D, h: rowH, rows: 1, along: i % 2 ? 'x' : 'z', rnd });
-  // Corner buttresses.
+  const rnd = rng(77);
+  const tx = 0.84; // tower centres either side of the gateway
+  const deck = 1.6;
   for (const sx of [-1, 1]) {
-    for (const sz of [-1, 1]) stoneBlocks(p, { x: sx * (W / 2 + 0.01), z: sz * (D / 2 + 0.01), y: 0.03, w: 0.2, d: 0.2, h: 0.75, rows: 3, rnd, minBlock: 0.2, maxBlock: 0.2 });
+    logTower(p, rnd, { x: sx * tx, r: 0.28, h: 1.55 });
+    p.add(box(0.72, 0.08, 0.72), M.woodDark, { x: sx * tx, y: deck });
+    boardParapet(p, { x: sx * tx, y: deck + 0.04, w: 0.7, d: 0.7 });
+    gateLeaf(p, { hinge: sx * 0.56, z: 0.12, w: 0.56, h: 1.05, open: 1.25 });
   }
-  // The gateway, front and back: a dark arch, a voussoir ring, and a studded plank gate (shut).
-  const gw = 0.62;
-  const gh = 0.98;
-  for (const side of [1, -1]) {
-    const z = side * (D / 2 + 0.005);
-    p.add(box(gw + 0.06, gh - gw / 2, 0.04), M.opening, { y: 0.23 + (gh - gw / 2) / 2, z });
-    p.add(cyl(gw / 2 + 0.03, gw / 2 + 0.03, 0.04, 14), M.opening, { y: 0.23 + gh - gw / 2, z, rx: Math.PI / 2 });
-    if (side > 0) {
-      const gr = gw / 2 - 0.02;
-      const low = gh - gw / 2; // where the arch springs
-      p.add(box(2 * gr, low, 0.05), M.wood, { y: 0.23 + low / 2, z: z + 0.03 });
-      p.add(cyl(gr, gr, 0.05, 14), M.wood, { y: 0.23 + low, z: z + 0.03, rx: Math.PI / 2 });
-      for (const y of [0.42, 0.8]) p.add(box(2 * gr - 0.02, 0.035, 0.02), M.iron, { y, z: z + 0.065 });
-      p.add(box(0.025, gh - 0.1, 0.02), M.iron, { y: 0.23 + (gh - 0.1) / 2, z: z + 0.065 }); // the join between the leaves
-      for (const x of [-0.17, 0.17]) for (const y of [0.32, 0.62, 0.95]) p.add(sphere(0.022, 6, 4), M.iron, { x, y, z: z + 0.07 });
-    }
-    for (let i = 0; i <= 6; i++) {
-      const a = (i / 6) * Math.PI;
-      const r = gw / 2 + 0.07;
-      p.add(box(0.11, 0.13, 0.08), M.capstone, { x: Math.cos(a) * r, y: 0.23 + gh - gw / 2 + Math.sin(a) * r, z: z + side * 0.02, rz: a - Math.PI / 2 });
-    }
+  archer(p, { x: tx, y: deck + 0.04, z: 0.05, ry: 0.4 });
+  pennant(p, { x: -0.95, y: deck + 0.04, z: -0.1, h: 0.85, w: 0.4 });
+  // The walkway over the gate, railed on both sides, with the banner hung beneath.
+  p.add(box(1.36, 0.1, 0.5), M.woodDark, { y: 1.3 });
+  for (const sz of [-1, 1]) {
+    p.add(box(1.1, 0.05, 0.04), M.wood, { y: 1.58, z: sz * 0.22 });
+    for (let i = 0; i < 5; i++) p.add(box(0.04, 0.28, 0.04), M.wood, { x: -0.44 + i * 0.22, y: 1.47, z: sz * 0.22 });
   }
-  // Arrow slits on the faces the camera sees, and a red shield over the gate.
-  for (const y of [1.25, 1.6]) {
-    p.add(box(0.06, 0.24, 0.02), M.opening, { x: W / 2 + 0.005, y, z: 0, ry: Math.PI / 2 });
-  }
-  for (const x of [-0.45, 0.45]) p.add(box(0.06, 0.22, 0.02), M.opening, { x, y: 1.55, z: D / 2 + 0.005 });
-  const shield = 0.2;
-  p.add(box(shield * 1.6, shield * 1.2, 0.04), SHIELD, { y: 1.5, z: D / 2 + 0.03 });
-  p.add(cone(shield * 0.8, shield * 0.7, 4), SHIELD, { y: 1.5 - shield * 0.95, z: D / 2 + 0.03, rx: Math.PI, ry: Math.PI / 4, sz: 0.12 });
-  p.add(box(0.05, shield * 1.4, 0.02), M.bannerTrim, { y: 1.45, z: D / 2 + 0.055 });
-  p.add(box(shield * 1.2, 0.05, 0.02), M.bannerTrim, { y: 1.52, z: D / 2 + 0.055 });
-  // A string course, a corbelled parapet, battlements and a plank deck.
-  p.add(box(W + 0.06, 0.06, D + 0.06), M.capstone, { y: 1.15 });
-  for (let i = 0; i < 6; i++) {
-    const t = -0.5 + (i + 0.5) / 6;
-    for (const [x, z] of [[t * W, D / 2], [W / 2, t * D], [t * W, -D / 2], [-W / 2, t * D]]) {
-      p.add(box(0.13, 0.14, 0.13), rnd.pick(SANDSTONE), { x: x * 1.05, y: top - 0.02, z: z * 1.05 });
-    }
-  }
-  stoneBlocks(p, { y: top + 0.05, w: W + 0.2, d: D + 0.2, h: 0.16, rows: 1, rnd, minBlock: 0.3, maxBlock: 0.5 });
-  merlonsRect(p, { y: top + 0.21, w: W + 0.2, d: D + 0.2, size: 0.22, height: 0.3, spacing: 0.4, rnd });
-  p.add(box(W, 0.04, D), M.woodLight, { y: top + 0.22 });
-  pennant(p, { x: -0.45, y: top + 0.22, z: -0.35, h: 0.95, w: 0.44 });
-  barrel(p, { x: 0.45, y: top + 0.24, z: -0.3, r: 0.1, h: 0.22 });
+  banner(p, { y: 1.26, z: 0.27, w: 0.34, h: 0.4 });
+  // A packed-earth track through the gate.
+  p.add(box(0.9, 0.04, 2.0), M.dirt, { y: 0.02 });
+  groundDressing(p, { w: 2.2, d: 1.2, rnd, count: 8 });
   return p.build();
 }
 
