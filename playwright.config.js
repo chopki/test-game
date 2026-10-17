@@ -17,6 +17,8 @@ export default defineConfig({
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     launchOptions: { args: webglArgs },
+    // No UI animations (the build wheel's fan-out): at software WebGL's frame rate they take seconds to settle.
+    reducedMotion: 'reduce',
   },
   projects: [
     { name: 'desktop', testMatch: /desktop\.spec\.js/, use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 } } },

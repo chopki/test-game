@@ -361,8 +361,9 @@ export class BuildController {
   // While dragging something near the edge of the visible play area, scroll the map that way.
   _edgeScroll(dt) {
     if (!this.draggingPending || !this._finger) return;
-    const top = document.querySelector('.topbar')?.getBoundingClientRect().bottom ?? 0;
-    const bottom = document.getElementById('buildbar')?.getBoundingClientRect().top ?? window.innerHeight;
+    // The play area runs from below the top corners (health, wave) to above the bottom ones (time controls).
+    const top = document.querySelector('.corner-tl')?.getBoundingClientRect().bottom ?? 0;
+    const bottom = document.querySelector('.corner-bl')?.getBoundingClientRect().top || window.innerHeight;
     const { x, y } = this._finger;
     const push = (dist) => Math.max(0, 1 - dist / EDGE_MARGIN);
     const right = push(window.innerWidth - x) - push(x);

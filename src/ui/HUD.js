@@ -51,6 +51,9 @@ export class HUD {
       gold: $('gold'),
       wave: $('wave'),
       waveNum: $('wave-num'),
+      hallRing: $('hall-ring'),
+      hallPortrait: $('hall-portrait'),
+      waveDial: $('wave-dial'),
       hallBar: $('hall-bar'),
       hallHp: $('hall-hp'),
       phase: $('phase'),
@@ -86,6 +89,13 @@ export class HUD {
       this.buttons.set(type, this._makeButton(type, def.name, def.cost, def.hotkey, def.description));
     }
     this.buttons.set('sell', this._makeButton('sell', 'Sell', null, 'X', 'Click a building to sell it for part of its cost.'));
+    this._layoutWheel();
+    this.setWheelOpen(!this._compact());
+    window.addEventListener('resize', () => this._layoutWheel());
+    onPress($('build-fab'), () => {
+      this.setWheelOpen(!this.wheelOpen);
+      if (!this.wheelOpen) game.build.setMode(null);
+    });
 
     onPress(this.el.startWave, () => game.world.startWave());
     onPress(this.el.speed, () => game.cycleSpeed());
@@ -100,20 +110,57 @@ export class HUD {
   _makeButton(mode, name, cost, hotkey, description) {
     const btn = document.createElement('button');
     btn.className = 'build-btn';
-    btn.title = description;
+    btn.title = `${name}: ${description}`;
     btn.setAttribute('aria-label', cost === null ? name : `${name}, ${cost} gold`);
     const icon = this.icons[mode];
     btn.innerHTML = `
       <span class="hotkey">${hotkey}</span>
       <span class="card-art">${icon ? `<img src="${icon}" alt="" draggable="false" />` : ''}</span>
       <span class="name">${name}</span>
-      <span class="cost">${cost === null ? 'Refund' : `${cost}g`}</span>`;
+      <span class="cost">${cost === null ? 'Sell' : cost}</span>`;
     onPress(btn, () => {
       const build = this.game.build;
       build.setMode(build.mode === mode ? null : mode);
+      // On a phone the wheel folds away once something is picked, to leave the map clear for placing it.
+      if (build.mode && this._compact()) this.setWheelOpen(false);
     });
     this.el.buildbar.appendChild(btn);
     return btn;
+  }
+
+  /** A building's portrait at `stage`, cropped from the atlas (cached). */
+  _stageIcon(type, stage) {
+    if (stage <= 1) return (this.icons[type] ??= frameToDataURL(this.game.renderer.atlas, spriteKeys.icon(type)));
+    return (this.icons[`${type}:${stage}`] ??= frameToDataURL(this.game.renderer.atlas, spriteKeys.icon(type, stage)));
+  }
+
+  /** Phones and other narrow screens: the build wheel opens on demand, and a selection replaces the corners. */
+  _compact() {
+    return window.innerWidth < 900;
+  }
+
+  /** Open or fold the build wheel (the hammer in the bottom-right corner). */
+  setWheelOpen(open) {
+    this.wheelOpen = open;
+    $('build-wheel').classList.toggle('open', open);
+    $('build-fab').setAttribute('aria-expanded', String(open));
+    $('build-fab').setAttribute('aria-label', open ? 'Close the build wheel' : 'Build');
+  }
+
+  /**
+   * Lay the build buttons out on a quarter circle round the hammer, from straight up to straight left, on a radius
+   * that fits them (and the screen).
+   */
+  _layoutWheel() {
+    const n = this.buttons.size;
+    const size = this._compact() ? 56 : 64;
+    // Far enough out that neighbours (and their cost tags) don't touch: an arc step of about 1.2 medallions.
+    const r = Math.min(((size * 1.2 * (n - 1)) / (Math.PI / 2)) | 0, window.innerWidth - 90);
+    [...this.buttons.values()].forEach((btn, i) => {
+      const a = (Math.PI / 2) * (1 + i / (n - 1)); // 90° (up) to 180° (left)
+      btn.style.width = btn.style.height = `${size}px`;
+      btn.style.transform = `translate(${Math.cos(a) * r - size / 2}px, ${-Math.sin(a) * r - size / 2}px)`;
+    });
   }
 
   attach(world) {
@@ -141,20 +188,26 @@ export class HUD {
     const hall = w.townHall;
     this._set('gold', Math.floor(w.economy.gold));
     this._set('wave', w.waves.wave);
-    // The wave plaque on phones: the coming wave between waves, else the one being fought.
+    // The wave dial: the coming wave between waves, else the one being fought.
     this._set('waveNum', String(w.phase === 'build' ? w.waves.wave + 1 : w.waves.wave).padStart(2, '0'));
     this._set('hallHp', `${Math.ceil(hall.hp)} / ${hall.maxHp}`);
     const ratio = hall.hp / hall.maxHp;
     if (this._last.hallRatio !== ratio) {
       this._last.hallRatio = ratio;
       this.el.hallBar.style.width = `${ratio * 100}%`;
-      this.el.hallBar.classList.toggle('low', ratio < 0.3);
+      this.el.hallRing.style.setProperty('--hp', ratio.toFixed(3));
+      this.el.hallRing.classList.toggle('low', ratio < 0.3);
+    }
+    // The Town Hall's portrait at its stage.
+    if (this._last.hallStage !== hall.stage) {
+      this._last.hallStage = hall.stage;
+      this.el.hallPortrait.src = this._stageIcon('townHall', hall.stage);
     }
 
     let phase = '';
     let progress = 0;
     if (w.phase === 'build') {
-      phase = `Next Wave\nin ${Math.ceil(w.phaseTimer)}s`; // two lines on the phone's wave plaque
+      phase = `Next wave in ${Math.ceil(w.phaseTimer)}s`;
       const total = w.waves.wave === 0 ? TIMING.firstBuildPhase : TIMING.buildPhase;
       progress = 1 - w.phaseTimer / total;
     } else if (w.phase === 'wave') {
@@ -171,7 +224,8 @@ export class HUD {
     if (this._last.progress !== pct) {
       this._last.progress = pct;
       this.el.waveProgress.style.width = pct;
-      this.el.waveProgress.classList.toggle('fighting', w.phase === 'wave');
+      this.el.waveDial.style.setProperty('--p', parseFloat(pct) / 100);
+      this.el.waveDial.classList.toggle('fighting', w.phase === 'wave');
     }
 
     this.el.startWave.hidden = w.phase !== 'build';
@@ -246,6 +300,7 @@ export class HUD {
     const key = b ? [b.id, Math.ceil(b.hp), b.stage, up.ok, up.reason, fix.ok, fix.cost, line.length, w.canSell(b) && w.sellValue(b)].join(':') : '';
     if (this._last.info === key) return;
     this._last.info = key;
+    document.body.classList.toggle('has-selection', Boolean(b));
     if (!b) {
       this.el.info.hidden = true;
       return;
@@ -264,12 +319,12 @@ export class HUD {
     const pips = stages
       ? `<div class="stage-pips" aria-label="Stage ${b.stage} of ${stages.length}">${stages.map((_, i) => `<i class="${i < b.stage ? 'on' : i === b.stage ? 'next' : ''}"></i>`).join('')}<span>${b.def.stageName} · stage ${b.stage} of ${stages.length}</span></div>`
       : '';
-    const icon = b.stage > 1 ? (this.icons[`${b.type}:${b.stage}`] ??= frameToDataURL(this.game.renderer.atlas, spriteKeys.icon(b.type, b.stage))) : this.icons[b.type];
+    const icon = this._stageIcon(b.type, b.stage);
     const hpRatio = b.hp / b.maxHp;
     const rate = (c) => `${(1 / c).toFixed(1)}/s`;
     this.el.info.hidden = false;
     this.el.info.innerHTML = `
-      <div class="codex-head">Engineer's Codex</div>
+      <button id="info-close" class="info-close" type="button" aria-label="Close">×</button>
       <div class="codex-body">
         ${icon ? `<img class="codex-art" src="${icon}" alt="" />` : ''}
         <div>
@@ -299,6 +354,7 @@ export class HUD {
       </div>
       ${line.length > 1 ? `<button id="upgrade-line" class="line-btn" ${up.ok ? '' : 'disabled'}>Upgrade the whole line: ${line.length} walls, <i class="coin"></i>${line.length * up.cost}</button>` : ''}
       ${n && !up.ok ? `<p class="codex-why">${up.reason}</p>` : ''}`;
+    onPress($('info-close'), () => this.game.build.select(null));
     if (n) onPress($('upgrade-selected'), () => w.upgrade(b.id));
     if (line.length > 1) onPress($('upgrade-line'), () => w.upgradeLine(b.id));
     if (b.hp < b.maxHp) onPress($('repair-selected'), () => w.repair(b.id));

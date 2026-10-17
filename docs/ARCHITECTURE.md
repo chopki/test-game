@@ -220,9 +220,10 @@ the maths by hand.
   ✓/✕ with draggable ends), touch placement and edge scroll, sell mode, selection.
 - `ui/press.js`: `onPress()` for HUD buttons. Touch presses fire on release instead of waiting for the browser's
   click, which Chrome can drop when a tap follows a canvas drag.
-- `HUD.js`: the HUD (styled after `docs/reference/ui-style.jpg`): Town Hall health and gold plaques with a wave
-  progress bar, the wave sign, tower cards generated from `BUILDINGS` with rendered portraits, cog buttons,
-  the Battle Chronicle (event log; toasts on small screens), the Engineer's Codex (selection panel), overlays.
+- `HUD.js`: the HUD in four corners: the Town Hall's health ring (`--hp`) and gold, the wave dial (`--p`), the
+  time cogs, and the build wheel (buttons generated from `BUILDINGS` with rendered portraits, laid on a quarter
+  circle by `_layoutWheel`; `setWheelOpen`), plus the Battle Chronicle (toasts on small screens), the selected
+  building's card (`#info`; `body.has-selection` moves the bottom corners aside on phones) and overlays.
 - `MainMenu.js` (main menu, Royal Codex, credits; holds the game via `Game.setHeld` while open) and
   `LoadingScreen.js` (boot and every new map: `Game.newMap()` makes the world first with `createWorld`, sketches it
   with `mapSketch.js`, then lets the renderer paint it). `main.js` shows the loading screen while the sprites load,

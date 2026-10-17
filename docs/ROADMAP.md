@@ -114,6 +114,8 @@ Pre-rendered sprites on a fixed isometric camera (see ARCHITECTURE.md), working 
       near them; fish leap from streams and lakes with a splash; deer and rabbits graze at the woods' edge, away
       from the hall, and bolt into the trees when enemies come near, shots land close or something is built on
       their spot, coming back in quiet times (`wildlife.js`, `animals.js`; decoration only)
+- [x] **Corner HUD** (concepts C and D): hall ring and gold, wave dial, time cogs, a build wheel from the hammer, and
+      a bottom card for the selected building
 - [x] **Main menu and loading screen** (after `docs/reference/ui-menu.jpg`): parchment menu over the live map,
       the Royal Codex, an iron-framed loading screen with an ink sketch of the battleground and tactics tips; the
       HUD restyled in parchment and iron (phone title band, after `docs/reference/ui-hud-phone.jpg`). Later: the

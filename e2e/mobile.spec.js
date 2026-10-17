@@ -1,5 +1,5 @@
 import { test } from '@playwright/test';
-import { buildShowcase, buildingAt, cameraTarget, countBuildings, expect, gold, openGame, settingButton, tileToScreen, touchInput } from './helpers.js';
+import { buildButton, buildShowcase, buildingAt, cameraTarget, countBuildings, expect, gold, openGame, openWheel, settingButton, tileToScreen, touchInput } from './helpers.js';
 
 // Runs with the Pixel 7 profile (touch, portrait 412×915).
 
@@ -7,11 +7,12 @@ const pendingTile = (page) => page.evaluate(() => window.game.build.pending);
 
 test('defaults to the High graphics preset and the HUD fits the screen', { tag: '@smoke' }, async ({ page }) => {
   const errors = await openGame(page);
+  await openWheel(page);
   const r = await page.evaluate(() => ({
     pixelRatio: window.game.renderer.renderer.getPixelRatio(),
     preset: window.game.graphics.preset,
     overflowX: document.documentElement.scrollWidth > window.innerWidth,
-    topbarBottom: document.querySelector('.topbar').getBoundingClientRect().bottom,
+    topbarBottom: document.querySelector('.corner-tl').getBoundingClientRect().bottom,
     buttons: [...document.querySelectorAll('.build-btn')].map((b) => b.getBoundingClientRect().toJSON()),
   }));
   expect(r.preset).toBe('high');
@@ -25,6 +26,7 @@ test('defaults to the High graphics preset and the HUD fits the screen', { tag: 
   for (const b of r.buttons) {
     expect(b.left).toBeGreaterThanOrEqual(0);
     expect(b.right).toBeLessThanOrEqual(vp.width);
+    expect(b.top).toBeGreaterThan(r.topbarBottom);
     expect(b.bottom).toBeLessThanOrEqual(vp.height);
   }
   await expect(page.locator('.touch-only').first()).toBeAttached();
@@ -34,7 +36,7 @@ test('defaults to the High graphics preset and the HUD fits the screen', { tag: 
 test('dragging a tower moves it without moving the map, then ✓ builds it', { tag: '@smoke' }, async ({ page }) => {
   const errors = await openGame(page);
   const touch = await touchInput(page);
-  await page.getByRole('button', { name: /Archer Tower/ }).tap();
+  await (await buildButton(page, /Archer Tower/)).tap();
   const target0 = await cameraTarget(page);
 
   await touch.drag(await tileToScreen(page, 14, 25), await tileToScreen(page, 15, 23));
@@ -57,7 +59,7 @@ test('dragging a tower moves it without moving the map, then ✓ builds it', { t
 test('a pending tower can be dragged again relative to the finger, and ✕ cancels it', async ({ page }) => {
   await openGame(page);
   const touch = await touchInput(page);
-  await page.getByRole('button', { name: /Cannon Tower/ }).tap();
+  await (await buildButton(page, /Cannon Tower/)).tap();
   await touch.tap(await tileToScreen(page, 14, 25));
   await expect(page.locator('#confirm')).toBeVisible();
   expect(await pendingTile(page)).toEqual({ x: 14, z: 25 });
@@ -77,7 +79,7 @@ test('a pending tower can be dragged again relative to the finger, and ✕ cance
 test('✓ is disabled-looking on an invalid spot and explains why', async ({ page }) => {
   await openGame(page);
   const touch = await touchInput(page);
-  await page.getByRole('button', { name: /Archer Tower/ }).tap();
+  await (await buildButton(page, /Archer Tower/)).tap();
   await touch.tap(await tileToScreen(page, 19, 19)); // on the Town Hall
   await expect(page.locator('#confirm-yes')).toHaveClass(/invalid/);
   await page.locator('#confirm-yes').tap();
@@ -88,9 +90,9 @@ test('✓ is disabled-looking on an invalid spot and explains why', async ({ pag
 test('holding a tower at the screen edge scrolls the map', async ({ page }) => {
   await openGame(page);
   const touch = await touchInput(page);
-  await page.getByRole('button', { name: /Archer Tower/ }).tap();
+  await (await buildButton(page, /Archer Tower/)).tap();
   const target0 = await cameraTarget(page);
-  const top = await page.evaluate(() => document.querySelector('.topbar').getBoundingClientRect().bottom);
+  const top = await page.evaluate(() => document.querySelector('.corner-tl').getBoundingClientRect().bottom);
   const from = await tileToScreen(page, 19, 26);
   await touch.drag(from, { x: from.x, y: top + 8 }, 12);
   // Map scrolls north (target z decreases) while the finger is held there.
@@ -103,7 +105,7 @@ test('holding a tower at the screen edge scrolls the map', async ({ page }) => {
 test('dragging in wall mode plans a wall line that ✓ builds', { tag: '@smoke' }, async ({ page }) => {
   await openGame(page);
   const touch = await touchInput(page);
-  await page.getByRole('button', { name: /Castle Wall/ }).tap();
+  await (await buildButton(page, /Castle Wall/)).tap();
   await touch.drag(await tileToScreen(page, 14, 25), await tileToScreen(page, 24, 25), 15);
   await expect(page.locator('#confirm')).toBeHidden(); // hidden while the finger is down
   await touch.end();
@@ -119,7 +121,7 @@ test('a planned wall end can be dragged onto a tower to snap to it, and ✕ disc
   await openGame(page);
   const touch = await touchInput(page);
   await page.evaluate(() => window.game.world.place('archerTower', 22, 24)); // covers 22–23, 24–25
-  await page.getByRole('button', { name: /Castle Wall/ }).tap();
+  await (await buildButton(page, /Castle Wall/)).tap();
   await touch.drag(await tileToScreen(page, 14, 24), await tileToScreen(page, 17, 24));
   await touch.end();
   expect(await page.evaluate(() => window.game.build.currentWallPlan().to)).toEqual({ x: 17, z: 24 });
@@ -217,21 +219,34 @@ test('render scale goes up to the screen: Native and 300% draw at the phone’s 
   expect(errors).toEqual([]);
 });
 
-test('the top band: title over an iron rail, the hall, gold and the coming wave on a nailed plaque', async ({ page }) => {
+test('the corners: the hall ring and gold, the wave dial, time controls and the build wheel; a selection takes the bottom', async ({ page }) => {
   const errors = await openGame(page);
-  await expect(page.locator('.hud-title')).toBeVisible();
-  await expect(page.locator('.hud-title')).toHaveText('Hold the Hall');
   await expect(page.locator('#wave-num')).toHaveText('01');
-  await expect(page.locator('#phase')).toContainText('Next Wave');
-  // Everything in the band fits on the screen, and the band sits above the next-wave banner.
+  await expect(page.locator('#phase')).toContainText('Next wave');
+  await expect(page.locator('#next-wave')).toContainText('Wave 1');
+  // Everything sits on the screen, nothing overlapping its neighbours.
   const box = (sel) => page.locator(sel).boundingBox();
   const width = page.viewportSize().width;
-  for (const sel of ['.hud-hall', '.hud-gold', '.wave-sign', '#settings-btn', '#help-btn']) {
-    const b = await box(sel);
+  const boxes = {};
+  for (const sel of ['.hall-ring', '.gold-pill', '.wave-text', '.wave-dial', '#settings-btn', '#help-btn', '#start-wave', '#pause', '#speed', '#build-fab']) {
+    const b = (boxes[sel] = await box(sel));
     expect(b.x, sel).toBeGreaterThanOrEqual(0);
     expect(b.x + b.width, sel).toBeLessThanOrEqual(width);
   }
-  const band = await box('.hud-title');
-  expect((await box('#next-wave')).y).toBeGreaterThanOrEqual(band.y + band.height - 2);
+  const apart = (a, b) => a.x + a.width <= b.x + 1 || b.x + b.width <= a.x + 1 || a.y + a.height <= b.y + 1 || b.y + b.height <= a.y + 1;
+  expect(apart(boxes['.gold-pill'], boxes['.wave-text'])).toBe(true);
+  expect(apart(boxes['.wave-text'], boxes['.wave-dial'])).toBe(true);
+  // The wheel folds away once a tower is picked; a selected building's card replaces the bottom corners.
+  await (await buildButton(page, /Archer Tower/)).tap();
+  await expect(page.locator('#build-wheel')).not.toHaveClass(/open/);
+  await page.evaluate(() => {
+    window.game.build.setMode(null);
+    window.game.build.select(window.game.world.townHall.id);
+  });
+  await expect(page.locator('#info')).toBeVisible();
+  await expect(page.locator('#build-fab')).toBeHidden();
+  await page.locator('#info-close').tap();
+  await expect(page.locator('#info')).toBeHidden();
+  await expect(page.locator('#build-fab')).toBeVisible();
   expect(errors).toEqual([]);
 });

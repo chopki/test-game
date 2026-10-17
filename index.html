@@ -12,29 +12,38 @@
     <div id="app"></div>
 
     <div id="hud">
-      <div class="hud-title" aria-hidden="true">Hold the Hall</div>
-      <div class="topbar">
-        <div class="hud-hall framed" title="Town Hall health">
-          <span class="heart-frame" aria-hidden="true"><span class="heart"></span></span>
-          <div class="bar hall-bar"><div id="hall-bar"></div></div>
-          <span id="hall-hp" class="small"></span>
+      <!-- Top left: the Town Hall's health as a ring round its portrait; gold under it. -->
+      <div class="corner corner-tl">
+        <div class="hall-ring" id="hall-ring" title="Town Hall health" role="img" aria-label="Town Hall health">
+          <div class="hall-face"><img id="hall-portrait" alt="" draggable="false" /></div>
+          <div class="hall-bar" aria-hidden="true"><div id="hall-bar"></div></div>
         </div>
-        <div class="hud-gold framed">
-          <div class="gold-amount"><i class="coin"></i><span id="gold">0</span></div>
-          <div class="bar wave-bar" title="Wave progress"><div id="wave-progress"></div></div>
-        </div>
-        <div class="hud-right">
-          <div class="wave-sign">
-            <div class="wave-title">Wave <span id="wave">0</span></div>
-            <div id="wave-num" class="wave-num" aria-hidden="true">01</div>
-            <div id="phase" class="wave-sub"></div>
-          </div>
-          <span id="fps" class="small fps" hidden></span>
-          <button id="settings-btn" class="square-btn" title="Graphics settings" aria-label="Settings"><svg class="gear-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M10.3 2h3.4l.5 2.6 1.6.7 2.2-1.5 2.4 2.4-1.5 2.2.7 1.6 2.4.5v3.4l-2.6.5-.7 1.6 1.5 2.2-2.4 2.4-2.2-1.5-1.6.7-.5 2.6h-3.4l-.5-2.6-1.6-.7-2.2 1.5-2.4-2.4 1.5-2.2-.7-1.6L2 13.7v-3.4l2.6-.5.7-1.6-1.5-2.2 2.4-2.4 2.2 1.5 1.6-.7z M12 8.2a3.8 3.8 0 1 0 0 7.6 3.8 3.8 0 0 0 0-7.6z" fill-rule="evenodd" /></svg></button>
-          <button id="help-btn" class="square-btn" title="Help (H)" aria-label="Help">?</button>
+        <div class="hall-meta">
+          <div class="gold-pill"><i class="coin"></i><span id="gold">0</span></div>
+          <span id="hall-hp" class="hp-text"></span>
         </div>
       </div>
-      <div id="next-wave" class="next-wave"></div>
+
+      <!-- Top right: the wave dial (time to the next wave, or the wave being fought), what's coming, and the menu. -->
+      <div class="corner corner-tr">
+        <div class="wave-text">
+          <span id="phase" class="wave-phase"></span>
+          <span id="next-wave" class="wave-next"></span>
+        </div>
+        <div class="wave-dial" id="wave-dial" title="Wave progress">
+          <div class="dial-face">
+            <span class="dial-label">Wave</span>
+            <b id="wave-num">01</b>
+            <span class="sr-only">Waves fought: <span id="wave">0</span></span>
+          </div>
+          <div class="wave-bar" aria-hidden="true"><div id="wave-progress"></div></div>
+        </div>
+      </div>
+      <div class="corner-buttons">
+        <span id="fps" class="fps" hidden></span>
+        <button id="settings-btn" class="round-btn" title="Settings" aria-label="Settings"><svg class="gear-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M10.3 2h3.4l.5 2.6 1.6.7 2.2-1.5 2.4 2.4-1.5 2.2.7 1.6 2.4.5v3.4l-2.6.5-.7 1.6 1.5 2.2-2.4 2.4-2.2-1.5-1.6.7-.5 2.6h-3.4l-.5-2.6-1.6-.7-2.2 1.5-2.4-2.4 1.5-2.2-.7-1.6L2 13.7v-3.4l2.6-.5.7-1.6-1.5-2.2 2.4-2.4 2.2 1.5 1.6-.7z M12 8.2a3.8 3.8 0 1 0 0 7.6 3.8 3.8 0 0 0 0-7.6z" fill-rule="evenodd" /></svg></button>
+        <button id="help-btn" class="round-btn" title="Help (H)" aria-label="Help">?</button>
+      </div>
 
       <aside id="chronicle" class="panel chronicle" aria-label="Battle chronicle">
         <h3>Battle Chronicle</h3>
@@ -49,22 +58,25 @@
       </div>
       <div id="info" class="panel info-panel codex" hidden></div>
 
-      <div class="bottom-hud">
-        <div class="cogs">
-          <button id="start-wave" class="cog cog-primary" title="Start the next wave now (Space)" aria-label="Start wave">
-            <span class="cog-icon">⚔</span><span class="cog-label">Start wave</span>
-          </button>
-          <button id="pause" class="cog" title="Pause (P)" aria-label="Pause">
-            <span class="cog-icon" id="pause-icon">❚❚</span><span class="cog-label" id="pause-label">Pause</span>
-          </button>
-          <button id="speed" class="cog" title="Game speed (F)" aria-label="Speed">
-            <span class="cog-icon" id="speed-icon">1×</span><span class="cog-label">Speed</span>
-          </button>
-        </div>
-        <div class="towers">
-          <div class="ribbon">Towers</div>
-          <div id="buildbar" class="buildbar"></div>
-        </div>
+      <!-- Bottom left: time. -->
+      <div class="corner corner-bl cogs">
+        <button id="start-wave" class="cog cog-primary" title="Start the next wave now (Space)" aria-label="Start wave">
+          <svg class="cog-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19 19 5M14 5h5v5M5 5l14 14M5 14v5h5" /></svg><span class="cog-label">Send wave</span>
+        </button>
+        <button id="pause" class="cog" title="Pause (P)" aria-label="Pause">
+          <span class="cog-icon" id="pause-icon">❚❚</span><span class="cog-label" id="pause-label">Pause</span>
+        </button>
+        <button id="speed" class="cog" title="Game speed (F)" aria-label="Speed">
+          <span class="cog-icon" id="speed-icon">1×</span><span class="cog-label">Speed</span>
+        </button>
+      </div>
+
+      <!-- Bottom right: the build wheel, fanning out from the hammer. -->
+      <div class="corner corner-br build-wheel" id="build-wheel">
+        <div id="buildbar" class="wheel-items"></div>
+        <button id="build-fab" class="build-fab" type="button" aria-label="Build" aria-expanded="false" title="Build">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4l6 6-3 3-6-6zM11 7l-7 7 3 3 7-7" /><path d="M4 20l3-3" /></svg>
+        </button>
       </div>
 
       <div id="menu" class="overlay main-menu" hidden>

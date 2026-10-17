@@ -179,3 +179,15 @@ export async function buildShowcase(page, testInfo, name) {
   const shot = await page.screenshot({ path: testInfo.outputPath(`${name}.png`) });
   await testInfo.attach(name, { body: shot, contentType: 'image/png' });
 }
+
+/** Open the build wheel (the hammer, bottom right) if it's folded: on phones it opens on demand. */
+export async function openWheel(page) {
+  if (!(await page.evaluate(() => window.game.hud.wheelOpen))) await page.locator('#build-fab').tap();
+  await expect(page.locator('#build-wheel')).toHaveClass(/open/);
+}
+
+/** A build button in the wheel (opening the wheel first), e.g. buildButton(page, /Archer Tower/). */
+export async function buildButton(page, name) {
+  await openWheel(page);
+  return page.getByRole('button', { name });
+}
