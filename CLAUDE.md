@@ -10,6 +10,7 @@
   without asking only when the user requests it. `npm run build` must stay green. CI only runs the unit tests on push.
 - `World` defaults to an open map (`terrain: 'open'`); the game passes `terrain: 'generate'`. In e2e,
   `openGame(page)` loads `?map=open`; pass `{ map: 'terrain' }` for the generated map (fixed `TERRAIN_SEED`).
+  The game starts with a partly built fort (`fort: true`); `openGame` leaves it out (`?fort=0`) unless `{ fort: true }`.
 - Tag a new browser test `{ tag: '@smoke' }` only if it guards something vital; otherwise it's full-suite only. `npm run dev` starts
   the dev server.
 - **Save browser checks as tests.** Don't verify UI or input changes with one-off scripts: add or extend a spec in

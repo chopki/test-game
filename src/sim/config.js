@@ -38,6 +38,23 @@ export const TERRAIN = {
   water: { streamChance: 0.55, lakeChance: 0.5, fords: [1, 2], fordWidth: 3 },
 };
 
+/**
+ * The partly built fort the game starts with (when World is created with `fort: true`). Positions are tiles
+ * relative to the Town Hall's top-left tile (the hall covers 0..2). Walls are runs from one tile to another;
+ * the gaps are left for the player to close. The gatehouse and towers go into the wall lines (replacing the walls
+ * under them). Starter buildings sell for nothing (ECONOMY.sellRefund doesn't apply to them).
+ */
+export const START_FORT = {
+  walls: [
+    [-4, -4, 3, -4], // north, open at the north-east corner
+    [-4, -4, -4, 7], // west
+    [-1, 7, 7, 7], // south, with the gate (a gap next to the south-west corner)
+    [7, 2, 7, 7], // east, open at the north-east corner
+  ],
+  gatehouse: { x: 1, z: 6 }, // across the south wall (the side the camera faces)
+  towers: [{ type: 'archerTower', x: -4, z: 1 }], // in the west wall
+};
+
 export const PATHING = {
   // Each HP point on a blocking building costs this many "tiles" of detour.
   // A full-HP wall (400hp) is worth a 10-tile detour: enemies will walk around
@@ -158,6 +175,15 @@ export const BUILDINGS = {
       splash: 1.8,
       arc: 4,
     },
+  },
+  gatehouse: {
+    name: 'Gatehouse',
+    description: "The fort's stone gate tower. The gate stays shut: enemies must smash it or find another way in.",
+    size: 2,
+    maxHp: 1200,
+    cost: 0,
+    buildable: false, // only comes with the starting fort
+    height: 2.5,
   },
 };
 

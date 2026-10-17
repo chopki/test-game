@@ -1,4 +1,4 @@
-import { BUILDINGS, ECONOMY, ENEMIES, GRID, PATHING, TERRAIN, TIMING } from './config.js';
+import { BUILDINGS, ECONOMY, ENEMIES, GRID, PATHING, START_FORT, TERRAIN, TIMING } from './config.js';
 import { createRng } from './rng.js';
 import { EventBus } from './EventBus.js';
 import { Grid } from './Grid.js';
@@ -25,7 +25,7 @@ import { generateTerrain, spawnTilesBySide, T } from './terrain.js';
  * waveCleared, gameOver.
  */
 export class World {
-  constructor({ seed = Date.now(), terrain = 'open' } = {}) {
+  constructor({ seed = Date.now(), terrain = 'open', fort = false } = {}) {
     this.seed = seed >>> 0;
     this.rng = createRng(seed);
     this.events = new EventBus();
@@ -58,6 +58,7 @@ export class World {
     }
     this.spawnTiles = spawnTilesBySide(this.grid.terrain, mapInfo);
     this.townHall = this._addBuilding('townHall', hall.x, hall.z);
+    if (fort) this._buildStartingFort();
     this._refreshFlow();
   }
 
@@ -167,7 +168,13 @@ export class World {
     return { built, planned: plan.count };
   }
 
+  /** Whether the player may sell `building` (not the Town Hall or the gatehouse). */
+  canSell(building) {
+    return Boolean(building?.def.buildable) && this.phase !== 'gameover';
+  }
+
   sellValue(building) {
+    if (building.starter) return 0; // the starting fort was free
     return Math.floor(building.def.cost * ECONOMY.sellRefund * (building.hp / building.maxHp));
   }
 
@@ -189,7 +196,7 @@ export class World {
 
   sell(id) {
     const b = this.buildings.get(id);
-    if (!b || b === this.townHall || this.phase === 'gameover') return false;
+    if (!this.canSell(b)) return false;
     const refund = this.sellValue(b);
     this._removeBuilding(b);
     this.economy.earn(refund, 'sell');
@@ -255,6 +262,36 @@ export class World {
     this.grid.fill(x, z, def.size, b.id);
     this._flowDirty = true;
     return b;
+  }
+
+  /** Lay out START_FORT round the Town Hall, skipping any piece that terrain or the map edge would block. */
+  _buildStartingFort() {
+    const { x: hx, z: hz } = this.townHall;
+    const fits = (x, z, size) => {
+      for (const [tx, tz] of this.grid.footprint(x, z, size)) {
+        if (!this.grid.inBounds(tx, tz) || this.grid.isInSpawnZone(tx, tz) || !this.grid.isBuildable(tx, tz)) return false;
+        const b = this.buildingAt(tx, tz);
+        if (b && b.type !== 'wall') return false;
+      }
+      return true;
+    };
+    const add = (type, x, z) => {
+      if (!fits(x, z, BUILDINGS[type].size)) return;
+      for (const [tx, tz] of this.grid.footprint(x, z, BUILDINGS[type].size)) {
+        const wall = this.buildingAt(tx, tz);
+        if (wall) this._removeBuilding(wall);
+      }
+      this._addBuilding(type, x, z).starter = true;
+    };
+    for (const [x0, z0, x1, z1] of START_FORT.walls) {
+      for (let x = Math.min(x0, x1); x <= Math.max(x0, x1); x++) {
+        for (let z = Math.min(z0, z1); z <= Math.max(z0, z1); z++) {
+          if (!this.buildingAt(hx + x, hz + z)) add('wall', hx + x, hz + z);
+        }
+      }
+    }
+    add('gatehouse', hx + START_FORT.gatehouse.x, hz + START_FORT.gatehouse.z);
+    for (const t of START_FORT.towers) add(t.type, hx + t.x, hz + t.z);
   }
 
   _removeBuilding(b) {

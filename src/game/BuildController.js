@@ -330,7 +330,7 @@ export class BuildController {
     if (!tile) return;
     if (this.mode === 'sell') {
       const b = this.world.buildingAt(tile.x, tile.z);
-      if (b && b !== this.world.townHall) this.world.sell(b.id);
+      if (this.world.canSell(b)) this.world.sell(b.id);
       return;
     }
     if (this._buildMode) {
@@ -394,7 +394,7 @@ export class BuildController {
       if (tile) this._showGhost(tile);
     } else if (this.mode === 'sell' && this.hover) {
       const b = world.buildingAt(this.hover.x, this.hover.z);
-      if (b && b !== world.townHall) this._showFootprint(b.cx, b.cz, b.size, BAD_COLOR);
+      if (world.canSell(b)) this._showFootprint(b.cx, b.cz, b.size, BAD_COLOR);
     }
 
     const sel = this.selected;

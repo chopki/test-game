@@ -602,13 +602,102 @@ const IN_WALL_MODELS = {
   },
 };
 
-const BUILDING_MODELS = { townHall, wall, wallJoint, archerTower, cannonTower, magicSpire, catapult };
+// ------------------------------------------------------------------ gatehouse
+// The fort's gate, after the reference's "wall to gatehouse connection": a square sandstone tower over an arched
+// gateway, with a corbelled, crenellated top, a red shield over the arch and a pennant. The way through runs
+// along z (across a west–east wall); in a north–south wall the tower is turned so it runs along x.
+
+const SHIELD = std({ color: 0xa8321f });
+
+function gatehouseBody() {
+  const M = MATERIALS;
+  const p = new Parts();
+  const rnd = rng(41);
+  const W = 1.5; // across the gate (x)
+  const D = 1.24; // through the gate (z)
+  const top = 1.95;
+  // A packed-earth track through the gate.
+  p.add(box(0.7, 0.04, 2.0), M.dirt, { y: 0.02 });
+  stoneBlocks(p, { y: 0.03, w: W + 0.14, d: D + 0.14, h: 0.2, rows: 1, rnd, minBlock: 0.3, maxBlock: 0.5 });
+  const courses = 7;
+  const rowH = (top - 0.23) / courses;
+  for (let i = 0; i < courses; i++) stoneBlocks(p, { y: 0.23 + i * rowH, w: W, d: D, h: rowH, rows: 1, along: i % 2 ? 'x' : 'z', rnd });
+  // Corner buttresses.
+  for (const sx of [-1, 1]) {
+    for (const sz of [-1, 1]) stoneBlocks(p, { x: sx * (W / 2 + 0.01), z: sz * (D / 2 + 0.01), y: 0.03, w: 0.2, d: 0.2, h: 0.75, rows: 3, rnd, minBlock: 0.2, maxBlock: 0.2 });
+  }
+  // The gateway, front and back: a dark arch, a voussoir ring, and a studded plank gate (shut).
+  const gw = 0.62;
+  const gh = 0.98;
+  for (const side of [1, -1]) {
+    const z = side * (D / 2 + 0.005);
+    p.add(box(gw + 0.06, gh - gw / 2, 0.04), M.opening, { y: 0.23 + (gh - gw / 2) / 2, z });
+    p.add(cyl(gw / 2 + 0.03, gw / 2 + 0.03, 0.04, 14), M.opening, { y: 0.23 + gh - gw / 2, z, rx: Math.PI / 2 });
+    if (side > 0) {
+      const gr = gw / 2 - 0.02;
+      const low = gh - gw / 2; // where the arch springs
+      p.add(box(2 * gr, low, 0.05), M.wood, { y: 0.23 + low / 2, z: z + 0.03 });
+      p.add(cyl(gr, gr, 0.05, 14), M.wood, { y: 0.23 + low, z: z + 0.03, rx: Math.PI / 2 });
+      for (const y of [0.42, 0.8]) p.add(box(2 * gr - 0.02, 0.035, 0.02), M.iron, { y, z: z + 0.065 });
+      p.add(box(0.025, gh - 0.1, 0.02), M.iron, { y: 0.23 + (gh - 0.1) / 2, z: z + 0.065 }); // the join between the leaves
+      for (const x of [-0.17, 0.17]) for (const y of [0.32, 0.62, 0.95]) p.add(sphere(0.022, 6, 4), M.iron, { x, y, z: z + 0.07 });
+    }
+    for (let i = 0; i <= 6; i++) {
+      const a = (i / 6) * Math.PI;
+      const r = gw / 2 + 0.07;
+      p.add(box(0.11, 0.13, 0.08), M.capstone, { x: Math.cos(a) * r, y: 0.23 + gh - gw / 2 + Math.sin(a) * r, z: z + side * 0.02, rz: a - Math.PI / 2 });
+    }
+  }
+  // Arrow slits on the faces the camera sees, and a red shield over the gate.
+  for (const y of [1.25, 1.6]) {
+    p.add(box(0.06, 0.24, 0.02), M.opening, { x: W / 2 + 0.005, y, z: 0, ry: Math.PI / 2 });
+  }
+  for (const x of [-0.45, 0.45]) p.add(box(0.06, 0.22, 0.02), M.opening, { x, y: 1.55, z: D / 2 + 0.005 });
+  const shield = 0.2;
+  p.add(box(shield * 1.6, shield * 1.2, 0.04), SHIELD, { y: 1.5, z: D / 2 + 0.03 });
+  p.add(cone(shield * 0.8, shield * 0.7, 4), SHIELD, { y: 1.5 - shield * 0.95, z: D / 2 + 0.03, rx: Math.PI, ry: Math.PI / 4, sz: 0.12 });
+  p.add(box(0.05, shield * 1.4, 0.02), M.bannerTrim, { y: 1.45, z: D / 2 + 0.055 });
+  p.add(box(shield * 1.2, 0.05, 0.02), M.bannerTrim, { y: 1.52, z: D / 2 + 0.055 });
+  // A string course, a corbelled parapet, battlements and a plank deck.
+  p.add(box(W + 0.06, 0.06, D + 0.06), M.capstone, { y: 1.15 });
+  for (let i = 0; i < 6; i++) {
+    const t = -0.5 + (i + 0.5) / 6;
+    for (const [x, z] of [[t * W, D / 2], [W / 2, t * D], [t * W, -D / 2], [-W / 2, t * D]]) {
+      p.add(box(0.13, 0.14, 0.13), rnd.pick(SANDSTONE), { x: x * 1.05, y: top - 0.02, z: z * 1.05 });
+    }
+  }
+  stoneBlocks(p, { y: top + 0.05, w: W + 0.2, d: D + 0.2, h: 0.16, rows: 1, rnd, minBlock: 0.3, maxBlock: 0.5 });
+  merlonsRect(p, { y: top + 0.21, w: W + 0.2, d: D + 0.2, size: 0.22, height: 0.3, spacing: 0.4, rnd });
+  p.add(box(W, 0.04, D), M.woodLight, { y: top + 0.22 });
+  pennant(p, { x: -0.45, y: top + 0.22, z: -0.35, h: 0.95, w: 0.44 });
+  barrel(p, { x: 0.45, y: top + 0.24, z: -0.3, r: 0.1, h: 0.22 });
+  return p.build();
+}
+
+function gatehouse(opts = {}) {
+  const g = new THREE.Group();
+  const body = gatehouseBody();
+  // In a north–south wall the way through runs along x.
+  if (opts.inWall === 'ns') body.rotation.y = Math.PI / 2;
+  g.add(body);
+  if (opts.inWall) {
+    const p = new Parts();
+    wallStubs(p, rng(IN_WALL_SHAPES.indexOf(opts.inWall) * 13 + 5), opts.inWall, 0.8);
+    g.add(p.build());
+  }
+  return g;
+}
+
+const BUILDING_MODELS = { townHall, wall, wallJoint, archerTower, cannonTower, magicSpire, catapult, gatehouse };
+/** Building types with a version built into a wall (see IN_WALL_SHAPES). */
+export const IN_WALL_TYPES = [...Object.keys(IN_WALL_MODELS), 'gatehouse'];
 
 /**
  * `opts` is model-specific: walls take `{ connections }`, wall joints `{ dir }`, and towers `{ inWall: shape }`
  * for the version built into a wall (see IN_WALL_SHAPES).
  */
 export function createBuildingModel(type, opts) {
+  if (type === 'gatehouse') return gatehouse(opts);
   if (opts?.inWall) return IN_WALL_MODELS[type](opts.inWall);
   return BUILDING_MODELS[type](opts);
 }

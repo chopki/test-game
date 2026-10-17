@@ -1,6 +1,6 @@
 import { BUILDINGS, ENEMIES } from '../sim/config.js';
 import { createWallDecor, WALL_DECOR_KINDS } from './wallDecor.js';
-import { createBuildingModel, createEnemyModel, createSceneryObject, ENEMY_ANIMS, IN_WALL_SHAPES, poseEnemy, SCENERY_TYPES, SCENERY_VARIANTS, WALL_VARIANTS } from './models.js';
+import { createBuildingModel, createEnemyModel, createSceneryObject, ENEMY_ANIMS, IN_WALL_SHAPES, IN_WALL_TYPES, poseEnemy, SCENERY_TYPES, SCENERY_VARIANTS, WALL_VARIANTS } from './models.js';
 
 export { ENEMY_ANIMS };
 
@@ -97,7 +97,7 @@ export function spriteSpecs() {
     });
 
     // The same base built into a wall, for each wall shape.
-    if (BUILDINGS[type].buildable) {
+    if (IN_WALL_TYPES.includes(type)) {
       for (const shape of IN_WALL_SHAPES) {
         specs.push({
           key: spriteKeys.inWall(type, shape),

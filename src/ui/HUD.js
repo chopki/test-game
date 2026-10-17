@@ -241,7 +241,7 @@ export class HUD {
       return;
     }
     const a = b.def.attack;
-    const isHall = b === this.world.townHall;
+    const sellable = this.world.canSell(b);
     const segments = (value, max) => {
       const filled = Math.max(1, Math.round((value / max) * 5));
       return `<span class="segments">${Array.from({ length: 5 }, (_, i) => `<i class="${i < filled ? 'on' : ''}"></i>`).join('')}</span>`;
@@ -267,8 +267,8 @@ export class HUD {
             stat('Fire rate', 1 / a.cooldown, STAT_MAX.rate, `${(1 / a.cooldown).toFixed(1)}/s`)
           : ''
       }
-      ${isHall ? '' : `<button id="sell-selected" class="primary">Sell for <i class="coin"></i>${this.world.sellValue(b)}</button>`}`;
-    if (!isHall) {
+      ${!sellable ? '' : `<button id="sell-selected" class="primary">Sell for <i class="coin"></i>${this.world.sellValue(b)}</button>`}`;
+    if (sellable) {
       onPress($('sell-selected'), () => {
         this.world.sell(b.id);
         this.game.build.select(null);

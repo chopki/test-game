@@ -522,3 +522,47 @@ test('woods mix several kinds of tree, and the trees (not the rocks) sway in the
   await testInfo.attach('woods', { body: await page.screenshot({ path: testInfo.outputPath('woods.png') }), contentType: 'image/png' });
   expect(errors).toEqual([]);
 });
+
+test('a new game starts in a partly built fort: gatehouse and archer tower drawn in the walls', { tag: '@smoke' }, async ({ page }, testInfo) => {
+  const errors = await openGame(page, { map: 'terrain', fort: true });
+  const fort = () =>
+    page.evaluate(() => {
+      const w = window.game.world;
+      const types = [...w.buildings.values()].map((b) => b.type);
+      return {
+        gatehouse: types.filter((t) => t === 'gatehouse').length,
+        towers: types.filter((t) => t === 'archerTower').length,
+        walls: types.filter((t) => t === 'wall').length,
+        inWall: window.game.renderer.inWallDrawn,
+      };
+    });
+  await expect.poll(async () => (await fort()).inWall).toBe(2); // the gatehouse and the tower, both on their walls
+  const state = await fort();
+  expect(state.gatehouse).toBe(1);
+  expect(state.towers).toBe(1);
+  expect(state.walls).toBeGreaterThan(25);
+  await expect(page.locator('#chronicle-list')).toContainText('Close the gaps');
+  // The gatehouse can't be sold.
+  const gate = await page.evaluate(() => {
+    const g = [...window.game.world.buildings.values()].find((b) => b.type === 'gatehouse');
+    return { x: g.x, z: g.z };
+  });
+  await page.keyboard.press('x');
+  const p = await tileToScreen(page, gate.x, gate.z);
+  await page.mouse.click(p.x, p.y);
+  expect(await countBuildings(page, 'gatehouse')).toBe(1);
+  await page.keyboard.press('Escape');
+  // A close look at the fort, for the report.
+  await page.evaluate(() => {
+    const r = window.game.renderer;
+    const hall = window.game.world.townHall;
+    const to = r.toScene(hall.cx + 1, 0, hall.cz + 1);
+    r.camera.position.add(to.clone().sub(r.controls.target));
+    r.controls.target.copy(to);
+    r.camera.zoom = 2;
+    r.camera.updateProjectionMatrix();
+  });
+  await page.waitForTimeout(500);
+  await testInfo.attach('fort', { body: await page.screenshot({ path: testInfo.outputPath('fort.png') }), contentType: 'image/png' });
+  expect(errors).toEqual([]);
+});

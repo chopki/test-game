@@ -28,6 +28,10 @@ them for coming. In the long run the town grows an **economy**, trains **troops*
 
 - The map is a 40×40 tile grid. The outer 2 tiles are the **spawn zone**: enemies appear there and you can't build on it.
 - The Town Hall (3×3) sits in the centre.
+- A partly built fort stands round it at the start (`START_FORT` in config.js): a palisade ring 4–5 tiles out with a
+  stone gatehouse in the south wall and an archer tower in the west wall, open at the north-east corner and beside
+  the south-west corner. Enemies come in through the gaps until the player closes them. Starter buildings are free
+  and sell for nothing; on maps where terrain is in the way, those pieces are left out.
 - You can build and sell during waves too, except on tiles an enemy is standing on or stepping into.
 
 ## Enemy pathing: the "breach cost" rule
@@ -88,6 +92,7 @@ alongside, a T-junction) keep the normal tower with anchor posts where the walls
 | Cannon Tower | 2×2  | 150  | 500  | 40 dmg splash r1.6, range 6, 0.45 shots/s | Fires at the ground where the target stood, so it can miss fast enemies |
 | Magic Spire  | 2×2  | 125  | 350  | 12 dmg pulse to **all** enemies within 3.5, every 1.4s | Hit enemies are slowed to 60% speed for 1.5s. Best at chokepoints and wall breaches |
 | Catapult     | 2×2  | 180  | 300  | 55 dmg splash r1.8, range 10, min range 3, every 3.5s | Long-range siege; can't hit anything closer than 3 tiles, so protect it |
+| Gatehouse    | 2×2  | n/a  | 1200 | none                                     | Starting fort only (not buildable or sellable); the gate stays shut, so enemies smash it or go round |
 
 Towers target the enemy in range that is **closest to the Town Hall** by path distance.
 Walls join visually with neighbouring walls and buildings (straight runs, corners and buttressed
