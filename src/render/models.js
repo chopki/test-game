@@ -31,7 +31,17 @@ import {
   torus,
   wheel,
   windowFrame,
+  WORN_TRIM,
+  WORN_WALL,
+  WORNSTONE,
+  deepWindow,
+  frustum,
+  quoins,
+  roughBlocks,
+  slopedDoor,
+  wedge,
 } from './modelKit.js';
+import { woodTexture } from './textures.js';
 
 // The game's models, built after docs/reference/art-style.jpg: block-laid sandstone, red clay shingles, timber
 // and logs, chunky crenellations, blocky olive trees, and an enemy army of men
@@ -337,6 +347,103 @@ function lookouts(y) {
   const turret = t.build();
   turret.position.y = y;
   return turret;
+}
+
+
+// ------------------------------------------------------------------ stone tower (future upgrade stage)
+
+const DEFENDER_SKIN = std({ color: 0xe2b48a });
+const DEFENDER_TUNIC = std({ color: 0x5d6b34 });
+const TIMBER_BAND = std({ map: woodTexture('#7a4a2c') });
+const HIDE = std({ color: 0x7e5a3a, side: THREE.DoubleSide });
+
+/** A defender behind a parapet: green tunic, red cap, bow (`k` scales him). */
+function defender(p, x, y, z, ry, k = 1) {
+  const M = MATERIALS;
+  p.add(capsule(0.075 * k, 0.14 * k), DEFENDER_TUNIC, { x, y: y + 0.16 * k, z });
+  p.add(sphere(0.065 * k, 8, 6), DEFENDER_SKIN, { x, y: y + 0.34 * k, z });
+  p.add(sphere(0.07 * k, 8, 5), M.bannerRed, { x, y: y + 0.38 * k, z, sy: 0.7 });
+  p.add(cone(0.02 * k, 0.06 * k, 5), M.bannerRed, { x, y: y + 0.44 * k, z });
+  p.add(torus(0.12 * k, 0.012, 10), M.woodDark, { x: x + Math.sin(ry) * 0.08 * k, y: y + 0.22 * k, z: z + Math.cos(ry) * 0.08 * k, ry: ry + Math.PI / 2, sx: 0.5 });
+}
+
+/** A ragged pennant of hide on a pole (static). */
+function hidePennant(p, x, y, z, h, dir = 1, len = 0.32) {
+  const M = MATERIALS;
+  p.add(cyl(0.02, 0.026, h, 6), M.woodDark, { x, y: y + h / 2, z });
+  p.add(sphere(0.03, 6, 5), M.woodDark, { x, y: y + h + 0.02, z });
+  p.add(box(len, 0.13, 0.012), HIDE, { x: x + (dir * len) / 2, y: y + h - 0.08, z, rz: dir * -0.1 });
+  p.add(box(len * 0.45, 0.06, 0.012), HIDE, { x: x + dir * (len + 0.05), y: y + h - 0.1, z, rz: dir * -0.25 });
+}
+
+/**
+ * Stone archer tower, after the uploaded tower model (proportions measured from its mesh): a foot and a battered
+ * base with a weathered ledge, a tall arched door and a sloping buttress on the faces the camera sees, a straight
+ * shaft with deep-set windows, a heavy timber band under a jutting parapet of chunky worn merlons, four defenders
+ * and hide pennants. Walls are smooth painted stonework (WORN_WALL) with rough quoins; ledges and merlons are real
+ * blocks. Ready for the archer tower's stone upgrade stage (not baked yet: nothing uses it until upgrades arrive).
+ */
+export function createStoneTower() {
+  const M = MATERIALS;
+  const p = new Parts();
+  const rnd = rng(77);
+  // Foot (1.3 across, to 0.18), then the battered base (1.22 → 0.96, to 0.95): smooth sloping walls of painted
+  // stone with rough quoins up the corners.
+  roughBlocks(p, { y: 0, w: 1.3, d: 1.3, h: 0.18, rows: 2, rnd, minBlock: 0.2, maxBlock: 0.36 });
+  const baseTop = 0.95;
+  p.add(frustum(1.22, 0.96, baseTop - 0.18), WORN_WALL, { y: 0.18 + (baseTop - 0.18) / 2 });
+  quoins(p, rnd, { y0: 0.18, y1: baseTop, w0: 1.22, w1: 0.96 });
+  p.add(rbox(1.02, 0.07, 1.02, 0.025), WORN_TRIM, { y: baseTop + 0.035 }); // weathered ledge
+  // The shaft: 0.82 across, straight, to 1.85, a deep-set window in each face.
+  const shaftTop = 1.85;
+  p.add(frustum(0.84, 0.8, shaftTop - baseTop - 0.07), WORN_WALL, { y: (baseTop + 0.07 + shaftTop) / 2 });
+  quoins(p, rnd, { y0: baseTop + 0.07, y1: shaftTop, w0: 0.84, w1: 0.8, size: 0.11 });
+  const wy = 1.45;
+  const half = 0.41;
+  deepWindow(p, rnd, { x: 0, y: wy, z: half, nx: 0, nz: 1, s: 0.12 });
+  deepWindow(p, rnd, { x: half, y: wy, z: 0, nx: 1, nz: 0, s: 0.12 });
+  deepWindow(p, rnd, { x: 0, y: wy, z: -half, nx: 0, nz: -1, s: 0.12 });
+  deepWindow(p, rnd, { x: -half, y: wy, z: 0, nx: -1, nz: 0, s: 0.12 });
+  // Half-width of the battered base at height y.
+  const baseHalf = (y) => (y < 0.18 ? 0.65 : (1.22 - (0.26 * (y - 0.18)) / (baseTop - 0.18)) / 2);
+  // A tall arched door set into the sloping base on the +z face (cutting through the foot), with a step.
+  slopedDoor(p, rnd, { faceZ: (y) => baseHalf(Math.max(0.18, y)) + 0.012, w: 0.32, jamb: 0.32 });
+  p.add(rbox(0.46, 0.05, 0.14, 0.02), rnd.pick(WORNSTONE), { y: 0.025, z: 0.7 });
+  // A sloping buttress against the +x face: a stone wedge from the ground to high on the base, capped.
+  {
+    const z = -0.06;
+    const d = 0.34;
+    const inner = baseHalf(0.8) - 0.06;
+    p.add(wedge(inner, 0.95 - inner, 0.04 + 0.06, 0.82, d), WORN_WALL, { z });
+    for (const [y, h] of [[0, 0.16], [0.16, 0.14]]) p.add(rbox(0.12, h - 0.015, 0.16, 0.025), rnd.pick(WORNSTONE), { x: 0.91 - y * 0.3, y: y + h / 2, z: z + d / 2 - 0.06 }); // corner stones
+    p.add(rbox(0.16, 0.05, d + 0.04, 0.02), WORN_TRIM, { x: inner + 0.1, y: 0.82, z, rz: -0.35 });
+  }
+  // Heavy timber band (0.86 → 0.93), planked, with beam ends showing.
+  const bandH = 0.19;
+  p.add(frustum(0.86, 0.95, bandH), TIMBER_BAND, { y: shaftTop + bandH / 2 });
+  p.add(box(0.97, 0.025, 0.97), M.woodDark, { y: shaftTop + bandH - 0.012 });
+  for (let i = 0; i < 3; i++) {
+    const t = -0.3 + i * 0.3;
+    for (const [x, z] of [[t, 0.47], [0.47, t], [t, -0.47], [-0.47, t]]) p.add(box(0.07, 0.07, 0.07), M.beam, { x, y: shaftTop + bandH * 0.6, z });
+  }
+  // The jutting parapet (1.05 across, to 2.6): a solid course, then chunky worn merlons at the corners and mid-sides.
+  const P = 1.05;
+  const parapetY = shaftTop + bandH;
+  p.add(box(P, 0.28, P), WORN_WALL, { y: parapetY + 0.14 });
+  quoins(p, rnd, { y0: parapetY, y1: parapetY + 0.28, w0: P + 0.02, w1: P + 0.02, size: 0.12 });
+  const mY = parapetY + 0.28;
+  const size = 0.23;
+  for (const mx of [-1, 0, 1]) for (const mz of [-1, 0, 1]) {
+    if (mx === 0 && mz === 0) continue;
+    p.add(rbox(size, 0.3 + rnd.range(-0.02, 0.03), size, 0.05), rnd.pick(WORNSTONE), { x: mx * (P / 2 - size / 2), y: mY + 0.15, z: mz * (P / 2 - size / 2), ry: rnd.range(-0.06, 0.06) });
+  }
+  p.add(box(P - 0.2, 0.04, P - 0.2), M.woodLight, { y: mY + 0.01 });
+  // Four defenders, and hide pennants on the back corners and a tall centre pole.
+  for (const [x, z, ry] of [[-0.2, 0.17, 0], [0.18, 0.2, Math.PI / 4], [0.2, -0.18, Math.PI / 2], [-0.16, -0.2, -Math.PI / 2]]) defender(p, x, mY + 0.02, z, ry, 1);
+  hidePennant(p, 0, mY, 0, 0.62, 1, 0.2);
+  hidePennant(p, -0.4, mY + 0.27, -0.4, 0.3, -1, 0.26);
+  hidePennant(p, 0.4, mY + 0.27, -0.4, 0.3, 1, 0.26);
+  return p.build();
 }
 
 /** A cannon on a low, squat stone plinth. */

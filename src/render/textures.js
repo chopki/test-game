@@ -67,6 +67,70 @@ export function stoneTexture(base = '#c9a679') {
   });
 }
 
+/**
+ * Painted rough stonework for smooth walls (after the uploaded tower model): uneven courses of rounded blocks in
+ * the `colors`, each with a lit top-left bevel and a shaded bottom-right edge, dark mortar between, speckles and
+ * the odd crack. One tile is one unit; it repeats both ways.
+ */
+export function roughStoneTexture(colors, mortar = '#4a3a2c') {
+  return make(`roughStone:${colors.join(',')}`, 256, (ctx, S, rnd) => {
+    ctx.fillStyle = mortar;
+    ctx.fillRect(0, 0, S, S);
+    // Course heights that sum to the tile, so it repeats.
+    const rows = [];
+    let total = 0;
+    while (total < S - 30) {
+      const h = 30 + rnd() * 18;
+      rows.push(h);
+      total += h;
+    }
+    let y = 0;
+    for (const rh0 of rows) {
+      const rh = (rh0 * S) / total;
+      let x = -rnd() * 40;
+      while (x < S) {
+        const w = 34 + rnd() * 46;
+        const col = colors[Math.floor(rnd() * colors.length)];
+        const m = 2.5;
+        const crack = rnd() < 0.3;
+        const crackX = rnd();
+        const draw = (ox) => {
+          const bx = x + ox + m;
+          const by = y + m;
+          const bw = w - 2 * m;
+          const bh = rh - 2 * m;
+          ctx.fillStyle = col;
+          ctx.beginPath();
+          ctx.roundRect(bx, by, bw, bh, 5);
+          ctx.fill();
+          ctx.fillStyle = shade(col, 0.06); // lit bevel
+          ctx.fillRect(bx + 3, by + 1.5, bw - 6, 3);
+          ctx.fillRect(bx + 1.5, by + 3, 3, bh - 6);
+          ctx.fillStyle = shade(col, -0.1); // shaded edge
+          ctx.fillRect(bx + 3, by + bh - 4, bw - 5, 3);
+          ctx.fillRect(bx + bw - 4, by + 3, 3, bh - 5);
+          ctx.fillStyle = shade(col, -0.05);
+          for (let i = 0; i < 10; i++) ctx.fillRect(bx + 4 + rnd() * (bw - 10), by + 5 + rnd() * (bh - 10), 2, 2);
+          if (crack) {
+            ctx.strokeStyle = shade(col, -0.2);
+            ctx.lineWidth = 1.2;
+            ctx.beginPath();
+            let cx = bx + crackX * bw;
+            let cy = by + 2;
+            ctx.moveTo(cx, cy);
+            for (let i = 0; i < 3; i++) ctx.lineTo((cx += (rnd() - 0.5) * 12), (cy += bh / 3));
+            ctx.stroke();
+          }
+        };
+        draw(0);
+        if (x + w > S) draw(-S); // wrap round
+        x += w;
+      }
+      y += rh;
+    }
+  });
+}
+
 /** Overlapping clay roof tiles, rows running horizontally. */
 export function roofTexture(base = '#b4472f') {
   return make(`roof:${base}`, 128, (ctx, s, rnd) => {

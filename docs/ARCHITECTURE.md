@@ -128,6 +128,12 @@ so the whole battlefield is ~15 draw calls and a few hundred triangles however d
   adds height-based ambient occlusion. The builders lay real masonry (`stoneBlocks`, `stoneRing`, with mortar gaps),
   `merlonsRect`/`merlonsRing`, shingled roofs (`shingleGable`, `shingleCone`), half-timbering (`timberFace`),
   windows, doors, wheels, barrels, banners and ground dressing. Stone, roof and other palettes are shared materials.
+  Nothing is razor-sharp: `box()` bevels its edges, `stoneBlocks` lays worn, slightly askew blocks in courses of
+  uneven height, merlons are rounded, and `door()` sits in jamb stones under an arch of voussoirs. The worn-stone
+  kit (after an uploaded stone tower model) adds smooth walls of painted rough stonework (`WORN_WALL`, from
+  `roughStoneTexture`) on tapering blocks (`frustum`), rough corner `quoins`, `roughBlocks`, `deepWindow`,
+  `slopedDoor` (on a battered wall) and buttress `wedge`s; `createStoneTower()` in models.js uses it (the archer
+  tower's future stone stage, not baked yet).
 - `inkStyle.js`: the hand-drawn look, applied by the baker to every sprite (no runtime cost): ink outlines on the
   silhouette and on inner edges (found from extra normal and depth renders), shading flattened into soft bands,
   warmer shadows and light hatching. Pure pixel code, unit-tested in `test/inkStyle.test.js`; tune `INK_STYLE`.

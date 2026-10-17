@@ -110,6 +110,13 @@ Pre-rendered sprites on a fixed isometric camera (see ARCHITECTURE.md), working 
       Meshy with an API key), restyle the returned `.glb` with our materials and bake it with our ink style, and add
       it as a column in the import-vs-procedural comparison. Needs the go-ahead to upload the art to a third party.
       (So far: Kenney CC0 imports, restyled, matched our palette on trees but lost to procedural on buildings and rocks)
+      Tried: Hunyuan3D-2 from single crops (good outlines, guessed hidden sides, no texture from the free demo; the
+      drawing projected on worked from the game's angle but not in walls, seasons or fixed-facing pieces), and an
+      uploaded textured tower model (the closest; needs model-file support in the baker). A procedural stone tower
+      built to its measured proportions got close (`createStoneTower`), and its ideas went into the model kit
+- [x] **Worn detail on every model**: bevelled edges on all boxes, worn and uneven stone courses, rounded merlons,
+      doors in arches of voussoirs; a worn-stone kit (painted rough stonework, quoins, deep windows, sloped doors,
+      buttresses) and a procedural stone archer tower ready for the upgrade stages
 
 ## v0.2: Defence depth
 

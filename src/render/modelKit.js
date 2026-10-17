@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
-import { plasterTexture, roofTexture, speckleTexture, woodTexture } from './textures.js';
+import { plasterTexture, roofTexture, roughStoneTexture, speckleTexture, woodTexture } from './textures.js';
 
 // The modelling kit used by models.js: materials, geometry helpers, the Parts merger, and builders for the
 // recurring pieces of the art style (stone courses, shingle roofs, timber framing, windows, wheels...).
@@ -103,10 +103,17 @@ function scaleUVs(geometry, fn) {
   return geometry;
 }
 
+/**
+ * A box with its edges lightly worn round (nothing in the art style is razor-sharp; the bevels also catch the
+ * light and the ink lines). Very thin boxes (cloth, trim) stay sharp.
+ */
 export function box(w, h, d) {
   [w, h, d] = [r2(w), r2(h), r2(d)];
+  const bevel = Math.min(0.018, Math.min(w, h, d) * 0.22);
   return cached(`box:${w}:${h}:${d}`, () =>
-    scaleUVs(new THREE.BoxGeometry(w, h, d), (nx, ny) => (Math.abs(nx) > 0.5 ? [d, h] : Math.abs(ny) > 0.5 ? [w, d] : [w, h])),
+    scaleUVs(bevel < 0.006 ? new THREE.BoxGeometry(w, h, d) : new RoundedBoxGeometry(w, h, d, 1, bevel), (nx, ny) =>
+      Math.abs(nx) > 0.5 ? [d, h] : Math.abs(ny) > 0.5 ? [w, d] : [w, h],
+    ),
   );
 }
 
@@ -226,13 +233,18 @@ export function place(ox, oz, ry, lx, lz) {
  * Blocks run along `along` ('x' or 'z') and span the full depth, so both faces and the top show stones.
  */
 export function stoneBlocks(p, { x = 0, y = 0, z = 0, w, h, d, along = 'x', rows = Math.max(1, Math.round(h / 0.24)), rnd, stones = SANDSTONE, mortar = MATERIALS.mortar, gap = 0.028, jitter = 0.014, minBlock = 0.24, maxBlock = 0.46 }) {
-  const rowH = h / rows;
   const len = along === 'x' ? w : d;
   const depth = along === 'x' ? d : w;
   p.add(box(w - 2 * gap, h - gap, d - 2 * gap), mortar, { x, y: y + (h - gap) / 2, z });
+  // Courses of uneven height, as laid by hand.
+  const weights = Array.from({ length: rows }, () => (rows > 1 ? rnd.range(0.82, 1.18) : 1));
+  const sum = weights.reduce((a, b) => a + b, 0);
+  let base = y;
   for (let r = 0; r < rows; r++) {
+    const rowH = (h * weights[r]) / sum;
+    const yy = base + rowH / 2;
+    base += rowH;
     let pos = -len / 2;
-    const yy = y + rowH * (r + 0.5);
     let first = true;
     while (pos < len / 2 - 1e-6) {
       let bl = first && r % 2 ? rnd.range(minBlock * 0.5, minBlock) : rnd.range(minBlock, maxBlock);
@@ -244,8 +256,11 @@ export function stoneBlocks(p, { x = 0, y = 0, z = 0, w, h, d, along = 'x', rows
       const mat = rnd.pick(stones);
       const bh = rowH - gap * rnd.range(0.8, 1.2);
       const bd = depth + out * 2;
-      if (along === 'x') p.add(box(bl - gap, bh, bd), mat, { x: x + c, y: yy, z });
-      else p.add(box(bd, bh, bl - gap), mat, { x, y: yy, z: z + c });
+      // Worn blocks: rounded edges, each sitting very slightly askew.
+      const worn = Math.min(0.035, bh * 0.2);
+      const tilt = { rz: rnd.range(-0.012, 0.012), rx: rnd.range(-0.012, 0.012) };
+      if (along === 'x') p.add(rbox(bl - gap, bh, bd, worn, 1), mat, { x: x + c, y: yy, z, ...tilt });
+      else p.add(rbox(bd, bh, bl - gap, worn, 1), mat, { x, y: yy, z: z + c, ...tilt });
     }
   }
 }
@@ -280,8 +295,10 @@ export function merlonsRect(p, { x = 0, y, z = 0, w, d, size = 0.2, height = 0.2
     return Array.from({ length: n }, (_, i) => -len / 2 + size / 2 + (i * (len - size)) / (n - 1));
   };
   const merlon = (mx, mz) => {
-    p.add(box(size, height, size), rnd.pick(stones), { x: x + mx, y: y + height / 2, z: z + mz });
-    p.add(box(size + 0.04, 0.05, size + 0.04), MATERIALS.capstone, { x: x + mx, y: y + height + 0.025, z: z + mz });
+    // Worn merlons: rounded, each a touch different in height and set.
+    const hh = height + rnd.range(-0.02, 0.02);
+    p.add(rbox(size, hh, size, 0.035, 2), rnd.pick(stones), { x: x + mx, y: y + hh / 2, z: z + mz, ry: rnd.range(-0.04, 0.04) });
+    p.add(rbox(size + 0.04, 0.05, size + 0.04, 0.02, 1), MATERIALS.capstone, { x: x + mx, y: y + hh + 0.025, z: z + mz });
   };
   for (const mx of along(w)) {
     merlon(mx, d / 2 - size / 2);
@@ -297,8 +314,9 @@ export function merlonsRing(p, { x = 0, y, z = 0, r, count, size = 0.2, height =
   for (let i = 0; i < count; i++) {
     const a = (i / count) * Math.PI * 2;
     const at = { x: x + Math.cos(a) * r, z: z + Math.sin(a) * r, ry: -a - Math.PI / 2 };
-    p.add(box(size, height, size * 0.9), rnd.pick(stones), { ...at, y: y + height / 2 });
-    p.add(box(size + 0.04, 0.05, size * 0.9 + 0.04), MATERIALS.capstone, { ...at, y: y + height + 0.025 });
+    const hh = height + rnd.range(-0.02, 0.02);
+    p.add(rbox(size, hh, size * 0.9, 0.035, 2), rnd.pick(stones), { ...at, y: y + hh / 2 });
+    p.add(rbox(size + 0.04, 0.05, size * 0.9 + 0.04, 0.02, 1), MATERIALS.capstone, { ...at, y: y + hh + 0.025 });
   }
 }
 
@@ -399,19 +417,53 @@ export function windowFrame(p, { x = 0, y, z = 0, ry = 0, w = 0.24, h = 0.3, shu
   }
 }
 
-/** An arched plank door with iron bands. Faces +z (local). */
-export function door(p, { x = 0, y = 0, z = 0, ry = 0, w = 0.42, h = 0.62 }) {
+/** An arched plank door with iron bands, framed by jamb stones and an arch of voussoirs. Faces +z (local). */
+export function door(p, { x = 0, y = 0, z = 0, ry = 0, w = 0.42, h = 0.62, stones = SANDSTONE }) {
   const at = (lx, lz) => place(x, z, ry, lx, lz);
-  let q = at(0, 0.01);
-  p.add(box(w, h - w / 2, 0.05), MATERIALS.wood, { x: q.x, y: y + (h - w / 2) / 2, z: q.z, ry });
-  p.add(cyl(w / 2, w / 2, 0.05, 12), MATERIALS.wood, { x: q.x, y: y + h - w / 2, z: q.z, rx: Math.PI / 2, ry });
-  for (const ly of [0.15, h - w / 2 - 0.08]) {
-    q = at(0, 0.04);
-    p.add(box(w * 0.92, 0.035, 0.02), MATERIALS.iron, { x: q.x, y: y + ly, z: q.z, ry });
+  const r = w / 2;
+  const jamb = h - r;
+  let q = at(0, 0.0);
+  p.add(box(w + 0.04, h - 0.02, 0.04), MATERIALS.opening, { x: q.x, y: y + (h - 0.02) / 2, z: q.z, ry });
+  q = at(0, 0.012);
+  p.add(box(w - 0.02, jamb, 0.03), MATERIALS.wood, { x: q.x, y: y + jamb / 2, z: q.z, ry });
+  p.add(halfDisc(r - 0.01), MATERIALS.wood, { x: q.x, y: y + jamb, z: q.z, ry });
+  for (let i = 0; i < 3; i++) {
+    q = at(-w / 4 + (i * w) / 4, 0.03);
+    p.add(box(0.014, jamb + r * 0.75, 0.01), MATERIALS.woodDark, { x: q.x, y: y + (jamb + r * 0.75) / 2, z: q.z, ry });
   }
-  q = at(0, 0.035);
-  p.add(torus(w / 2 + 0.02, 0.035, 12), MATERIALS.capstone, { x: q.x, y: y + h - w / 2, z: q.z, ry });
+  for (const ly of [jamb * 0.3, jamb * 0.85]) {
+    q = at(0, 0.034);
+    p.add(box(w * 0.9, 0.028, 0.012), MATERIALS.iron, { x: q.x, y: y + ly, z: q.z, ry });
+  }
+  q = at(w * 0.3, 0.04);
+  p.add(sphere(0.022, 6, 5), MATERIALS.iron, { x: q.x, y: y + jamb * 0.55, z: q.z }); // ring handle
+  archStones(p, { x, y, z, ry, w, jamb, stones });
 }
+
+/** Jamb stones up both sides of an opening `w` wide and an arch of voussoirs over it (local +z face). */
+export function archStones(p, { x = 0, y = 0, z = 0, ry = 0, w, jamb, stones = SANDSTONE, rnd = rng(Math.round(w * 100 + jamb * 1000)) }) {
+  const at = (lx, lz) => place(x, z, ry, lx, lz);
+  const r = w / 2;
+  const s = Math.max(0.07, w * 0.24); // stone size
+  for (const sx of [-1, 1]) {
+    let yy = 0;
+    while (yy < jamb - 0.03) {
+      const hh = Math.min(jamb - yy, rnd.range(0.11, 0.15));
+      const q = at(sx * (r + s / 2), 0.02);
+      p.add(rbox(s, hh - 0.015, s, 0.02, 1), rnd.pick(stones), { x: q.x, y: y + yy + hh / 2, z: q.z, ry });
+      yy += hh;
+    }
+  }
+  const n = Math.max(5, Math.round((Math.PI * (r + s / 2)) / (s * 1.05)) | 1);
+  for (let i = 0; i < n; i++) {
+    const a = Math.PI - (i / (n - 1)) * Math.PI;
+    const R = r + s / 2;
+    const q = at(Math.cos(a) * R, 0.02);
+    p.add(rbox(s, s * 0.85, s, 0.02, 1), i === (n - 1) / 2 ? MATERIALS.capstone : rnd.pick(stones), { x: q.x, y: y + jamb + Math.sin(a) * R, z: q.z, ry, rz: a - Math.PI / 2 });
+  }
+}
+
+const halfDisc = (r) => cached(`halfDisc:${r}`, () => new THREE.CylinderGeometry(r, r, 0.04, 14, 1, false, -Math.PI / 2, Math.PI).rotateX(-Math.PI / 2)); // the upper half, facing +z
 
 /** A spoked cart wheel, axle along local x. */
 export function wheel(p, { x = 0, y, z = 0, r = 0.17, ry = 0, spokes = 6 }) {
@@ -544,4 +596,147 @@ export function groundDressing(p, { w, d, rnd, count = 10 }) {
       p.add(dodeca(rnd.range(0.04, 0.08)), rnd.pick(SANDSTONE), { x, y: 0.03, z, sy: 0.6 });
     }
   }
+}
+
+// ------------------------------------------------------------------ worn stone
+// Weathered brown-grey stonework, after the uploaded stone tower model: smooth walls wrapped in painted rough
+// stonework (roughStoneTexture), with real rough blocks where the outline shows (corners, ledges, parapets), so
+// silhouettes stay irregular.
+
+const WORN_COLORS = ['#b08f72', '#a4856a', '#bb9a7c', '#9a7b61', '#ab8b6f', '#c2a283', '#a88a70'];
+/** Rough blocks in the weathered stone colours. */
+export const WORNSTONE = WORN_COLORS.slice(0, 6).map((c) => speckled(c, 0.16));
+/** Darker stone for ledges, sills and keystones. */
+export const WORN_TRIM = speckled('#8c705a', 0.14);
+const WORN_MORTAR = std({ color: 0x4a3a2c });
+/** Smooth walls of painted rough stone (flat shaded, so a tapering wall keeps crisp faces). */
+export const WORN_WALL = std({ map: roughStoneTexture(WORN_COLORS), flatShading: true });
+
+/**
+ * A course-built block of worn stone: rounded blocks of uneven length (and course height) round a dark mortar
+ * core, each a little proud or sunk. Like stoneBlocks, but rough.
+ */
+export function roughBlocks(p, { x = 0, y = 0, z = 0, w, d, h, rows = 1, rnd, along = 'x', minBlock = 0.16, maxBlock = 0.34, gap = 0.026, stones = WORNSTONE, mortar = WORN_MORTAR }) {
+  p.add(box(w - 3 * gap, h - gap, d - 3 * gap), mortar, { x, y: y + h / 2, z });
+  const weights = Array.from({ length: rows }, () => rnd.range(0.8, 1.2));
+  const sum = weights.reduce((a, b) => a + b, 0);
+  let yy = y;
+  for (let r = 0; r < rows; r++) {
+    const rh = (h * weights[r]) / sum;
+    const dir = (r + (along === 'x' ? 0 : 1)) % 2 ? 'z' : 'x';
+    const len = dir === 'x' ? w : d;
+    const depth = dir === 'x' ? d : w;
+    let pos = -len / 2;
+    let first = true;
+    while (pos < len / 2 - 1e-6) {
+      let bl = first && r % 2 ? rnd.range(minBlock * 0.5, minBlock) : rnd.range(minBlock, maxBlock);
+      first = false;
+      if (pos + bl > len / 2 - minBlock * 0.5) bl = len / 2 - pos;
+      const c = pos + bl / 2;
+      pos += bl;
+      const out = rnd.range(-0.012, 0.016);
+      const bh = rh - gap * rnd.range(0.8, 1.3);
+      const g = rbox(dir === 'x' ? bl - gap : depth + out * 2, bh, dir === 'x' ? depth + out * 2 : bl - gap, 0.03);
+      p.add(g, rnd.pick(stones), { x: dir === 'x' ? x + c : x, y: yy + rh / 2, z: dir === 'x' ? z : z + c, rz: rnd.range(-0.02, 0.02) });
+    }
+    yy += rh;
+  }
+}
+
+/** A square frustum, `w0` across at the bottom and `w1` at the top, with world-scaled UVs on its sides. */
+export function frustum(w0, w1, h) {
+  return cached(`frustum:${w0}:${w1}:${h}`, () => {
+    const g = new THREE.CylinderGeometry(w1 / Math.SQRT2, w0 / Math.SQRT2, h, 4, 1).rotateY(Math.PI / 4);
+    const pos = g.attributes.position;
+    const uv = g.attributes.uv;
+    const perim = 2 * (w0 + w1);
+    for (let i = 0; i < pos.count; i++) uv.setXY(i, uv.getX(i) * perim, pos.getY(i) + h / 2);
+    return g;
+  });
+}
+
+/** Rough corner stones (quoins), alternately long and short, up the four edges of a block `w0` → `w1` across. */
+export function quoins(p, rnd, { x = 0, z = 0, y0, y1, w0, w1, size = 0.13, stones = WORNSTONE }) {
+  let y = y0;
+  let i = 0;
+  while (y < y1 - 0.06) {
+    const h = Math.min(y1 - y, rnd.range(0.12, 0.18));
+    const t = (y + h / 2 - y0) / (y1 - y0);
+    const half = (w0 + (w1 - w0) * t) / 2;
+    for (const [sx, sz] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) {
+      const long = (i + (sx * sz > 0 ? 0 : 1)) % 2 === 0;
+      const lx = long ? size * 1.6 : size;
+      const lz = long ? size : size * 1.6;
+      p.add(rbox(lx, h - 0.02, lz, 0.03), rnd.pick(stones), { x: x + sx * (half - lx / 2 + 0.015), y: y + h / 2, z: z + sz * (half - lz / 2 + 0.015) });
+    }
+    y += h;
+    i++;
+  }
+}
+
+/** A deep-set square window with a frame of rough stones, on the face whose outward normal is (nx, nz). */
+export function deepWindow(p, rnd, { x, y, z, nx, nz, s = 0.15, stones = WORNSTONE }) {
+  const ry = Math.atan2(nx, nz);
+  const along = (t) => ({ x: x + Math.cos(ry) * t, z: z - Math.sin(ry) * t });
+  p.add(box(s, s * 1.15, 0.05), MATERIALS.opening, { x: x + nx * 0.005, y, z: z + nz * 0.005, ry });
+  for (const [t, dy, w, h] of [[0, (s * 1.15) / 2 + 0.035, s + 0.14, 0.07], [0, -(s * 1.15) / 2 - 0.03, s + 0.16, 0.06], [-(s / 2 + 0.035), 0, 0.07, s * 1.15], [s / 2 + 0.035, 0, 0.07, s * 1.15]]) {
+    const q = along(t);
+    p.add(rbox(w, h, 0.06, 0.02), rnd.pick(stones), { x: q.x + nx * 0.02, y: y + dy, z: q.z + nz * 0.02, ry });
+  }
+}
+
+/**
+ * An arched plank door in a ring of voussoirs on a +z face that may slope (a battered wall): `faceZ(y)` gives the
+ * face's z at height y, and every part is tilted to lie on it.
+ */
+export function slopedDoor(p, rnd, { faceZ, w = 0.32, jamb = 0.3, stones = WORNSTONE, keystone = WORN_TRIM }) {
+  const M = MATERIALS;
+  const r = w / 2;
+  const tilt = Math.atan2(faceZ(0) - faceZ(1), 1);
+  const at = (y, out = 0) => ({ y, z: faceZ(y) + out, rx: -tilt });
+  const top = jamb + r;
+  p.add(box(w + 0.04, top - 0.02, 0.04), M.opening, at(top / 2));
+  p.add(box(w - 0.02, jamb, 0.03), M.wood, at(jamb / 2, 0.012));
+  p.add(halfDisc(r - 0.01), M.wood, at(jamb, 0.012));
+  for (let i = 0; i < 3; i++) p.add(box(0.014, jamb + r * 0.75, 0.01), M.woodDark, { ...at((jamb + r * 0.75) / 2, 0.03), x: -w / 4 + (i * w) / 4 });
+  for (const y of [jamb * 0.3, jamb * 0.85]) p.add(box(w * 0.9, 0.028, 0.012), M.iron, at(y, 0.034));
+  p.add(sphere(0.022, 6, 5), M.iron, { ...at(jamb * 0.55, 0.04), x: w * 0.3 });
+  for (const sx of [-1, 1]) {
+    let y = 0;
+    for (const h of [0.13, 0.12, jamb - 0.25]) {
+      if (h < 0.04) break;
+      p.add(rbox(0.1, h - 0.015, 0.09, 0.02), rnd.pick(stones), { ...at(y + h / 2, 0.02), x: sx * (r + 0.05) });
+      y += h;
+    }
+  }
+  for (let i = 0; i < 7; i++) {
+    const a = Math.PI - (i / 6) * Math.PI;
+    const R = r + 0.05;
+    p.add(rbox(0.09, 0.08, 0.09, 0.02), i === 3 ? keystone : rnd.pick(stones), { ...at(jamb + Math.sin(a) * R, 0.02), x: Math.cos(a) * R, rz: a - Math.PI / 2 });
+  }
+}
+
+/**
+ * A buttress wedge against a +x wall: its back at x = `inner`, standing `out0` proud at the ground and `out1` at the
+ * top (height h), `d` thick along z; UVs for the painted stonework.
+ */
+export function wedge(inner, out0, out1, h, d) {
+  return cached(`wedge:${inner}:${out0}:${out1}:${h}:${d}`, () => {
+    const g = new THREE.BoxGeometry(1, h, d).toNonIndexed();
+    const pos = g.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      const top = pos.getY(i) > 0;
+      pos.setX(i, pos.getX(i) < 0 ? inner : inner + (top ? out1 : out0));
+      pos.setY(i, pos.getY(i) + h / 2);
+    }
+    g.computeVertexNormals();
+    const nor = g.attributes.normal;
+    const uv = g.attributes.uv;
+    for (let i = 0; i < pos.count; i++) {
+      const [nx, ny] = [Math.abs(nor.getX(i)), Math.abs(nor.getY(i))];
+      const [px, py, pz] = [pos.getX(i), pos.getY(i), pos.getZ(i)];
+      uv.setXY(i, ...(nx > 0.5 ? [pz, py + px * 0.3] : ny > 0.5 ? [px, pz] : [px, py]));
+    }
+    return g;
+  });
 }
