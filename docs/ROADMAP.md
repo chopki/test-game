@@ -201,10 +201,8 @@ shown by livery hints (the same army on both sides, not two factions).
 - [x] Three heroes to choose from (Knight, Ranger, Warden), two abilities each
 - [ ] Hero items or talents; a hero shop at the Town Hall
 - [ ] Neutral camp variety (wolves, a boss camp)
-- [ ] Building control areas instead of "within 7 tiles of any building" (which lets towers creep up the map one by
-      one): you build only inside your territory, which comes from the Town Hall (a radius that grows with its stage)
-- [ ] Capturable flags out on the map: stand soldiers or your hero by one to take it; each held flag adds territory
-      round it (and maybe gold), and the enemy can take it back. The way to build forward, in place of chaining towers
+- [x] Territory from the Town Hall (growing with its stage), in place of "within 7 tiles of any building"
+- [x] Capturable flags on the lanes: men or your hero take them; each held flag gives territory round it and gold
 
 ## v0.5: Heroes
 

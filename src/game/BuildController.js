@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { territoryOf } from '../sim/flags.js';
 import { BUILDINGS } from '../sim/config.js';
 import { wallSeat } from '../render/wallSeat.js';
 import { createBuildingModel } from '../render/models.js';
@@ -74,6 +75,8 @@ export class BuildController {
     this.rangeRing.position.y = 0.04;
     this.rangeRing.visible = false;
     scene.add(this.rangeRing);
+    // Conquest: the edges of your territory, while building (rings from rangeRing's shape, in red).
+    this.territoryRings = [];
 
     const canvas = game.renderer.canvas;
     canvas.addEventListener('pointermove', (e) => this._onPointerMove(e));
@@ -401,6 +404,7 @@ export class BuildController {
     this._edgeScroll(dt);
     this.footprint.visible = false;
     this.rangeRing.visible = false;
+    this._showTerritory(world.mode === 'conquest' && this._buildMode);
     if (this.ghost) this.ghost.visible = false;
     this.wallGhosts.visible = false;
     this.game.renderer.grid.visible = this._buildMode;
@@ -480,6 +484,25 @@ export class BuildController {
     this.footprint.scale.set(size, 1, size);
     this.footprint.material.color.setHex(color);
     this.footprint.visible = true;
+  }
+
+  /** Conquest, building: a ring round each place that gives you territory (your Town Hall, the flags you hold). */
+  _showTerritory(show) {
+    const places = show ? territoryOf(this.world, 'red') : [];
+    while (this.territoryRings.length < places.length) {
+      const ring = new THREE.Mesh(this.rangeRing.geometry, this.rangeRing.material.clone());
+      ring.material.color.setHex(0xc23a2a);
+      ring.renderOrder = 1;
+      this.game.renderer.scene.add(ring);
+      this.territoryRings.push(ring);
+    }
+    this.territoryRings.forEach((ring, i) => {
+      const p = places[i];
+      ring.visible = Boolean(p);
+      if (!p) return;
+      this.game.renderer.toScene(p.x, 0.05, p.z, ring.position, true);
+      ring.scale.set(p.r, 1, p.r);
+    });
   }
 
   _showRange(cx, cz, range) {

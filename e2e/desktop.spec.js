@@ -390,8 +390,8 @@ test('draw calls stay flat as walls and enemies are added (instancing)', { tag: 
       }
     });
   });
-  // Enemies are sprites on the same atlas pages as walls; health bars and blob shadows add 3 batches.
-  expect(await calls()).toBeLessThanOrEqual(withSomeWalls + 6);
+  // Enemies are sprites on a few atlas pages of their own (one batch each); health bars and blob shadows add 2 more.
+  expect(await calls()).toBeLessThanOrEqual(withSomeWalls + 7);
   // The whole battlefield in a couple of dozen draw calls (more atlas pages since troops and the enemy castle's
   // blue buildings came; sprites are packed by kind to keep it down, see atlasPacking.js).
   expect(await calls()).toBeLessThanOrEqual(28);
@@ -1129,8 +1129,15 @@ test('conquest: castle against castle on the lane map, squads march both ways, b
     window.game.renderer.focusOn(h.cx, h.cz);
   });
 
-  // Building far from your own is refused.
-  expect(await page.evaluate(() => window.game.world.canPlace('archerTower', 20, 30).reason)).toBe('Too far from your buildings');
+  // Building outside your territory (round your Town Hall, and the flags you hold) is refused; in build mode your
+  // territory's edge is drawn on the ground.
+  expect(await page.evaluate(() => window.game.world.canPlace('archerTower', 20, 30).reason)).toBe('Outside your territory');
+  await page.keyboard.press('2');
+  await expect.poll(() => page.evaluate(() => window.game.build.territoryRings.filter((r) => r.visible).length)).toBe(1);
+  await page.keyboard.press('2');
+  // Six flags out on the lanes, each a pole flying a pale pennant until someone takes it.
+  expect(await page.evaluate(() => window.game.world.flags.length)).toBe(6);
+  expect(await page.evaluate(() => ['s:flagpole:0', 'flag:0:0:neutral'].filter((k) => !window.game.renderer.atlas.frame(k)))).toEqual([]);
 
   // Two taps on the wave dial send the first wave early: every Barracks on both sides sends its squad.
   await page.locator('#wave-dial').click();

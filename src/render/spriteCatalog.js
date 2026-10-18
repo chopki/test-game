@@ -4,7 +4,7 @@ import { wavingPennant, withoutPennantCloth, withTeam } from './modelKit.js';
 import { ANIMAL_KINDS, ANIMAL_POSES, createAnimal } from './animals.js';
 import { createWallDecor, WALL_DECOR_KINDS } from './wallDecor.js';
 import { createStagedModel, createStagedWallArm, STAGE_WALL_VARIANTS } from './stageModels.js';
-import { BRIDGE_PARTS, CLIFF_PROFILES, CLIFF_VARIANTS, createBridgePiece, createCliffPiece, createBuildingModel, createEnemyModel, createSceneryObject, createWallArm, ENEMY_ANIMS, IN_WALL_RADIUS, IN_WALL_TYPES, poseEnemy, SCENERY_TYPES, SCENERY_VARIANTS, WALL_VARIANTS } from './models.js';
+import { BRIDGE_PARTS, CLIFF_PROFILES, CLIFF_VARIANTS, createBridgePiece, createCliffPiece, createBuildingModel, createFlagpole, createEnemyModel, createSceneryObject, createWallArm, ENEMY_ANIMS, IN_WALL_RADIUS, IN_WALL_TYPES, poseEnemy, SCENERY_TYPES, SCENERY_VARIANTS, WALL_VARIANTS } from './models.js';
 
 export { ENEMY_ANIMS };
 
@@ -56,6 +56,8 @@ export const spriteKeys = {
   enemy: (type, heading, elite = false, anim = 'walk', frame = 0, team = 'blue') =>
     `e:${team === 'blue' ? '' : `${team}:`}${type}:${elite ? 'elite:' : ''}${angleIndex(heading, ENEMY_DIRECTIONS)}:${anim}:${frame}`,
   scenery: (kind, variant) => `s:${kind}:${variant}`,
+  /** Conquest's capturable flag's pole (its cloth is a flag sprite). */
+  flagpole: () => 's:flagpole:0',
   /** A tile's length of cliff face (see createCliffPiece), facing 's' (+z) or 'e' (+x). */
   cliff: (face, profile, variant) => `cliff:${face}:${profile}:${variant}`,
 };
@@ -268,6 +270,7 @@ export function spriteSpecs() {
   for (const kind of SCENERY_TYPES) {
     for (let v = 0; v < SCENERY_VARIANTS; v++) specs.push({ key: spriteKeys.scenery(kind, v), make: () => createSceneryObject(kind, v) });
   }
+  specs.push({ key: spriteKeys.flagpole(), make: () => createFlagpole() });
   // Cliff faces on the hills, for the two sides the camera sees.
   for (const face of ['s', 'e']) {
     for (const profile of CLIFF_PROFILES) {
@@ -324,10 +327,12 @@ export function spriteSpecs() {
     }
   }
 
-  // The enemy castle's buildings in blue (banners, pennants, lookouts), for the types it starts with and builds.
+  // The enemy castle's buildings in blue (banners, pennants, lookouts), for the types it starts with and builds;
+  // and pale pennants for Conquest's flags while no one holds them.
   for (const s of specs.filter((s) => BLUE_KEY.test(s.key))) {
     const make = s.make;
     specs.push({ ...s, key: teamKey(s.key, 'blue'), make: () => withTeam('blue', make) });
+    if (s.key.startsWith('flag:')) specs.push({ ...s, key: teamKey(s.key, 'neutral'), make: () => withTeam('neutral', make) });
   }
   return specs;
 }
@@ -338,6 +343,6 @@ export function spriteSpecs() {
  */
 const BLUE_KEY = /^(b:(townHall|archerTower|barracks)(:s[2-5])?|t:archerTower:\d+:0|flag:\d:\d+)$/;
 
-/** The key of `key`'s version in `team`'s colours: blue for the enemy castle, else the key itself (red). */
-export const teamKey = (key, team) => (team === 'blue' ? `${key}:blue` : key);
+/** The key of `key`'s version in `team`'s colours: blue for the enemy castle, neutral pale, else the key itself (red). */
+export const teamKey = (key, team) => (team === 'blue' || team === 'neutral' ? `${key}:${team}` : key);
 

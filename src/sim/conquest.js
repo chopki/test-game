@@ -1,5 +1,6 @@
 import { BUILDINGS, CONQUEST, PATHING, TERRAIN, TROOPS, UPGRADES } from './config.js';
 import { nextUpgradeCost } from './upgrades.js';
+import { inTerritory } from './flags.js';
 import { nearestLane } from './lanes.js';
 import { dist, reachOf, walkTo } from './troops.js';
 import { T } from './terrain.js';
@@ -95,6 +96,23 @@ function mirrorFree(world, type, { x, z }) {
   const mx = world.grid.width - x - size;
   const mz = world.grid.height - z - size;
   return world.grid.isAreaFree(mx, mz, size);
+}
+
+/**
+ * The capturable flags (CONQUEST.flags): on each lane at each of `at` of the way from red's hall (the far ones are
+ * the near ones' mirror images), all no one's at the start.
+ */
+export function placeFlags(world) {
+  const { width: W, height: H } = world.grid;
+  world.flags = [];
+  const near = Math.min(...CONQUEST.flags.at);
+  for (let lane = 0; lane < world.lanes.length; lane++) {
+    const p = alongLane(world, lane, 'red', near);
+    const [x, z] = [Math.round(p.x), Math.round(p.z)];
+    world.flags.push({ x: x + 0.5, z: z + 0.5, lane, owner: null, hold: 0, contested: false });
+    // Its mirror: on the mirrored lane (west ↔ east, middle ↔ middle), as far from blue's hall.
+    world.flags.push({ x: W - 1 - x + 0.5, z: H - 1 - z + 0.5, lane: world.lanes.length - 1 - lane, owner: null, hold: 0, contested: false });
+  }
 }
 
 /** The men each Barracks sends in wave `n`. */
@@ -365,7 +383,7 @@ export function aiThink(world) {
 function aiWall(world, lane) {
   (world.aiWalls ??= new Set()).add(lane);
   const pts = lanePoints(world, lane, 'blue');
-  const p = alongLane(world, lane, 'blue', CONQUEST.ai.wallAt);
+  const p = inBlueReach(world, lane, CONQUEST.ai.wallAt);
   // The lane's direction there, and across it.
   let k = 0;
   for (let i = 1; i < pts.length; i++) if (Math.hypot(pts[i].x - p.x, pts[i].z - p.z) < Math.hypot(pts[k].x - p.x, pts[k].z - p.z)) k = i;
@@ -387,8 +405,17 @@ function aiWall(world, lane) {
   }
 }
 
+/** Somewhere on `lane`, `t` of the way out from blue's hall, or as near that as blue's territory reaches. */
+function inBlueReach(world, lane, t) {
+  for (let k = t; k > 0; k -= 0.03) {
+    const p = alongLane(world, lane, 'blue', k);
+    if (inTerritory(world, 'blue', p.x + 0.5, p.z + 0.5)) return p;
+  }
+  return alongLane(world, lane, 'blue', 0);
+}
+
 function aiBuild(world, type, lane, t) {
-  const p = alongLane(world, lane, 'blue', t);
+  const p = inBlueReach(world, lane, t);
   const spot = spotNear(world, type, 'blue', p.x + 0.5, p.z + 0.5, { radius: 5, offLane: type === 'barracks' ? 2.4 : 1.6 });
   if (!spot) return false;
   const r = world.place(type, spot.x, spot.z, { team: 'blue' });

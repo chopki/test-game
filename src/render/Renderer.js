@@ -11,7 +11,7 @@ import { DECOR_PENNANTS, WALL_DECOR_KINDS } from './wallDecor.js';
 import { waterFlow } from './waterFlow.js';
 import { cliffGeometry, cliffTexture, pushDepth, raisedGroundGeometry } from './hills.js';
 import { waterTexture } from './waterTextures.js';
-import { CHIMNEYS, CLIFF_VARIANTS, createProjectileModel, IN_WALL_RADIUS, PENNANTS, SCENERY_SWAY, SCENERY_VARIANTS, WALL_VARIANTS, wallArmOffset } from './models.js';
+import { CHIMNEYS, CLIFF_VARIANTS, createProjectileModel, FLAGPOLE, IN_WALL_RADIUS, PENNANTS, SCENERY_SWAY, SCENERY_VARIANTS, WALL_VARIANTS, wallArmOffset } from './models.js';
 import { BlobShadowBatch, GlowBatch, HealthBarBatch } from './batches.js';
 import { ISO_QUATERNION, isoDirection } from './iso.js';
 import { fordBridges } from './bridges.js';
@@ -686,6 +686,7 @@ export class Renderer {
     this.particles.clear();
     this.scorches = [];
     this.corpses = [];
+    this._flagPhases = [];
 
     this.world = world;
     // The scene is centred on the map, whatever its size. Bigger maps let the camera zoom further out, but never so
@@ -838,6 +839,7 @@ export class Renderer {
     this._clouds.material.uniforms.time.value = this._time;
     if (world) {
       this._sync(this.views.buildings, world.buildings.values(), (b) => this._createBuildingView(b), (v, b) => this._updateBuildingView(v, b));
+      this._drawFlags();
       this._sync(this.views.enemies, world.enemies, () => ({ walk: Math.random() }), (v, e) => this._updateEnemyView(v, e));
       this._sync(this.views.troops, world.troops, () => ({ walk: Math.random() }), (v, t) => this._updateEnemyView(v, t));
       this._drawCorpses(dt);
@@ -1055,9 +1057,24 @@ export class Renderer {
 
   /** A sprite's version in `team`'s colours (see teamKey), or the red one if there's no blue version of it. */
   _teamKey(key, team) {
-    if (team !== 'blue') return key;
-    const blue = teamKey(key, 'blue');
-    return this.atlas.frame(blue) ? blue : key;
+    if (team !== 'blue' && team !== 'neutral') return key;
+    const theirs = teamKey(key, team);
+    return this.atlas.frame(theirs) ? theirs : key;
+  }
+
+  /** Conquest's flags: a pole flying its holder's colours (pale while no one's), and a bar while it's being taken. */
+  _drawFlags() {
+    const flags = this.world.flags;
+    if (!flags) return;
+    const key = spriteKeys.flagpole();
+    flags.forEach((f, i) => {
+      const ground = this.toScene(f.x, 0, f.z, this._v);
+      this.sprites.add(key, ground, 1, 0, 0, 0);
+      this.shadowSprites.add(key, ground);
+      this._drawFlag((this._flagPhases[i] ??= { phase: (i * 0.37) % 1 }), f.x, f.z, FLAGPOLE, false, f.owner ?? 'neutral');
+      const taking = Math.abs(f.hold);
+      if (f.contested || (taking > 0.01 && taking < 1)) this.healthBars.add(this.toScene(f.x, FLAGPOLE.y + 0.5, f.z, this._v), 0.9, taking, 1);
+    });
   }
 
   /** Which way a watchtower's lookouts face: their target while shooting, otherwise slowly scanning round. */

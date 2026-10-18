@@ -481,7 +481,12 @@ export const TROOPS = {
  * `firstPush`) each Barracks sends a squad down its lane (see `squad`), with `hpPerWave` more health each wave. Squads march to the enemy's Town
  * Hall, fighting enemy soldiers within `aggro` (chasing them up to `chase`) and enemy buildings near the lane, and
  * breaking through walls in their way. Win by destroying the enemy's Town Hall.
- *  buildRadius  new buildings must stand within this of one of your own (centre to centre, walls don't count)
+ *  territory    where a side may build: within `hall[stage - 1]` tiles of its Town Hall (growing as the hall goes up
+ *               stages), and within `flag` of each flag it holds (see `flags`)
+ *  flags        capturable flags out on the lanes (sim/flags.js): a side takes one by having men (or its hero) within
+ *               `radius` of it, alone, for `capture` seconds (a hero counts as `heroWorth` men; more men take it
+ *               faster, up to `maxMen`); the other side must first bring it down to no one's, then take it. Each
+ *               flag held pays `income` gold a second.
  *  income       gold a second to each side, besides bounties (a soldier's `reward`, `buildingBounty` a building)
  *  repairDelay  repairs can be made at any time, but not within this many seconds of a hit
  */
@@ -506,7 +511,8 @@ export const CONQUEST = {
   hpPerWave: 0.04,
   aggro: 4.5,
   chase: 7,
-  buildRadius: 7,
+  territory: { hall: [12, 14, 16, 18, 20], flag: 7 },
+  flags: { at: [0.42, 0.58], radius: 2.5, capture: 8, maxMen: 4, heroWorth: 3, income: 0.4 },
   repairDelay: 5,
   // Where each side's fort stands along each lane, as fractions of the lane's length from its own Town Hall.
   fort: { barracks: 0.1, towers: [0.17, 0.33] },

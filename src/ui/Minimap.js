@@ -1,4 +1,5 @@
 import { T } from '../sim/terrain.js';
+import { territoryOf } from '../sim/flags.js';
 
 /**
  * The minimap (Conquest): the whole lane map in the battlefield's own isometric view, so the lanes run the same way
@@ -123,6 +124,36 @@ export class Minimap {
       g.fill();
     }
     g.globalAlpha = 1;
+    // Territory (faint, each side's colour) and the flags (a diamond in the holder's colour, pale if no one's).
+    for (const team of ['red', 'blue']) {
+      g.strokeStyle = TEAM[team];
+      g.globalAlpha = 0.45;
+      g.lineWidth = 1;
+      for (const t of territoryOf(world, team)) {
+        g.beginPath();
+        for (let a = 0; a <= 24; a++) {
+          const [px, py] = this.project(t.x + Math.cos((a / 24) * Math.PI * 2) * t.r, t.z + Math.sin((a / 24) * Math.PI * 2) * t.r);
+          if (a) g.lineTo(px, py);
+          else g.moveTo(px, py);
+        }
+        g.stroke();
+      }
+    }
+    g.globalAlpha = 1;
+    for (const f of world.flags ?? []) {
+      const [px, py] = this.project(f.x, f.z);
+      const k = Math.max(2.5, this.s * 1.6);
+      g.fillStyle = f.owner ? TEAM[f.owner] : '#f3ecd8';
+      g.strokeStyle = '#3a2a18';
+      g.beginPath();
+      g.moveTo(px, py - k);
+      g.lineTo(px + k, py);
+      g.lineTo(px, py + k);
+      g.lineTo(px - k, py);
+      g.closePath();
+      g.fill();
+      g.stroke();
+    }
     // Soldiers: a dot each.
     const r = Math.max(1, this.s * 0.9);
     for (const t of world.troops) {

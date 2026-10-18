@@ -197,8 +197,16 @@ south end, **blue** (the AI) the north.
 - **Squads** march their lane to the enemy's Town Hall. They fight enemy soldiers within 4.5 tiles (chasing up to
   7), then enemy buildings beside the lane (not walls), and break through any enemy wall in their way. A man struck
   by a sword turns to fight back. Towers shoot the nearest enemy soldier in range; your towers never hit your men.
-- **Building**: anywhere within 7 tiles of one of your own buildings (walls don't count), so your ground grows as
-  you build out along the lanes. You can't sell, upgrade or repair the enemy's buildings.
+- **Territory**: you may only build inside your territory: within 12 tiles of your Town Hall (14, 16, 18 and 20 as
+  it goes up stages), and within 7 tiles of each flag you hold. (Towers can't creep up the map one after another.)
+  Build mode draws your territory's edges on the ground; the minimap shows both sides'. You can't sell, upgrade or
+  repair the enemy's buildings, and the AI builds by the same rules.
+- **Flags**: six capturable flags, one on each lane 42% of the way out from each side's hall (the far three the
+  mirror of the near three), all no one's at the start. Men (or your hero, worth 3 men) by a flag, within 2.5 tiles
+  and with no enemy there, pull it over to their side: 8 s with 2 men, 4 s with 4 or more. A flag the enemy holds
+  must first be brought down to no one's; with both sides by it, it doesn't move. Each flag held pays 0.4 gold a
+  second and gives territory round it. Squads take flags as they march past; the AI's hero goes for flags on its
+  half that aren't blue's.
 - **Gold**: both sides start with 250 and earn 1.5 a second, plus 6 for each enemy Man-at-arms, 5 per Bowman and 40
   per building (not walls) that falls. Repairs can be made at any time, but not within 5 s of a hit.
 - **The AI** (blue) thinks every 2.5 s and spends its gold through the same commands as you, one thing a turn, in

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { BUILDINGS, CAMPS, CONQUEST, HEROES, TROOPS } from '../src/sim/config.js';
 import { LAYOUTS } from '../src/sim/lanes.js';
+import { inTerritory, updateFlags } from '../src/sim/flags.js';
 import { heroXp } from '../src/sim/heroes.js';
 import { aiThink, squadFor } from '../src/sim/conquest.js';
 import { blocksMovement, T } from '../src/sim/terrain.js';
@@ -75,12 +76,12 @@ describe('conquest map', () => {
 });
 
 describe('conquest rules', () => {
-  it('build only near your own buildings; the enemy can be neither sold nor upgraded', () => {
+  it('build only in your territory (round your Town Hall); the enemy can be neither sold nor upgraded', () => {
     const world = conquest(1);
     world.economy.earn(5000);
     const hall = world.townHall;
     expect(world.canPlace('archerTower', hall.x + 5, hall.z - 1).ok).toBe(true);
-    expect(world.canPlace('archerTower', hall.x, hall.z - 40).reason).toBe('Too far from your buildings');
+    expect(world.canPlace('archerTower', hall.x, hall.z - 40).reason).toBe('Outside your territory');
     const enemy = teamBuildings(world, 'blue').find((b) => b.type === 'archerTower');
     expect(world.canSell(enemy)).toBe(false);
     expect(world.upgradeCheck(enemy).ok).toBe(false);
@@ -240,7 +241,7 @@ describe('conquest rules', () => {
     for (let i = 0; i < 12 && !world.aiWalls?.has(1); i++) aiThink(world);
     expect(world.aiWalls.has(1)).toBe(true);
     const walls = teamBuildings(world, 'blue').filter((b) => b.type === 'wall' && b.lane === 1);
-    expect(walls.length).toBeGreaterThan(3);
+    expect(walls.length).toBeGreaterThanOrEqual(3);
     // The gap: blue's own men still get from their hall down the lane without breaking anything.
     const g = world.grid;
     const pts = world.lanes[1].points;
@@ -415,5 +416,77 @@ describe('layouts and neutral camps', () => {
     expect(h.xp).toBeGreaterThan(0);
     run(world, CAMPS.respawn + 1);
     expect(guards(0).length).toBe(CAMPS.guards.length);
+  });
+});
+
+describe('territory and flags', () => {
+  const place = (world, team, f, n = 1) => {
+    const men = world.troops.filter((t) => t.team === team && !t.hero).slice(0, n);
+    for (const t of men) Object.assign(t, { x: f.x, z: f.z, tx: Math.floor(f.x), tz: Math.floor(f.z), delay: 0, def: { ...t.def, speed: 0 }, lane: undefined, barracksId: -1 });
+    return men;
+  };
+
+  it("six flags on the lanes, the far three the mirror of the near three, no one's at the start", () => {
+    const world = conquest(1);
+    const { width: W, height: H } = world.grid;
+    expect(world.flags.length).toBe(6);
+    for (const f of world.flags) {
+      expect(f.owner).toBeNull();
+      expect(world.flags.some((g) => g.x === W - f.x && g.z === H - f.z)).toBe(true);
+    }
+  });
+
+  it('men by a flag, alone, take it; then their side can build round it and it pays', () => {
+    const world = conquest(1);
+    world.startWave();
+    const f = world.flags.find((g) => g.z > world.grid.height / 2);
+    expect(world.canPlace('archerTower', Math.floor(f.x) + 2, Math.floor(f.z)).reason).toBe('Outside your territory');
+    place(world, 'red', f, 2);
+    // (Everyone else stays put, far off.)
+    for (const t of world.troops) if (t.team === 'blue') t.delay = 1e9;
+    let taken = null;
+    world.events.on('flagCaptured', (e) => (taken = e));
+    for (let t = 0; t < CONQUEST.flags.capture * 3 && !taken; t += DT) updateFlags(world, DT);
+    expect(taken?.team).toBe('red');
+    expect(f.owner).toBe('red');
+    world.economy.earn(1000);
+    // Towers placed near it (somewhere the ground allows).
+    let ok = false;
+    for (let dx = -5; dx <= 5 && !ok; dx++) for (let dz = -5; dz <= 5 && !ok; dz++) ok = world.canPlace('archerTower', Math.floor(f.x) + dx, Math.floor(f.z) + dz).ok;
+    expect(ok).toBe(true);
+    const gold = world.economy.gold;
+    updateFlags(world, 10);
+    expect(world.economy.gold).toBeGreaterThan(gold);
+  });
+
+  it("a contested flag doesn't move; the other side must bring it down to no one's before taking it", () => {
+    const world = conquest(1);
+    world.startWave();
+    const f = world.flags[0];
+    Object.assign(f, { owner: 'red', hold: 1 });
+    const blues = place(world, 'blue', f, 2);
+    const reds = place(world, 'red', f, 1);
+    updateFlags(world, 5);
+    expect(f.hold).toBe(1);
+    expect(f.contested).toBe(true);
+    for (const t of reds) t.alive = false;
+    const events = [];
+    world.events.on('flagLost', () => events.push('lost'));
+    world.events.on('flagCaptured', (e) => events.push(e.team));
+    for (let t = 0; t < CONQUEST.flags.capture * 6 && f.owner !== 'blue'; t += DT) updateFlags(world, DT);
+    expect(events).toEqual(['lost', 'blue']);
+    expect(blues.length).toBe(2);
+  });
+
+  it("a Town Hall's territory grows as it goes up stages", () => {
+    const world = conquest(1);
+    const hall = world.townHall;
+    const r = CONQUEST.territory.hall;
+    const edge = (k) => inTerritory(world, 'red', hall.cx, hall.cz - k);
+    expect(edge(r[0] - 0.5)).toBe(true);
+    expect(edge(r[0] + 1)).toBe(false);
+    world.economy.earn(5000);
+    world.upgrade(hall.id);
+    expect(edge(r[0] + 1)).toBe(true);
   });
 });

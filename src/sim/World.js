@@ -11,7 +11,8 @@ import { generateMap, groundHeight, spawnTilesBySide, T } from './terrain.js';
 import { SIDES } from './WaveManager.js';
 import { refreshPosts, updateBarracks, updateTroop } from './troops.js';
 import { generateLaneMap, nearestLane } from './lanes.js';
-import { aiThink, buildForts, otherTeam, sendSquads, updateLaneSoldier } from './conquest.js';
+import { aiThink, buildForts, otherTeam, placeFlags, sendSquads, updateLaneSoldier } from './conquest.js';
+import { inTerritory, updateFlags } from './flags.js';
 import { heroFell, heroXp, orderHero, spawnHero, updateHero, updateHeroes, useAbility } from './heroes.js';
 import { campAlarm, campGuardFell, setupCamps, updateCampGuard, updateCamps } from './camps.js';
 
@@ -128,6 +129,7 @@ export class World {
     this.townHall = this._addBuilding('townHall', map.halls.red.x, map.halls.red.z, 'red');
     this.enemyHall = this._addBuilding('townHall', map.halls.blue.x, map.halls.blue.z, 'blue');
     buildForts(this);
+    placeFlags(this);
     // The player's hero as chosen (else the default); the AI's at random (on a stream of its own).
     const kinds = Object.keys(HEROES.roster);
     this.heroKinds = { red: HEROES.roster[this._heroChoice] ? this._heroChoice : HEROES.default, blue: createRng(this.seed ^ 0x4e40).pick(kinds) };
@@ -211,7 +213,7 @@ export class World {
     const def = BUILDINGS[type];
     if (!def || !def.buildable) return { ok: false, reason: 'Cannot build that' };
     if (this.phase === 'gameover') return { ok: false, reason: 'Game over' };
-    if (this.mode === 'conquest' && !anywhere && !this._nearOwn(team, x + def.size / 2, z + def.size / 2)) return { ok: false, reason: 'Too far from your buildings' };
+    if (this.mode === 'conquest' && !anywhere && !inTerritory(this, team, x + def.size / 2, z + def.size / 2)) return { ok: false, reason: 'Outside your territory' };
     for (const [tx, tz] of this.grid.footprint(x, z, def.size)) {
       if (!this.grid.inBounds(tx, tz)) return { ok: false, reason: 'Out of bounds' };
       if (this.grid.isInSpawnZone(tx, tz)) return { ok: false, reason: 'Too close to the edge' };
@@ -231,13 +233,6 @@ export class World {
     return { ok: true, replaces, refund };
   }
 
-  /** Conquest: whether (x, z) is within CONQUEST.buildRadius of one of `team`'s buildings (walls don't count). */
-  _nearOwn(team, x, z) {
-    for (const b of this.buildings.values()) {
-      if (b.team === team && b.type !== 'wall' && Math.hypot(b.cx - x, b.cz - z) <= CONQUEST.buildRadius) return true;
-    }
-    return false;
-  }
 
   /**
    * The walls a building of `type` at (x, z) would replace: [] on clear ground, the walls in its footprint when
@@ -456,6 +451,7 @@ export class World {
         aiThink(this);
       }
       updateHeroes(this, dt);
+      updateFlags(this, dt);
       updateCamps(this);
     }
     if (this.phase === 'wave') {

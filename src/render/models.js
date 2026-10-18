@@ -1843,6 +1843,22 @@ export const SCENERY_VARIANTS = 3;
 export const SCENERY_SWAY = { oak: 1, pine: 0.8, birch: 1.35, spruce: 0.7, beech: 0.85, snag: 0.2, bush: 0.35 };
 
 /** One tree, bush or rock (for baking into a sprite). `variant` picks its shape and colour. */
+/** Conquest's capturable flag: a tall pole on a cairn of stones. Its cloth (the holder's colours) waves separately. */
+const FLAGPOLE_BASE = 0.22;
+export const FLAGPOLE = { x: 0, y: FLAGPOLE_BASE + 1.7 - 0.02, z: 0, w: PENNANT_W };
+export function createFlagpole() {
+  const p = new Parts();
+  const rnd = rng(31);
+  for (let i = 0; i < 7; i++) {
+    const a = (i / 7) * Math.PI * 2;
+    const r = 0.22 + rnd.range(-0.04, 0.04);
+    p.add(dodeca(rnd.range(0.1, 0.14)), rnd.pick(BOULDER), { x: Math.cos(a) * r, y: 0.08, z: Math.sin(a) * r, sy: 0.75, ry: rnd.range(0, 3) });
+  }
+  p.add(dodeca(0.16), rnd.pick(BOULDER), { y: 0.14, sy: 0.7 });
+  pennant(p, { y: FLAGPOLE_BASE, h: 1.7, w: PENNANT_W });
+  return p.build();
+}
+
 export function createSceneryObject(kind, variant = 0) {
   const p = new Parts();
   SCENERY_BUILDERS[kind](p, rng(kind.length * 31 + variant * 7 + 3), variant);

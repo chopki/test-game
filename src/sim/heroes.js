@@ -231,7 +231,13 @@ function blueHeroThink(world) {
   const lane = counts.indexOf(Math.max(...counts));
   let lead = null;
   for (const t of world.troops) if (t.alive && t.team === 'blue' && t.lane === lane && (!lead || t.wp > lead.wp)) lead = t;
-  const at = lead ?? lanePoints(world, lane, 'blue')[Math.floor(lanePoints(world, lane, 'blue').length * 0.3)];
+  // A flag that isn't blue's on its own half first (to take it), else with the lead soldier.
+  let flag = null;
+  for (const f of world.flags ?? []) {
+    if (f.owner === 'blue' || f.z > world.grid.height / 2) continue;
+    if (!flag || Math.hypot(f.x - h.x, f.z - h.z) < Math.hypot(flag.x - h.x, flag.z - h.z)) flag = f;
+  }
+  const at = flag ?? lead ?? lanePoints(world, lane, 'blue')[Math.floor(lanePoints(world, lane, 'blue').length * 0.3)];
   if (!h.target) orderHero(world, 'blue', { x: at.x, z: at.z });
   // Its abilities, when they'd do some good.
   const friends = world.troops.filter((t) => t.alive && t.team === 'blue' && dist(t, h) <= 4.5).length;

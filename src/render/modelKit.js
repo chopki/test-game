@@ -51,6 +51,7 @@ export const MATERIALS = {
   // What a building's own people wear (the lookouts): the side's colour, swapped by withTeam.
   teamCloth: std({ color: 0x8e3426 }),
   bannerBlue: std({ color: 0x35508e, side: THREE.DoubleSide }),
+  bannerPale: std({ color: 0xd9d0b8, side: THREE.DoubleSide }), // a flag no one holds
   hood: std({ color: 0x5d4a2e }),
   bone: std({ color: 0xe6dcc0 }),
   boulder: speckled('#a59c8c', 0.12),
@@ -530,12 +531,13 @@ export function withoutPennantCloth(make) {
 
 /**
  * Build `make()` in `team`'s colours: the player's ('red', as the materials stand) or the enemy castle's ('blue':
- * banners, pennants and the lookouts' clothes in blue). Roofs, stone and timber are the same for both.
+ * banners, pennants and the lookouts' clothes in blue); 'neutral' gives pale banners (a flag no one holds). Roofs,
+ * stone and timber are the same for all.
  */
 export function withTeam(team, make) {
-  if (team !== 'blue') return make();
+  if (team !== 'blue' && team !== 'neutral') return make();
   const saved = { bannerRed: MATERIALS.bannerRed, teamCloth: MATERIALS.teamCloth };
-  MATERIALS.bannerRed = MATERIALS.bannerBlue;
+  MATERIALS.bannerRed = team === 'blue' ? MATERIALS.bannerBlue : MATERIALS.bannerPale;
   MATERIALS.teamCloth = MATERIALS.clothBlue;
   try {
     return make();

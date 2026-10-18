@@ -224,6 +224,8 @@ export class HUD {
     });
     ev.on('heroLevelUp', ({ hero, level }) => hero.team === 'red' && this.toast(`${hero.def.name} reaches level ${level}`, 'good'));
     ev.on('campCleared', ({ by }) => by === 'red' && this.toast('Bandit camp cleared! It will fill again in a while', 'good'));
+    ev.on('flagCaptured', ({ team }) => this.toast(team === 'red' ? 'We hold a flag: you can build round it' : 'The enemy has taken a flag', team === 'red' ? 'good' : 'warn'));
+    ev.on('flagLost', ({ owner }) => owner === 'red' && this.toast('One of our flags is falling!', 'warn'));
     ev.on('buildingUpgraded', ({ building }) => {
       if (building.type === 'wall') return;
       if (building.team === 'blue') this.toast(`The enemy upgraded a ${building.def.name}: ${building.def.stageName}`, 'warn');
@@ -290,7 +292,8 @@ export class HUD {
     if (w.mode === 'conquest') {
       const men = summarizeSquad(squadFor(w.waves.wave + 1));
       const foe = w.enemyHall;
-      this._set('nextWave', w.phase === 'build' ? `Wave ${w.waves.wave + 1}: ${men} from each Barracks · Enemy Town Hall ${Math.ceil(foe.hp)}/${foe.maxHp}` : '');
+      const flags = w.flags.filter((f) => f.owner === 'red').length;
+      this._set('nextWave', w.phase === 'build' ? `Wave ${w.waves.wave + 1}: ${men} from each Barracks · Flags ${flags}/${w.flags.length} · Enemy Town Hall ${Math.ceil(foe.hp)}/${foe.maxHp}` : '');
     } else if (w.phase === 'build') {
       const next = w.waves.next;
       const units = summarizeWave(next).map((u) => `${u.count} ${u.name}`).join(', ');
