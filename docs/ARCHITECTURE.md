@@ -38,6 +38,8 @@ to a fixed-timestep server, replays or AI opponents later.
 | ---------------- | -------------- |
 | `config.js`      | **All balance data**: grid (and the map sizes), economy, timings, building and enemy tables, wave tuning |
 | `World.js`       | Game state and rules: phases, placement, combat, enemy AI, projectiles, events |
+| `lanes.js`       | The Conquest map: `generateLaneMap` (mirrored terrain, both Town Halls, three lanes of waypoints), `nearestLane` |
+| `conquest.js`    | Conquest: the mirrored forts (`buildForts`), each wave's squads (`sendSquads`), lane soldiers (`updateLaneSoldier`), the blue AI (`aiThink`) |
 | `troops.js`      | The player's troops: Barracks posts (`findPost`), training (`updateBarracks`), troop AI and movement (`updateTroop`) |
 | `pathfind.js`    | A* over the grid (`findPath`) for units that go somewhere of their own (troops) |
 | `upgrades.js`    | Building stages: `stageDef(type, stage)` lays UPGRADES' stage changes over BUILDINGS (World swaps `b.def` on `upgrade`) |
@@ -269,9 +271,13 @@ Extend `_fire` / `_updateProjectile` in `World.js`, plus `createProjectileModel`
 
 - **Troops** are in (`sim/troops.js`, `world.troops`, A* in `sim/pathfind.js`); units carry a `team` ('red' the
   player, 'blue' the enemy), drawn as the same models in that team's livery (`createEnemyModel(type, elite, team)`;
-  sprite keys `e:red:…`). For Conquest (see ROADMAP), the next step is to generalise enemies and troops into one
-  unit list with a `team`, a `faction`-aware combat module (`sim/combat.js`) and shared movement (`sim/movement.js`),
-  with per-lane waypoint flow fields per team.
+  sprite keys `e:red:…`).
+- **Conquest** (`World({ mode: 'conquest' })`): buildings carry a `team` too, each team has an Economy
+  (`economyOf(team)`), `place(type, x, z, { team })` builds for either side (the AI uses it), and towers, splash and
+  pulses hit `foesOf(team)`. Lane soldiers are `world.troops` with a `lane` and `wp` (next waypoint). Blue buildings
+  are drawn from `…:blue` sprites where they exist (`teamKey`; models built `withTeam('blue', …)`), else the red
+  ones. Survival's enemy army is still its own list (`world.enemies`, the flow field); merging it with troops into
+  one unit list with shared combat and movement would tidy this up.
 - **Heroes** are troops with a level, XP and abilities. Abilities should be data in `config.js` with handlers in
   `sim/abilities.js`, triggered by World commands (`world.castAbility(heroId, abilityId, target)`).
 - **Economy**: `Economy` grows into multiple resources (`{ gold, wood, stone, food }`) with `cost` objects in place of

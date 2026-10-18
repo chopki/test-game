@@ -106,9 +106,9 @@
             </svg>
           </div>
           <nav class="menu-buttons" aria-label="Main menu">
-            <button class="plaque" type="button" disabled title="Coming soon">Campaign<span class="soon">Coming soon</span></button>
             <button id="menu-continue" class="plaque" type="button">Continue</button>
             <button id="menu-endless" class="plaque" type="button"><span id="menu-endless-label">Endless Mode</span></button>
+            <button id="menu-conquest" class="plaque" type="button"><span id="menu-conquest-label">Conquest</span><span class="soon">Castle against castle</span></button>
             <button id="menu-codex" class="plaque" type="button">The Royal Codex</button>
             <button id="menu-options" class="plaque" type="button">Options</button>
           </nav>
@@ -227,7 +227,7 @@
 
       <div id="gameover" class="overlay" hidden>
         <div class="panel dialog">
-          <h2>The Town Hall has fallen</h2>
+          <h2 id="gameover-title">The Town Hall has fallen</h2>
           <p id="gameover-stats"></p>
           <button id="restart" class="primary">Play again <kbd>R</kbd></button>
         </div>

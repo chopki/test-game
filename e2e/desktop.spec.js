@@ -956,7 +956,7 @@ test('wildlife: deer and rabbits at the woods edge bolt when startled, birds fly
   expect(errors).toEqual([]);
 });
 
-test('main menu: holds the battle at the start; Endless Mode begins it, Continue returns, New Battle loads a new map', async ({ page }) => {
+test('main menu: holds the battle at the start; Endless Mode begins it, Continue returns, New Endless Mode loads a new map', async ({ page }) => {
   const errors = await openGame(page, { map: 'terrain', paused: false, query: 'menu=1' });
   const menu = page.locator('#menu');
   await expect(menu).toBeVisible();
@@ -970,7 +970,7 @@ test('main menu: holds the battle at the start; Endless Mode begins it, Continue
   // The Royal Codex: a card for every tower and every foe.
   await page.getByRole('button', { name: 'The Royal Codex' }).click();
   await expect(page.locator('#codex')).toBeVisible();
-  expect(await page.locator('#codex-towers .codex-card').count()).toBe(5);
+  expect(await page.locator('#codex-towers .codex-card').count()).toBe(6);
   expect(await page.locator('#codex-foes .codex-card').count()).toBe(6);
   await page.getByRole('button', { name: 'Close' }).click();
 
@@ -988,7 +988,7 @@ test('main menu: holds the battle at the start; Endless Mode begins it, Continue
   await expect(menu).toBeHidden();
   expect(await page.evaluate(() => window.game.world.seed)).toBe(seed);
 
-  // New Battle: a new map, behind the loading screen with that map's battle and battleground.
+  // New Endless Mode: a new map, behind the loading screen with that map's battle and battleground.
   await page.evaluate(() => {
     window.__loading = [];
     const el = document.getElementById('loading');
@@ -996,7 +996,7 @@ test('main menu: holds the battle at the start; Endless Mode begins it, Continue
   });
   await page.getByRole('button', { name: 'Settings' }).click();
   await page.getByRole('button', { name: 'Main menu' }).click();
-  await page.getByRole('button', { name: 'New Battle' }).click();
+  await page.getByRole('button', { name: 'New Endless Mode' }).click();
   await expect(menu).toBeHidden();
   expect(await page.evaluate(() => window.game.world.seed)).not.toBe(seed);
   const shown = await page.evaluate(() => window.__loading);
@@ -1081,5 +1081,58 @@ test('barracks: hotkey 6 builds one, it trains men in red who go out to fight en
   expect(await page.evaluate(() => Boolean(window.game.renderer.atlas.frame('e:red:swordsman:0:attack:0')))).toBe(true);
   await testInfo.attach('barracks', { body: await page.screenshot(), contentType: 'image/png' });
   await expect.poll(() => page.evaluate(() => window.game.world.enemies.length), { timeout: 30_000 }).toBe(0);
+  expect(errors).toEqual([]);
+});
+
+test('conquest: castle against castle on the lane map, squads march both ways, blue buildings fly blue, and taking the blue hall wins (screenshot attached)', async ({ page }, testInfo) => {
+  const errors = await openGame(page, { query: 'mode=conquest' });
+  const info = await page.evaluate(() => {
+    const w = window.game.world;
+    const teams = {};
+    for (const b of w.buildings.values()) teams[b.team] = (teams[b.team] ?? 0) + 1;
+    return { mode: w.mode, lanes: w.lanes.length, teams, width: w.grid.width, height: w.grid.height };
+  });
+  expect(info).toEqual({ mode: 'conquest', lanes: 3, teams: { red: 10, blue: 10 }, width: 48, height: 104 });
+  // The camera starts on the player's (south) end.
+  const hall = await page.evaluate(() => window.game.world.townHall);
+  const p = await tileToScreen(page, hall.x + 1, hall.z + 1);
+  const view = page.viewportSize();
+  expect(Math.abs(p.x - view.width / 2)).toBeLessThan(view.width / 4);
+  expect(Math.abs(p.y - view.height / 2)).toBeLessThan(view.height / 4);
+  // The enemy's buildings have their own blue sprites (banners, pennants, lookouts).
+  expect(await page.evaluate(() => ['b:townHall:blue', 'b:archerTower:blue', 'b:barracks:blue', 'flag:0:0:blue'].every((k) => window.game.renderer.atlas.frame(k)))).toBe(true);
+  // Building far from your own is refused.
+  expect(await page.evaluate(() => window.game.world.canPlace('archerTower', 20, 30).reason)).toBe('Too far from your buildings');
+
+  // Two taps on the wave dial send the first wave early: every Barracks on both sides sends its squad.
+  await page.locator('#wave-dial').click();
+  await page.locator('#wave-dial').click();
+  await expect.poll(() => page.evaluate(() => window.game.world.waves.wave)).toBe(1);
+  const squads = await page.evaluate(() => window.game.world.troops.reduce((c, t) => ((c[t.team] = (c[t.team] ?? 0) + 1), c), {}));
+  expect(squads.red).toBeGreaterThan(0);
+  expect(squads.blue).toBe(squads.red);
+  await page.evaluate(() => window.game.togglePause());
+  await expect.poll(() => page.evaluate(() => window.game.renderer.views.troops.size)).toBeGreaterThan(0);
+  await expect(page.locator('#next-wave')).toContainText('Enemy Town Hall');
+  await page.waitForTimeout(1500);
+  await testInfo.attach('conquest', { body: await page.screenshot(), contentType: 'image/png' });
+
+  // An enemy building's card says whose it is, and offers nothing to do.
+  await page.evaluate(() => {
+    const w = window.game.world;
+    const tower = [...w.buildings.values()].find((b) => b.team === 'blue' && b.type === 'archerTower');
+    window.game.build.select(tower.id);
+  });
+  await expect(page.locator('#info h3')).toHaveText('Enemy Archer Tower');
+  await expect(page.locator('#sell-selected')).toHaveCount(0);
+  await expect(page.locator('#upgrade-selected')).toHaveCount(0);
+
+  // Bring down the blue hall: victory.
+  await page.evaluate(() => {
+    const w = window.game.world;
+    w._damageBuilding(w.enemyHall, 1e6);
+  });
+  await expect(page.locator('#gameover')).toBeVisible();
+  await expect(page.locator('#gameover-title')).toHaveText('Victory! The enemy Town Hall has fallen');
   expect(errors).toEqual([]);
 });

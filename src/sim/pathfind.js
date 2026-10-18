@@ -7,10 +7,12 @@ import { DIRECTIONS } from './FlowField.js';
  * never squeeze between two diagonal walls. The start tile is always allowed (a unit may stand where a building
  * has just gone up). The search ends at the first tile within `near` (Chebyshev distance) of the goal.
  *
+ * `extra(x, z)`, if given, adds to the cost of entering a tile (lane soldiers weigh enemy walls by their health).
+ *
  * Returns the tiles to walk, start excluded ([] if already there), or null if the goal can't be reached within
  * `maxNodes` expanded tiles.
  */
-export function findPath(grid, passable, from, to, { near = 0, maxNodes = 4000 } = {}) {
+export function findPath(grid, passable, from, to, { near = 0, maxNodes = 4000, extra = null } = {}) {
   const W = grid.width;
   const reached = (x, z) => Math.max(Math.abs(x - to.x), Math.abs(z - to.z)) <= near;
   if (reached(from.x, from.z)) return [];
@@ -42,7 +44,7 @@ export function findPath(grid, passable, from, to, { near = 0, maxNodes = 4000 }
       if (!ok(nx, nz)) continue;
       if (dx && dz && !(ok(cx + dx, cz) && ok(cx, cz + dz))) continue;
       const ni = grid.index(nx, nz);
-      const ng = g + step;
+      const ng = g + step + (extra ? extra(nx, nz) : 0);
       if (ng < (cost.get(ni) ?? Infinity)) {
         cost.set(ni, ng);
         came.set(ni, i);

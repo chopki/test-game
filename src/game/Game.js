@@ -78,6 +78,10 @@ export class Game {
     this.build.reset();
     this.paused = false;
     this.hud.setPaused(false);
+    if (this.world.mode === 'conquest') {
+      this.hud.toast(`Conquest! Bring down the blue Town Hall at the far end of the lanes. Each wave, every Barracks sends a squad down its lane. (Map ${this.world.seed})`, 'info');
+      return;
+    }
     const tip = fort ? 'Close the gaps in the fort wall before the first wave.' : "Use the woods, rocks and water: enemies can't pass them.";
     this.hud.toast(`Protect the Town Hall! ${tip} (Map ${this.world.seed})`, 'info');
   }
@@ -86,7 +90,8 @@ export class Game {
    * A new game on a new random map, behind the loading screen (with a sketch of the map while the battlefield is
    * painted). Resolves once the new map is in place.
    */
-  async newMap() {
+  async newMap(mode = this.mapOptions.mode) {
+    this.mapOptions.mode = mode;
     const world = createWorld(this.mapOptions, { seed: Math.floor(Math.random() * 1e6) });
     this.setHeld(true);
     this.loading.show(world, 0.2);
@@ -249,7 +254,8 @@ export class Game {
 /**
  * Options for new maps (Settings → Map size, Rivers, Coast, Hills), from the URL: `size` is a key of GRID.sizes
  * (`?size=` takes a size name or its tiles across); `river` makes every new map have a stream; `sea` and `hills` are
- * false (never), 'sometimes' (the default) or true (always a coast / plateaus). They last for the session.
+ * false (never), 'sometimes' (the default) or true (always a coast / plateaus). They last for the session. `mode`:
+ * 'survival' (Endless Mode, the default) or 'conquest' (`?mode=conquest`, or the main menu's Conquest).
  */
 export function readMapOptions() {
   const params = new URLSearchParams(location.search);
@@ -257,7 +263,8 @@ export function readMapOptions() {
   const hills = { 0: false, 1: true }[params.get('hills')] ?? 'sometimes';
   const asked = params.get('size');
   const size = Object.keys(GRID.sizes).find((k) => k === asked || String(GRID.sizes[k]) === asked) ?? GRID.defaultSize;
-  return { size, river: params.get('river') === '1', sea, hills };
+  const mode = params.get('mode') === 'conquest' ? 'conquest' : 'survival';
+  return { size, river: params.get('river') === '1', sea, hills, mode };
 }
 
 /**
@@ -269,6 +276,7 @@ export function createWorld(mapOptions, { seed } = {}) {
   const params = new URLSearchParams(location.search);
   seed ??= params.has('seed') ? Number(params.get('seed')) : Math.floor(Math.random() * 1e6);
   const fort = params.get('fort') !== '0';
-  const { river, sea, hills, size } = mapOptions;
+  const { river, sea, hills, size, mode } = mapOptions;
+  if (mode === 'conquest') return new World({ seed, mode });
   return new World({ seed, terrain: params.get('map') === 'open' ? 'open' : 'generate', fort, river, sea, hills, size: GRID.sizes[size] });
 }

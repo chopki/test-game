@@ -22,7 +22,7 @@ import { SPRITE_KIND, SpriteLayer } from './spriteLayer.js';
 import { seasonFor, SEASONS, weatherFor, WEATHERS, weatherLook } from './weather.js';
 import { GroundCover, Precipitation } from './weatherLayers.js';
 import { Wildlife } from './wildlife.js';
-import { CATAPULT_ARM_FRAMES, ENEMY_ANIMS, FLAG_FRAMES, crystalHeight, spriteKeys, turretHeight } from './spriteCatalog.js';
+import { CATAPULT_ARM_FRAMES, ENEMY_ANIMS, FLAG_FRAMES, crystalHeight, spriteKeys, teamKey, turretHeight } from './spriteCatalog.js';
 import { hallEffects, STAGE_WALL_VARIANTS } from './stageModels.js';
 import { aimStreaks, createArrowStreaks } from './arrows.js';
 import { PENNANT_W } from './modelKit.js';
@@ -696,6 +696,7 @@ export class Renderer {
       this.camera.updateProjectionMatrix();
     }
     this._buildTerrain();
+    this.focusOn(world.townHall.cx, world.townHall.cz); // the middle of the map in Survival; your end in Conquest
     // This map's season, and its weather before the first wave (?season= / ?weather= override them).
     const params = new URLSearchParams(location.search);
     const season = SEASONS.includes(params.get('season')) ? params.get('season') : seasonFor(world.seed);
@@ -774,6 +775,14 @@ export class Renderer {
     return { x: hit.x + this.offsetX, z: hit.z + this.offsetZ };
   }
 
+  /** Move the camera (keeping its angle and zoom) to look at map point (x, z). */
+  focusOn(x, z) {
+    const at = this.toScene(x, 0, z, new THREE.Vector3(), true);
+    const delta = at.sub(this.controls.target).setY(0);
+    this.controls.target.add(delta);
+    this.camera.position.add(delta);
+  }
+
   /** Pan the camera across the ground relative to its current facing. */
   pan(forward, right) {
     const dir = new THREE.Vector3();
@@ -782,10 +791,11 @@ export class Renderer {
     dir.normalize();
     const side = new THREE.Vector3().crossVectors(dir, this.camera.up).normalize();
     const delta = dir.multiplyScalar(forward).add(side.multiplyScalar(right));
-    const limit = (this.world?.grid.width ?? GRID.width) / 2 + 5;
+    const limitX = (this.world?.grid.width ?? GRID.width) / 2 + 5;
+    const limitZ = (this.world?.grid.height ?? GRID.height) / 2 + 5;
     const target = this.controls.target.clone().add(delta);
-    target.x = THREE.MathUtils.clamp(target.x, -limit, limit);
-    target.z = THREE.MathUtils.clamp(target.z, -limit, limit);
+    target.x = THREE.MathUtils.clamp(target.x, -limitX, limitX);
+    target.z = THREE.MathUtils.clamp(target.z, -limitZ, limitZ);
     const applied = target.sub(this.controls.target);
     this.controls.target.add(applied);
     this.camera.position.add(applied);
@@ -932,7 +942,7 @@ export class Renderer {
         }
       }
     } else {
-      const key = seat.shape ? spriteKeys.inWall(b.type, seat.shape, b.stage) : spriteKeys.building(b.type, b.stage);
+      const key = this._teamKey(seat.shape ? spriteKeys.inWall(b.type, seat.shape, b.stage) : spriteKeys.building(b.type, b.stage), b.team);
       this.sprites.add(key, ground, 1, 0, 0, dmg);
       this.shadowSprites.add(key, ground);
       if (seat.shape) {
@@ -949,12 +959,14 @@ export class Renderer {
         this.sprites.add(spriteKeys.turret(b.type, b.aim, frame), ground, 1, lift, 0, turretDmg);
       } else if (lift) {
         const aim = b.type === 'archerTower' ? this._lookoutAim(view, b) : b.aim;
-        this.sprites.add(spriteKeys.turret(b.type, aim), ground, 1, lift, 0, turretDmg);
+        this.sprites.add(this._teamKey(spriteKeys.turret(b.type, aim), b.team), ground, 1, lift, 0, turretDmg);
       }
       // Waving pennants, chimney smoke, crystal sparkles.
       const turned = b.type === 'gatehouse' && seat.shape?.startsWith('ns');
       const hall = b.type === 'townHall' && b.stage > 1 ? hallEffects(b.stage) : null;
-      for (const flag of hall?.pennants ?? PENNANTS[b.type] ?? []) this._drawFlag(view, b.cx + seat.dx, b.cz + seat.dz, flag, turned);
+      // (Towers' pennants are on their first-stage models; the Town Hall's stages say where theirs fly.)
+      const flags = hall?.pennants ?? (b.stage === 1 || b.type === 'gatehouse' ? PENNANTS[b.type] : null) ?? [];
+      for (const flag of flags) this._drawFlag(view, b.cx + seat.dx, b.cz + seat.dz, flag, turned, b.team);
       if (hall || CHIMNEYS[b.type]) this._chimneySmoke(view, b, hall?.chimney ?? CHIMNEYS[b.type]);
       if (b.type === 'magicSpire') {
         const bob = Math.sin(this._time * 2 + view.phase) * 0.08;
@@ -1029,10 +1041,17 @@ export class Renderer {
    * A pennant flying from the pole top at `flag` (model coordinates; see PENNANTS) of the thing centred on (cx, cz),
    * turned a quarter if `turned`. Each building's flags ripple at their own phase.
    */
-  _drawFlag(view, cx, cz, flag, turned) {
+  _drawFlag(view, cx, cz, flag, turned, team = 'red') {
     const [ox, oz] = turned ? [flag.z, -flag.x] : [flag.x, flag.z];
     const frame = Math.floor(this._time * 7 + view.phase * FLAG_FRAMES) % FLAG_FRAMES;
-    this.sprites.add(spriteKeys.flag(turned ? 1 : 0, frame), this.toScene(cx + ox, 0, cz + oz, this._flagPos), flag.w / PENNANT_W, flag.y, 0, SPRITE_KIND.unit);
+    this.sprites.add(this._teamKey(spriteKeys.flag(turned ? 1 : 0, frame), team), this.toScene(cx + ox, 0, cz + oz, this._flagPos), flag.w / PENNANT_W, flag.y, 0, SPRITE_KIND.unit);
+  }
+
+  /** A sprite's version in `team`'s colours (see teamKey), or the red one if there's no blue version of it. */
+  _teamKey(key, team) {
+    if (team !== 'blue') return key;
+    const blue = teamKey(key, 'blue');
+    return this.atlas.frame(blue) ? blue : key;
   }
 
   /** Which way a watchtower's lookouts face: their target while shooting, otherwise slowly scanning round. */

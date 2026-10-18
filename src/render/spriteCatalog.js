@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { BUILDINGS, ENEMIES, TROOPS, UPGRADES, WAVES } from '../sim/config.js';
-import { wavingPennant, withoutPennantCloth } from './modelKit.js';
+import { wavingPennant, withoutPennantCloth, withTeam } from './modelKit.js';
 import { ANIMAL_KINDS, ANIMAL_POSES, createAnimal } from './animals.js';
 import { createWallDecor, WALL_DECOR_KINDS } from './wallDecor.js';
 import { createStagedModel, createStagedWallArm, STAGE_WALL_VARIANTS } from './stageModels.js';
@@ -316,5 +316,18 @@ export function spriteSpecs() {
       specs.push({ key: spriteKeys.flag(turn, f), shadow: false, make: () => wavingPennant(f / FLAG_FRAMES, turn ? Math.PI / 2 : 0) });
     }
   }
+
+  // The enemy castle's buildings in blue (banners, pennants, lookouts), for the types it starts with and builds.
+  for (const s of specs.filter((s) => BLUE_KEY.test(s.key))) {
+    const make = s.make;
+    specs.push({ ...s, key: teamKey(s.key, 'blue'), make: () => withTeam('blue', make) });
+  }
   return specs;
 }
+
+/** Sprites with a blue version (see teamKey): the stage-1 bases and lookouts the enemy castle uses, and pennants. */
+const BLUE_KEY = /^(b:(townHall|archerTower|barracks)|t:archerTower:\d+:0|flag:\d:\d+)$/;
+
+/** The key of `key`'s version in `team`'s colours: blue for the enemy castle, else the key itself (red). */
+export const teamKey = (key, team) => (team === 'blue' ? `${key}:blue` : key);
+

@@ -1,4 +1,4 @@
-import { BUILDINGS, ECONOMY, ENEMIES, GRID, PATHING, START_FORT, TERRAIN, TIMING, TROOPS, UPGRADES } from './config.js';
+import { BUILDINGS, CONQUEST, ECONOMY, ENEMIES, GRID, PATHING, START_FORT, TERRAIN, TIMING, TROOPS, UPGRADES } from './config.js';
 import { nextUpgradeCost, stageDef } from './upgrades.js';
 import { createRng } from './rng.js';
 import { EventBus } from './EventBus.js';
@@ -10,6 +10,8 @@ import { planWall } from './wallPlanner.js';
 import { generateMap, groundHeight, spawnTilesBySide, T } from './terrain.js';
 import { SIDES } from './WaveManager.js';
 import { refreshPosts, updateBarracks, updateTroop } from './troops.js';
+import { generateLaneMap, nearestLane } from './lanes.js';
+import { aiThink, buildForts, otherTeam, sendSquads, updateLaneSoldier } from './conquest.js';
 
 /**
  * The whole game state and rules, with no rendering or DOM dependencies.
@@ -23,6 +25,11 @@ import { refreshPosts, updateBarracks, updateTroop } from './troops.js';
  * true (always); `this.coast` is the side the sea lies along, or null. `size`: the map's width and height in
  * tiles (default GRID.width × GRID.height); the Town Hall sits in the middle. `hills`: false (flat, the default),
  * 'sometimes' (TERRAIN.hills.chance of maps) or true: plateaus with cliffs and ramps (`grid.levels`).
+ *
+ * `mode`: 'survival' (the default: hold the Town Hall against waves) or 'conquest' (castle against castle on the
+ * lane map; see conquest.js). In Conquest every building and soldier has a `team` ('red', the player, or 'blue',
+ * the AI), `enemyHall` is blue's Town Hall, each side has its own gold (`economyOf(team)`), and the phase stays
+ * 'build' (counting down to the next wave of squads) until a Town Hall falls; `won` says whose.
  *
  * Phases: 'build' (countdown to next wave) → 'wave' (enemies spawning/alive)
  * → back to 'build' when the wave is cleared, or 'gameover' when the Town Hall falls.
@@ -39,13 +46,18 @@ import { refreshPosts, updateBarracks, updateTroop } from './troops.js';
  * waveCleared, gameOver, troopTrained, troopKilled. Enemy shots are projectiles too (`hostile: true`, fired by `enemy`).
  */
 export class World {
-  constructor({ seed = Date.now(), terrain = 'open', fort = false, river = false, sea = false, size = null, hills = false } = {}) {
+  constructor({ seed = Date.now(), terrain = 'open', fort = false, river = false, sea = false, size = null, hills = false, mode = 'survival' } = {}) {
     this.seed = seed >>> 0;
+    this.mode = mode;
     this.rng = createRng(seed);
+    this.troopRng = createRng(this.seed ^ 0x7a00b5); // soldiers' small choices, so they don't change the waves
     this.events = new EventBus();
-    this.grid = new Grid(size ?? GRID.width, size ?? GRID.height, GRID.spawnMargin);
+    const conquest = mode === 'conquest';
+    this.grid = conquest ? new Grid(CONQUEST.width, CONQUEST.height, GRID.spawnMargin) : new Grid(size ?? GRID.width, size ?? GRID.height, GRID.spawnMargin);
     this.flow = new FlowField(this.grid);
-    this.economy = new Economy(ECONOMY.startingGold, this.events);
+    this.economy = new Economy(conquest ? CONQUEST.startingGold : ECONOMY.startingGold, this.events);
+    // Conquest: the AI's purse (its own events, so the player's HUD doesn't hear of it).
+    this.blueEconomy = conquest ? new Economy(CONQUEST.startingGold, new EventBus()) : null;
 
     this.buildings = new Map();
     this.enemies = [];
@@ -56,6 +68,7 @@ export class World {
     this.phaseTimer = TIMING.firstBuildPhase;
     this.time = 0;
     this.stats = { kills: 0, wavesSurvived: 0 };
+    this.won = null; // Conquest: true if the player took the enemy's Town Hall, false if they lost their own
 
     this._nextId = 1;
     this._squads = new Map(); // squad number → where its men line up on the edge (this wave)
@@ -63,6 +76,10 @@ export class World {
     this._flowTimer = 0;
     this._postsDirty = true; // Barracks posts need finding again (buildings came or went)
 
+    if (conquest) {
+      this._setupConquest();
+      return;
+    }
     const s = BUILDINGS.townHall.size;
     const { width: W, height: H } = this.grid;
     const hall = { x: Math.floor((W - s) / 2), z: Math.floor((H - s) / 2), size: s };
@@ -90,6 +107,28 @@ export class World {
     this.townHall = this._addBuilding('townHall', hall.x, hall.z);
     if (fort) this._buildStartingFort();
     this._refreshFlow();
+  }
+
+  /** The lane map, both Town Halls and both forts (Conquest). */
+  _setupConquest() {
+    const map = generateLaneMap({ width: this.grid.width, height: this.grid.height, rng: createRng(this.seed ^ 0x9e3779b9) });
+    this.grid.terrain = map.types;
+    this.lanes = map.lanes;
+    this.coast = null;
+    this.hills = false;
+    this.spawnTiles = { north: [], south: [], west: [], east: [] };
+    this.waves = new WaveManager(this.rng, ['north']); // only counts the waves: squads come from the Barracks
+    this.phaseTimer = CONQUEST.firstPush;
+    this.townHall = this._addBuilding('townHall', map.halls.red.x, map.halls.red.z, 'red');
+    this.enemyHall = this._addBuilding('townHall', map.halls.blue.x, map.halls.blue.z, 'blue');
+    buildForts(this);
+    this._aiTimer = CONQUEST.ai.think;
+    this._refreshFlow();
+  }
+
+  /** A side's gold: the player's (red), or in Conquest the AI's (blue). */
+  economyOf(team = 'red') {
+    return team === 'blue' ? this.blueEconomy : this.economy;
   }
 
   // ---------------------------------------------------------------- queries
@@ -146,10 +185,11 @@ export class World {
   }
 
   /** Can `type` go at (x, z)? With `ignoreCost`, gold isn't checked (used when planning several at once). */
-  canPlace(type, x, z, { ignoreCost = false } = {}) {
+  canPlace(type, x, z, { ignoreCost = false, team = 'red', anywhere = false } = {}) {
     const def = BUILDINGS[type];
     if (!def || !def.buildable) return { ok: false, reason: 'Cannot build that' };
     if (this.phase === 'gameover') return { ok: false, reason: 'Game over' };
+    if (this.mode === 'conquest' && !anywhere && !this._nearOwn(team, x + def.size / 2, z + def.size / 2)) return { ok: false, reason: 'Too far from your buildings' };
     for (const [tx, tz] of this.grid.footprint(x, z, def.size)) {
       if (!this.grid.inBounds(tx, tz)) return { ok: false, reason: 'Out of bounds' };
       if (this.grid.isInSpawnZone(tx, tz)) return { ok: false, reason: 'Too close to the edge' };
@@ -164,8 +204,17 @@ export class World {
     if (this._enemyInArea(x, z, def.size)) return { ok: false, reason: 'Enemies in the way' };
     // Walls a tower replaces are sold, and that refund counts towards the tower.
     const refund = replaces.reduce((sum, w) => sum + this.sellValue(w), 0);
-    if (!ignoreCost && this.economy.gold + refund < def.cost) return { ok: false, reason: 'Not enough gold' };
+    if (replaces.some((w) => w.team !== team)) return { ok: false, reason: 'Space is occupied' };
+    if (!ignoreCost && this.economyOf(team).gold + refund < def.cost) return { ok: false, reason: 'Not enough gold' };
     return { ok: true, replaces, refund };
+  }
+
+  /** Conquest: whether (x, z) is within CONQUEST.buildRadius of one of `team`'s buildings (walls don't count). */
+  _nearOwn(team, x, z) {
+    for (const b of this.buildings.values()) {
+      if (b.team === team && b.type !== 'wall' && Math.hypot(b.cx - x, b.cz - z) <= CONQUEST.buildRadius) return true;
+    }
+    return false;
   }
 
   /**
@@ -202,7 +251,7 @@ export class World {
 
   /** Whether the player may sell `building` (not the Town Hall or the gatehouse). */
   canSell(building) {
-    return Boolean(building?.def.buildable) && this.phase !== 'gameover';
+    return Boolean(building?.def.buildable) && building.team === 'red' && this.phase !== 'gameover';
   }
 
   sellValue(building) {
@@ -222,6 +271,7 @@ export class World {
     const next = stageDef(building.type, building.stage + 1);
     const fail = (reason) => ({ ok: false, reason, cost, next });
     if (this.phase === 'gameover') return fail('The battle is over');
+    if (building.team !== 'red') return fail("The enemy's");
     if (building.type !== 'townHall' && next.stage > this.townHall.stage + UPGRADES.aboveHall) return fail(`Needs the Town Hall at stage ${next.stage - UPGRADES.aboveHall}`);
     if (!this.economy.canAfford(cost)) return fail('Not enough gold');
     return { ok: true, reason: null, cost, next };
@@ -288,7 +338,12 @@ export class World {
   repairCheck(building) {
     if (!building || building.hp >= building.maxHp) return { ok: false, reason: 'Not damaged', cost: 0 };
     const cost = this.repairCost(building);
-    if (this.phase !== 'build') return { ok: false, reason: 'Repairs wait until the wave is over', cost };
+    if (building.team !== 'red') return { ok: false, reason: "The enemy's", cost };
+    if (this.mode === 'conquest') {
+      // Real time: any time, but not in the thick of it.
+      if (this.phase === 'gameover') return { ok: false, reason: 'The battle is over', cost };
+      if (this.time - (building.lastHit ?? -Infinity) < CONQUEST.repairDelay) return { ok: false, reason: 'Under attack', cost };
+    } else if (this.phase !== 'build') return { ok: false, reason: 'Repairs wait until the wave is over', cost };
     if (!this.economy.canAfford(cost)) return { ok: false, reason: 'Not enough gold', cost };
     return { ok: true, reason: null, cost };
   }
@@ -306,16 +361,24 @@ export class World {
 
   // ---------------------------------------------------------------- commands
 
-  place(type, x, z) {
-    const check = this.canPlace(type, x, z);
+  /** Build `type` at (x, z): for the player, or in Conquest for `team` (the AI builds this way too). */
+  place(type, x, z, { team = 'red' } = {}) {
+    const check = this.canPlace(type, x, z, { team });
     if (!check.ok) return check;
+    const eco = this.economyOf(team);
     for (const wall of check.replaces) {
       this._removeBuilding(wall);
       this.events.emit('buildingSold', { building: wall, refund: this.sellValue(wall) });
     }
-    if (check.refund) this.economy.earn(check.refund, 'sell');
-    this.economy.spend(BUILDINGS[type].cost);
-    const building = this._addBuilding(type, x, z);
+    if (check.refund) eco.earn(check.refund, 'sell');
+    eco.spend(BUILDINGS[type].cost);
+    const building = this._addBuilding(type, x, z, team);
+    if (this.mode === 'conquest' && building.def.trains) building.lane = nearestLane(this.lanes, building.cx, building.cz).lane;
+    if (building.def.trains) {
+      // Find its way out now (not on the next tick), so it's known even while the game is paused.
+      this._postsDirty = false;
+      refreshPosts(this);
+    }
     this.events.emit('buildingPlaced', { building });
     return { ok: true, building };
   }
@@ -332,6 +395,19 @@ export class World {
 
   startWave() {
     if (this.phase !== 'build') return false;
+    if (this.mode === 'conquest') {
+      // Both sides' Barracks send their squads at once, and the count starts again.
+      const wave = ++this.waves.wave;
+      this.stats.wavesSurvived = wave - 1;
+      this.phaseTimer = CONQUEST.pushEvery;
+      if (this._postsDirty) {
+        this._postsDirty = false;
+        refreshPosts(this); // the Barracks' doors
+      }
+      sendSquads(this, wave);
+      this.events.emit('waveStarted', { wave, sides: [], count: this.troops.length });
+      return true;
+    }
     this.phase = 'wave';
     this._squads = new Map();
     const plan = this.waves.start();
@@ -349,6 +425,13 @@ export class World {
       this.phaseTimer -= dt;
       if (this.phaseTimer <= 0) this.startWave();
     }
+    if (this.mode === 'conquest') {
+      for (const team of ['red', 'blue']) this.economyOf(team).earn(CONQUEST.income * dt, 'income');
+      if ((this._aiTimer -= dt) <= 0) {
+        this._aiTimer = CONQUEST.ai.think;
+        aiThink(this);
+      }
+    }
     if (this.phase === 'wave') {
       for (const entry of this.waves.update(dt)) this._spawnEnemy(entry);
     }
@@ -365,25 +448,31 @@ export class World {
     if (this.phase === 'gameover') return;
     for (const b of this.buildings.values()) {
       if (b.def.attack) this._updateTower(b, dt);
-      else if (b.def.trains) updateBarracks(this, b, dt);
+      else if (b.def.trains && this.mode !== 'conquest') updateBarracks(this, b, dt);
     }
-    for (const t of this.troops) if (t.alive) updateTroop(this, t, dt);
+    for (const t of this.troops) {
+      if (!t.alive) continue;
+      if (t.lane !== undefined) updateLaneSoldier(this, t, dt);
+      else updateTroop(this, t, dt);
+      if (this.phase === 'gameover') return;
+    }
     for (const p of this.projectiles) this._updateProjectile(p, dt);
 
     this.enemies = this.enemies.filter((e) => e.alive);
     this.troops = this.troops.filter((t) => t.alive);
     this.projectiles = this.projectiles.filter((p) => p.alive);
 
-    if (this.phase === 'wave' && this.waves.isSpawningDone() && this.enemies.length === 0) this._endWave();
+    if (this.mode !== 'conquest' && this.phase === 'wave' && this.waves.isSpawningDone() && this.enemies.length === 0) this._endWave();
   }
 
   // ---------------------------------------------------------------- buildings
 
-  _addBuilding(type, x, z) {
+  _addBuilding(type, x, z, team = 'red') {
     const def = stageDef(type, 1);
     const b = {
       id: this._nextId++,
       type,
+      team,
       def,
       stage: 1,
       spent: def.cost, // build plus upgrades, for the sell value
@@ -448,14 +537,17 @@ export class World {
   _damageBuilding(b, amount, from = null) {
     if (b.hp <= 0) return;
     b.hp -= amount;
+    b.lastHit = this.time;
     if (from) this.events.emit('buildingHit', { building: b, amount, x: from.x, z: from.z });
     if (b.hp > 0) return;
     b.hp = 0;
     this._removeBuilding(b);
     this.events.emit('buildingDestroyed', { building: b });
-    if (b === this.townHall) {
+    if (this.mode === 'conquest' && b.type !== 'wall') this.economyOf(otherTeam(b.team)).earn(CONQUEST.buildingBounty, 'bounty');
+    if (b === this.townHall || b === this.enemyHall) {
       this.phase = 'gameover';
-      this.events.emit('gameOver', { ...this.stats, wave: this.waves.wave });
+      if (this.mode === 'conquest') this.won = b === this.enemyHall;
+      this.events.emit('gameOver', { ...this.stats, wave: this.waves.wave, won: this.won });
     }
   }
 
@@ -487,7 +579,7 @@ export class World {
     const attack = b.def.attack;
     b.cooldown = Math.max(0, b.cooldown - dt);
     if (b.cooldown > 0) return;
-    const target = this._pickTarget(b.cx, b.cz, this.rangeOf(b), attack.minRange ?? 0);
+    const target = this._pickTarget(b.cx, b.cz, this.rangeOf(b), attack.minRange ?? 0, b.team);
     if (!target) return;
     b.cooldown = attack.cooldown * this._uphillReload(attack.projectile, b.cx, b.cz, target.x, target.z);
     b.aim = Math.atan2(target.x - b.cx, target.z - b.cz);
@@ -510,10 +602,10 @@ export class World {
     const a = b.def.attack;
     const range = this.rangeOf(b);
     const r2 = range * range;
-    for (const e of this.enemies) {
+    for (const e of this.foesOf(b.team)) {
       if (!e.alive || (e.x - b.cx) ** 2 + (e.z - b.cz) ** 2 > r2) continue;
       if (a.slow) this._slowEnemy(e, a.slow);
-      this._damageEnemy(e, a.damage);
+      this._hurt(e, a.damage);
     }
     this.events.emit('towerPulse', { building: b, x: b.cx, z: b.cz, radius: range });
   }
@@ -523,19 +615,34 @@ export class World {
     e.slowUntil = Math.max(e.slowUntil, this.time + duration);
   }
 
-  // Towers shoot the enemy in range that is closest to reaching the Town Hall.
-  _pickTarget(x, z, range, minRange = 0) {
+  /**
+   * Who `team`'s towers and shots may hit: for the player the enemy army and (Conquest) blue soldiers; for blue,
+   * red soldiers. The player's own troops are never targets of their towers.
+   */
+  foesOf(team = 'red') {
+    const soldiers = this.troops.filter((t) => t.team !== team && t.alive);
+    return team === 'red' ? (soldiers.length ? [...this.enemies, ...soldiers] : this.enemies) : soldiers;
+  }
+
+  /** Damage an enemy or a soldier. */
+  _hurt(u, amount) {
+    if (u.team) this._damageTroop(u, amount);
+    else this._damageEnemy(u, amount);
+  }
+
+  // Towers shoot the enemy in range that is closest to reaching the Town Hall (soldiers: the nearest).
+  _pickTarget(x, z, range, minRange = 0, team = 'red') {
     let best = null;
     let bestScore = Infinity;
     const r2 = range * range;
     const min2 = minRange * minRange;
-    for (const e of this.enemies) {
-      if (!e.alive) continue;
+    for (const e of this.foesOf(team)) {
+      if (!e.alive || e.delay > 0) continue;
       const dx = e.x - x;
       const dz = e.z - z;
       const d2 = dx * dx + dz * dz;
       if (d2 > r2 || d2 < min2) continue;
-      const score = this.flow.distanceAt(e.tx, e.tz);
+      const score = e.team ? Math.sqrt(d2) : this.flow.distanceAt(e.tx, e.tz);
       if (score < bestScore) {
         bestScore = score;
         best = e;
@@ -562,6 +669,7 @@ export class World {
       ty: homing ? target.def.height * 0.6 : 0.2,
       tz: target.z,
       target: homing ? target : null,
+      team: b.team,
       damage: a.damage,
       splash: a.splash,
       slow: a.slow ?? null,
@@ -621,19 +729,19 @@ export class World {
     if (t < 1) return;
 
     p.alive = false;
-    if (p.hostile) {
-      // Enemy shots only hurt the building or soldier they were aimed at (if it still stands).
+    if (p.building || p.troop) {
+      // Shots aimed at a building or soldier only hurt it (if it still stands).
       if (p.troop) {
         if (p.troop.alive) this._damageTroop(p.troop, p.damage);
       } else if (this.buildings.get(p.building.id) === p.building) this._damageBuilding(p.building, p.damage, { x: p.sx, z: p.sz });
     } else if (p.splash > 0) {
       const r2 = p.splash * p.splash;
-      for (const e of this.enemies) {
-        if (e.alive && (e.x - p.x) ** 2 + (e.z - p.z) ** 2 <= r2) this._damageEnemy(e, p.damage);
+      for (const e of this.foesOf(p.team)) {
+        if (e.alive && (e.x - p.x) ** 2 + (e.z - p.z) ** 2 <= r2) this._hurt(e, p.damage);
       }
     } else if (p.target?.alive) {
       if (p.slow) this._slowEnemy(p.target, p.slow);
-      this._damageEnemy(p.target, p.damage);
+      this._hurt(p.target, p.damage);
     }
     this.events.emit('projectileImpact', { x: p.x, y: p.y, z: p.z, kind: p.kind, splash: p.splash, hostile: Boolean(p.hostile) });
   }
@@ -886,7 +994,57 @@ export class World {
   _damageTroop(t, amount) {
     if (!t.alive) return;
     t.hp -= amount;
-    if (t.hp <= 0) this._removeTroop(t, 'killed');
+    if (t.hp > 0) return;
+    this._removeTroop(t, 'killed');
+    if (this.mode === 'conquest') {
+      this.economyOf(otherTeam(t.team)).earn(t.def.reward, 'kill');
+      if (t.team === 'blue') this.stats.kills++;
+    }
+  }
+
+  /**
+   * Conquest: lane soldier `u` strikes `target` (a soldier or a building): a blow, or an arrow. A man struck by
+   * a sword turns to fight back if he has nothing better to do.
+   */
+  _soldierStrike(u, target) {
+    const r = u.def.ranged;
+    const building = target.size !== undefined;
+    if (!r) {
+      if (building) this._damageBuilding(target, u.def.damage, u);
+      else {
+        this._damageTroop(target, u.def.damage);
+        if (target.alive && (!target.target || target.target.size !== undefined)) target.target = u;
+      }
+      return;
+    }
+    const [tx, tz] = building ? this._nearestPoint(target, u.x, u.z) : [target.x, target.z];
+    const y = u.def.height * 0.7;
+    const p = {
+      id: this._nextId++,
+      kind: r.projectile,
+      hostile: u.team === 'blue',
+      sx: u.x,
+      sy: y,
+      sz: u.z,
+      x: u.x,
+      y,
+      z: u.z,
+      tx,
+      ty: building ? Math.min(1, target.def.height * 0.5) : target.def.height * 0.6,
+      tz,
+      target: building ? null : target,
+      building: building ? target : null,
+      team: u.team,
+      damage: u.def.damage,
+      splash: 0,
+      slow: null,
+      arc: r.arc,
+      t: 0,
+      flightTime: Math.max(0.05, Math.hypot(tx - u.x, tz - u.z) / r.projectileSpeed),
+      alive: true,
+    };
+    this.projectiles.push(p);
+    this.events.emit('projectileFired', { projectile: p, troop: u });
   }
 
   _removeTroop(t, how) {

@@ -1,6 +1,16 @@
-import { BUILDINGS, TIMING, UPGRADES } from '../sim/config.js';
+import { BUILDINGS, TIMING, TROOPS, UPGRADES } from '../sim/config.js';
 import { onPress } from './press.js';
 import { summarizeWave } from '../sim/WaveManager.js';
+import { squadFor } from '../sim/conquest.js';
+
+/** Conquest: a squad (a list of troop types) as words, e.g. "3 Men-at-arms, 1 Bowman". */
+function summarizeSquad(types) {
+  const counts = {};
+  for (const t of types) counts[t] = (counts[t] ?? 0) + 1;
+  return Object.entries(counts)
+    .map(([t, n]) => `${n} ${n === 1 ? TROOPS.types[t].name : TROOPS.types[t].plural}`)
+    .join(', ');
+}
 import { frameToDataURL } from '../render/spriteBaker.js';
 import { spriteKeys } from '../render/spriteCatalog.js';
 
@@ -191,10 +201,15 @@ export class HUD {
     this.el.toasts.replaceChildren();
     this.el.chronicle.replaceChildren();
     const ev = world.events;
-    ev.on('waveStarted', ({ wave, sides }) => this.toast(`Wave ${wave} incoming from the ${joinSides(sides)}!`, 'danger'));
+    ev.on('waveStarted', ({ wave, sides }) =>
+      world.mode === 'conquest' ? this.toast(`Wave ${wave}: the squads march out, ours and theirs!`, 'danger') : this.toast(`Wave ${wave} incoming from the ${joinSides(sides)}!`, 'danger'),
+    );
     ev.on('waveCleared', ({ wave, bonus }) => this.toast(`Wave ${wave} survived! +${bonus} gold`, 'good'));
     ev.on('buildingDestroyed', ({ building }) => {
-      if ((building.def.attack || building.def.trains) && building.type !== 'townHall') this.toast(`${building.def.name} destroyed!`, 'warn');
+      if ((building.def.attack || building.def.trains) && building.type !== 'townHall') {
+        if (building.team === 'blue') this.toast(`Enemy ${building.def.name} destroyed!`, 'good');
+        else this.toast(`${building.def.name} destroyed!`, 'warn');
+      }
     });
     ev.on('gameOver', (stats) => this.showGameOver(stats));
     ev.on('buildingUpgraded', ({ building }) => {
@@ -258,7 +273,11 @@ export class HUD {
     }
 
     this.el.startWave.hidden = w.phase !== 'build';
-    if (w.phase === 'build') {
+    if (w.mode === 'conquest') {
+      const men = summarizeSquad(squadFor(w.waves.wave + 1));
+      const foe = w.enemyHall;
+      this._set('nextWave', w.phase === 'build' ? `Wave ${w.waves.wave + 1}: ${men} from each Barracks · Enemy Town Hall ${Math.ceil(foe.hp)}/${foe.maxHp}` : '');
+    } else if (w.phase === 'build') {
       const next = w.waves.next;
       const units = summarizeWave(next).map((u) => `${u.count} ${u.name}`).join(', ');
       this._set('nextWave', `Wave ${next.wave}: ${units} — from the ${joinSides(next.sides)}`);
@@ -336,7 +355,7 @@ export class HUD {
       return;
     }
     const a = b.def.attack;
-    const n = up.next;
+    const n = b.team === 'blue' ? null : up.next; // the enemy's buildings: just what they are
     const sellable = w.canSell(b);
     const segments = (value, max) => {
       const filled = Math.max(1, Math.round((value / max) * 5));
@@ -345,7 +364,7 @@ export class HUD {
     // A stat now, and (in green) what the next stage makes it.
     const after = (now, next, fmt = (v) => v) => (next !== undefined && next !== now ? ` <b class="up">→ ${fmt(next)}</b>` : '');
     const stat = (label, value, max, note, next) => `<div class="codex-stat"><span>${label}</span>${segments(value, max)}<em>${note}${next ?? ''}</em></div>`;
-    const stages = UPGRADES.stages[b.type];
+    const stages = b.team === 'blue' ? null : UPGRADES.stages[b.type];
     const pips = stages
       ? `<div class="stage-pips" aria-label="Stage ${b.stage} of ${stages.length}">${stages.map((_, i) => `<i class="${i < b.stage ? 'on' : i === b.stage ? 'next' : ''}"></i>`).join('')}<span>${b.def.stageName} · stage ${b.stage} of ${stages.length}</span></div>`
       : '';
@@ -358,7 +377,7 @@ export class HUD {
       <div class="codex-body">
         ${icon ? `<img class="codex-art" src="${icon}" alt="" />` : ''}
         <div>
-          <h3>${b.def.name}</h3>
+          <h3>${b.team === 'blue' ? `Enemy ${b.def.name}` : b.def.name}</h3>
           ${pips}
           <p class="desc">${b.def.description}</p>
         </div>
@@ -385,6 +404,7 @@ export class HUD {
       </div>
       ${line.length > 1 ? `<button id="upgrade-line" class="line-btn" ${up.ok ? '' : 'disabled'}>Upgrade the whole line: ${line.length} walls, <i class="coin"></i>${line.length * up.cost}</button>` : ''}
       ${n && !up.ok ? `<p class="codex-why">${up.reason}</p>` : ''}`;
+    if (b.team === 'blue') this.el.info.querySelector('.codex-actions').replaceChildren();
     onPress($('info-close'), () => this.game.build.select(null));
     if (n) onPress($('upgrade-selected'), () => w.upgrade(b.id));
     if (line.length > 1) onPress($('upgrade-line'), () => w.upgradeLine(b.id));
@@ -461,6 +481,14 @@ export class HUD {
   }
 
   showGameOver(stats) {
+    if (stats.won !== null && stats.won !== undefined) {
+      // Conquest.
+      $('gameover-title').textContent = stats.won ? 'Victory! The enemy Town Hall has fallen' : 'Your Town Hall has fallen';
+      this.el.gameoverStats.innerHTML = `${stats.won ? 'You took the blue castle' : 'The blue army took your castle'} in <strong>${stats.wave}</strong> wave${stats.wave === 1 ? '' : 's'}, and felled <strong>${stats.kills}</strong> of their soldiers.`;
+      this.el.gameover.hidden = false;
+      return;
+    }
+    $('gameover-title').textContent = 'The Town Hall has fallen';
     const best = this.game.recordBest(stats.wavesSurvived);
     this.el.gameoverStats.innerHTML = `
       You survived <strong>${stats.wavesSurvived}</strong> wave${stats.wavesSurvived === 1 ? '' : 's'}

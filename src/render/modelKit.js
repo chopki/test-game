@@ -48,6 +48,9 @@ export const MATERIALS = {
   leatherDark: std({ color: 0x4e3320 }),
   cloth: std({ color: 0xa13a28 }),
   clothBlue: std({ color: 0x3a4e7a }),
+  // What a building's own people wear (the lookouts): the side's colour, swapped by withTeam.
+  teamCloth: std({ color: 0x8e3426 }),
+  bannerBlue: std({ color: 0x35508e, side: THREE.DoubleSide }),
   hood: std({ color: 0x5d4a2e }),
   bone: std({ color: 0xe6dcc0 }),
   boulder: speckled('#a59c8c', 0.12),
@@ -522,6 +525,22 @@ export function withoutPennantCloth(make) {
     return make();
   } finally {
     bakeFlags.pennantCloth = true;
+  }
+}
+
+/**
+ * Build `make()` in `team`'s colours: the player's ('red', as the materials stand) or the enemy castle's ('blue':
+ * banners, pennants and the lookouts' clothes in blue). Roofs, stone and timber are the same for both.
+ */
+export function withTeam(team, make) {
+  if (team !== 'blue') return make();
+  const saved = { bannerRed: MATERIALS.bannerRed, teamCloth: MATERIALS.teamCloth };
+  MATERIALS.bannerRed = MATERIALS.bannerBlue;
+  MATERIALS.teamCloth = MATERIALS.clothBlue;
+  try {
+    return make();
+  } finally {
+    Object.assign(MATERIALS, saved);
   }
 }
 

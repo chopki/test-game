@@ -25,7 +25,8 @@ export class MainMenu {
     $('menu-foe-right').src = portrait(spriteKeys.enemy('swordsman', 0));
 
     onPress($('menu-continue'), () => this.close());
-    onPress($('menu-endless'), () => this._endless());
+    onPress($('menu-endless'), () => this._start('survival'));
+    onPress($('menu-conquest'), () => this._start('conquest'));
     onPress($('menu-codex'), () => this.openCodex());
     onPress($('menu-options'), () => game.settingsMenu.open());
     onPress($('menu-help'), () => game.hud.toggleHelp(true));
@@ -56,31 +57,39 @@ export class MainMenu {
   }
 
   refresh() {
-    const confirming = performance.now() < this._confirmUntil;
+    const now = performance.now();
     $('menu-continue').disabled = !this.started;
-    $('menu-endless-label').textContent = confirming ? 'Tap again: this battle ends' : this.started ? 'New Battle' : 'Endless Mode';
-    $('menu-endless').classList.toggle('warn', confirming);
+    const mode = this.game.world.mode;
+    for (const m of ['survival', 'conquest']) {
+      const id = m === 'survival' ? 'endless' : 'conquest';
+      const confirming = this._confirming === m && now < this._confirmUntil;
+      const name = m === 'survival' ? 'Endless Mode' : 'Conquest';
+      $(`menu-${id}-label`).textContent = confirming ? 'Tap again: this battle ends' : this.started && mode === m ? `New ${name}` : name;
+      $(`menu-${id}`).classList.toggle('warn', confirming);
+    }
   }
 
   /**
-   * Endless Mode: at the start, the battle on the map already laid out behind the menu; once one is under way, a
-   * new map (after a second tap within a few seconds, if the battle has got going).
+   * Endless Mode or Conquest: at the start, the battle on the map already laid out behind the menu if it's that
+   * mode, else a new map of the mode; once a battle is under way, a new map (after a second tap within a few
+   * seconds, if the battle has got going).
    */
-  async _endless() {
-    if (!this.started) {
+  async _start(mode) {
+    const world = this.game.world;
+    if (!this.started && world.mode === mode) {
       this.close();
       return;
     }
-    const world = this.game.world;
-    const underWay = world.waves.wave > 0 || world.buildings.size > 1;
-    if (underWay && performance.now() > this._confirmUntil) {
+    const underWay = this.started && (world.waves.wave > 0 || world.buildings.size > (world.mode === 'conquest' ? 20 : 1));
+    if (underWay && (this._confirming !== mode || performance.now() > this._confirmUntil)) {
+      this._confirming = mode;
       this._confirmUntil = performance.now() + 4000;
       this.refresh();
       setTimeout(() => this.refresh(), 4100);
       return;
     }
     this._confirmUntil = 0;
-    await this.game.newMap();
+    await this.game.newMap(mode);
     this.close();
   }
 

@@ -83,17 +83,19 @@ export function bakeSprites(specs, { pxPerUnit = 64, supersample = 2, ink = true
     renderer.setClearColor(0x000000, 0);
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.VSMShadowMap; // filtered shadows (affordable: this runs once)
+    // Each sprite is rendered up to four times (colour, normals, depth, shadow); its shadow map is drawn once, for
+    // the first (left to update itself, three.js redraws it, blur and all, for every render: most of the bake).
+    renderer.shadowMap.autoUpdate = false;
 
     const scene = new THREE.Scene();
     // Studio lighting: warm key from the sun direction, cool sky fill, a soft rim from behind.
     scene.add(new THREE.HemisphereLight(0xfff2dc, 0x6a5a3a, 1.35));
     const sun = new THREE.DirectionalLight(0xffe2b8, 2.6);
     sun.castShadow = true;
-    // Crisp ground shadows with just a slightly softened edge, like the reference's strong cast shadows.
-    sun.shadow.mapSize.set(2048, 2048);
+    // Crisp ground shadows with just a slightly softened edge, like the reference's strong cast shadows. The map's
+    // size is set per sprite (see below).
     sun.shadow.bias = -0.0003;
     sun.shadow.normalBias = 0.015;
-    sun.shadow.radius = 1.5;
     sun.shadow.blurSamples = 8;
     scene.add(sun, sun.target);
     const rim = new THREE.DirectionalLight(0xc8dcff, 0.6);
@@ -197,6 +199,17 @@ export function bakeSprites(specs, { pxPerUnit = 64, supersample = 2, ink = true
       sun.target.position.copy(centre);
       Object.assign(sun.shadow.camera, { left: -radius * 1.6, right: radius * 1.6, top: radius * 1.6, bottom: -radius * 1.6, near: 1, far: 80 });
       sun.shadow.camera.updateProjectionMatrix();
+      // A shadow map only as fine as the sprite needs (a power of two, 256 to 2048 texels across), with the blur
+      // scaled to match, so the softness is the same in world units whatever the size.
+      const mapSize = Math.min(2048, Math.max(256, 2 ** Math.ceil(Math.log2(radius * 3.2 * ppu * supersample * 1.5))));
+      if (sun.shadow.mapSize.x !== mapSize) {
+        sun.shadow.map?.dispose();
+        sun.shadow.map = null;
+        sun.shadow.mapPass?.dispose();
+        sun.shadow.mapPass = null;
+        sun.shadow.mapSize.set(mapSize, mapSize);
+      }
+      sun.shadow.radius = 1.5 * (mapSize / 2048);
       rim.position.copy(centre).add(new THREE.Vector3(-6, 5, -6));
       rim.target.position.copy(centre);
 
@@ -214,8 +227,9 @@ export function bakeSprites(specs, { pxPerUnit = 64, supersample = 2, ink = true
         }
       });
 
-      // Layer 1: the object.
+      // Layer 1: the object (its shadow map is drawn now, for this and the shadow layer).
       catcher.visible = false;
+      renderer.shadowMap.needsUpdate = shadow;
       renderer.render(scene, camera);
       let source = canvas;
       if (ink && spec.ink !== false) {

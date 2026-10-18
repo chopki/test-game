@@ -182,15 +182,20 @@ A second mode beside Survival: a long, mirrored map with a castle at each end an
 opponent is an AI for now; building and waves are real time; troops run themselves. Red is the player, blue the AI,
 shown by livery hints (the same army on both sides, not two factions).
 
-- [ ] Lane map generator: mirrored long map (about 64×128), three lanes carved through woods, rivers and hills,
-      chokepoints at fords and ramps
-- [ ] Lane pathing: waypoints per lane, a flow field per waypoint per side; walls still breachable
-- [ ] Troops march lanes: Barracks feed squads into lanes on a timer, both sides; squads fight what they meet
-- [ ] Enemy castle: a pre-built blue fort with towers on each lane; destroy its Town Hall to win
-- [ ] Blue buildings: team-coloured banners and pennants on the enemy's buildings
-- [ ] AI opponent (`sim/ai.js`): earns gold like the player and spends it through the same World commands
-- [ ] Minimap, Conquest on the main menu, a win screen
-- [ ] Real-time repairs (not in the middle of being hit) in place of between-wave repairs
+- [x] Lane map generator: mirrored long map (48×104), three lanes through the woods, a stream with fords across
+      the middle (`sim/lanes.js`)
+- [x] Lane pathing: waypoints per lane, A* per soldier with enemy walls weighed by their health (breakable)
+- [x] Troops march lanes: every Barracks sends a squad down its lane each wave, both sides; squads fight what they meet
+- [x] Enemy castle: a mirrored blue fort (Barracks and two towers a lane); destroy its Town Hall to win
+- [x] Blue buildings: blue banners, pennants and lookouts on the enemy's buildings
+- [x] AI opponent (in `sim/conquest.js`): earns gold like the player and spends it through the same World commands
+- [x] Conquest on the main menu, a win screen
+- [x] Real-time repairs (not within 5 s of a hit)
+- [ ] Minimap
+- [ ] Hills and ramps on the lane map; more lane variety
+- [ ] The AI upgrades its buildings (needs blue stage sprites) and builds walls and other towers
+- [ ] Siege squads (knights, rams) in later waves, for both sides
+- [ ] Heroes, one each side
 
 ## v0.5: Heroes
 

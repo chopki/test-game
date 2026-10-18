@@ -54,10 +54,11 @@ export class LoadingScreen {
   setWorld(world) {
     const next = world.waves.next;
     const approach = next.sides.map((s) => APPROACH[s]).join(' & ');
-    $('loading-wave').textContent = `Wave ${next.wave} — The ${approach} Approach${next.sides.length > 1 ? 'es' : ''}`;
+    $('loading-wave').textContent =
+      world.mode === 'conquest' ? 'Conquest — Red against Blue, by three lanes' : `Wave ${next.wave} — The ${approach} Approach${next.sides.length > 1 ? 'es' : ''}`;
     $('loading-ground').textContent = `Battleground outline: ${battlegroundName(world)}`;
     this.map.classList.add('drawn');
-    drawMapSketch(this.map, world, next.sides);
+    drawMapSketch(this.map, world, world.mode === 'conquest' ? [] : next.sides);
   }
 
   /** Move the bar towards `p` (0–1); with `trickle`, keep creeping on (slower and slower) while work goes on. */

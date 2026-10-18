@@ -138,11 +138,11 @@ function spawnTroop(world, b, type, slot) {
   return t;
 }
 
-const dist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
+export const dist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 const centre = (tile) => ({ x: tile.x + 0.5, z: tile.z + 0.5 });
 
 /** How far a soldier strikes from: his bow's range, or arm's reach. */
-const reachOf = (def) => def.ranged?.range ?? def.reach;
+export const reachOf = (def) => def.ranged?.range ?? def.reach;
 
 export function updateTroop(world, t, dt) {
   t.moving = false;
@@ -214,21 +214,34 @@ function setPath(world, t, path, gx, gz) {
 
 /**
  * Walk towards (gx, gz): along an A* path while more than `near` tiles away, then straight to the point.
- * Returns 'there' on arrival, true while on the way, or false if there's no way there.
+ * Returns 'there' on arrival, true while on the way, or false if there's no way there. `opts` (lane soldiers in
+ * Conquest): `passable` and `extra` for the path search (see findPath), and `stopAt(x, z)`: a tile the soldier
+ * mustn't step into (an enemy wall to break), returned as { stop: { x, z } } when it's next.
  */
-function walkTo(world, t, gx, gz, dt, near) {
+export function walkTo(world, t, gx, gz, dt, near, opts = {}) {
   const goal = { x: Math.floor(gx), z: Math.floor(gz) };
   const { grid } = world;
   const key = grid.index(goal.x, goal.z);
   t.repath -= dt;
   if (t.pathKey !== key || t.repath <= 0 || !t.path) {
-    const path = findPath(grid, troopPassable(world), { x: t.tx, z: t.tz }, goal, { near, maxNodes: 2500 });
-    if (!path) return false;
+    const path = findPath(grid, opts.passable ?? troopPassable(world), { x: t.tx, z: t.tz }, goal, { near, maxNodes: opts.maxNodes ?? 2500, extra: opts.extra });
+    if (!path) {
+      // No way there: stand and try again in a while (searching every tick would be costly).
+      setPath(world, t, [], goal.x, goal.z);
+      t.repath = 1 + world.troopRng.next() * 0.5;
+      t.noPath = true;
+      return false;
+    }
+    t.noPath = false;
     setPath(world, t, path, goal.x, goal.z);
   }
+  if (t.noPath) return false;
+  if (t.path.length && opts.stopAt?.(t.path[0].x, t.path[0].z)) return { stop: t.path[0] };
   let to;
   if (t.path.length) {
     to = centre(t.path[0]);
+    // Lane soldiers keep a little apart (not on the last stretch, which goes to an exact point).
+    if (t.offX) to = { x: to.x + t.offX, z: to.z + t.offZ };
   } else {
     to = { x: gx, z: gz };
   }
@@ -237,7 +250,8 @@ function walkTo(world, t, gx, gz, dt, near) {
   const d = Math.hypot(dx, dz);
   const ground = grid.terrainAt(t.tx, t.tz);
   const slow = ground === T.ford ? TERRAIN.fordSpeed : ground === T.ramp ? TERRAIN.hills.rampSpeed : 1;
-  const step = t.def.speed * slow * dt;
+  if (t.slowUntil !== undefined && t.slowUntil <= world.time) t.slowFactor = 1;
+  const step = t.def.speed * (t.slowFactor ?? 1) * slow * dt;
   if (d <= step) {
     t.x = to.x;
     t.z = to.z;

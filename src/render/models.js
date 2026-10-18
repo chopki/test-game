@@ -93,6 +93,8 @@ export const CHIMNEYS = { townHall: { x: 0.3, y: 2.35, z: -0.55 } };
 export const PENNANTS = {
   townHall: [{ x: -0.52, y: 1.81 + 0.95 - 0.02, z: -0.6, w: PENNANT_W }],
   gatehouse: [{ x: -0.95, y: 1.64 + 0.85 - 0.02, z: -0.1, w: 0.4 }],
+  archerTower: [{ x: 0, y: 1.74 + 0.6 + 0.86 + 0.6 - 0.02, z: 0, w: 0.34 }],
+  barracks: [{ x: 0.72, y: 1.25 + 0.55 - 0.02, z: -0.32, w: 0.32 }],
 };
 
 function townHall() {
@@ -271,7 +273,7 @@ function wallJoint({ dir = 'e' } = {}) {
 /** A small archer figure (for the archer tower's fighting platform). */
 function archer(p, { x, y, z, ry = 0 }) {
   const M = MATERIALS;
-  p.add(capsule(0.07, 0.14), M.clothBlue, { x, y: y + 0.15, z });
+  p.add(capsule(0.07, 0.14), M.teamCloth, { x, y: y + 0.15, z });
   p.add(sphere(0.06, 8, 6), std({ color: 0xe2b48a }), { x, y: y + 0.32, z });
   p.add(cone(0.075, 0.09, 8), M.leatherDark, { x, y: y + 0.39, z });
   const bow = place(x, z, ry, 0.08, 0.04);
@@ -337,6 +339,7 @@ function archerTower() {
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) p.add(box(0.09, cabH, 0.09), M.woodDark, { x: (sx * cab) / 2, y: y0 + cabH / 2, z: (sz * cab) / 2 });
   p.add(cone(0.98, 0.78, 4), rnd.pick(ROOF_TILES), { y: y0 + cabH + 0.36, ry: Math.PI / 4 });
   p.add(box(0.08, 0.2, 0.08), M.woodDark, { y: y0 + cabH + 0.82 });
+  pennant(p, { y: y0 + cabH + 0.86, h: 0.6, w: 0.34 }); // the side's colours, flown from the roof (see PENNANTS)
   groundDressing(p, { w: 1.72, d: 1.72, rnd, count: 9 });
   const g = p.build();
   // The lookouts turn to face what they shoot at (and scan the horizon when idle): a turret of their own.
@@ -357,7 +360,7 @@ function lookouts(y) {
     [-0.2, 0.06],
     [0.2, -0.1],
   ]) {
-    t.add(capsule(0.07, 0.06), M.clothBlue, { x, y: 0.3, z }); // shoulders
+    t.add(capsule(0.07, 0.06), M.teamCloth, { x, y: 0.3, z }); // shoulders
     t.add(sphere(0.06, 8, 6), std({ color: 0xe2b48a }), { x, y: 0.42, z });
     t.add(cone(0.075, 0.09, 8), M.leatherDark, { x, y: 0.49, z });
     t.add(torus(0.1, 0.012, 10), M.woodDark, { x: x + 0.08, y: 0.36, z: z + 0.06, ry: Math.PI / 2, sx: 0.5 });
@@ -926,6 +929,7 @@ function barracks() {
   for (const lx of [-0.5, 0.55]) windowFrame(p, { x: hx + lx, y: y0 + 0.38, z: hz + D / 2 + 0.01, w: 0.18, h: 0.2 });
   windowFrame(p, { x: hx + L / 2 + 0.01, y: y0 + 0.38, z: hz - 0.1, ry: Math.PI / 2, w: 0.18, h: 0.2 });
   banner(p, { x: hx + L / 2 + 0.03, y: y0 + 0.4, z: hz + 0.22, ry: Math.PI / 2, w: 0.2, h: 0.4 });
+  pennant(p, { x: hx + L / 2, y: 1.25, z: hz, h: 0.55, w: 0.32 }); // see PENNANTS
 
   // Training dummy: a post and crossbar with a straw sack and a pot helm.
   const dx = -0.55;

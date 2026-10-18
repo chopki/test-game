@@ -163,6 +163,31 @@ Enemy men stop to fight a soldier who comes within 0.9 tiles (or strikes them), 
 work; enemy archers with no building to shoot shoot soldiers in range. Siege engines ignore soldiers, but soldiers
 hack at them. Towers never target soldiers.
 
+## Conquest (castle against castle)
+
+Picked on the main menu (or `?mode=conquest`). A long map, 48 × 104 tiles, mirrored end to end (tile (x, z) matches
+(47 − x, 103 − z)), so neither side has the easier ground: woods everywhere but a castle clearing at each end and
+three **lanes** between them (west, middle, east), crossed halfway by a stream with fords where the lanes meet it, and
+a few clearings and rocks in the woods. **Red** (you) holds the south end, **blue** (the AI) the north.
+
+- **Forts**: both start the same, mirror images: the Town Hall, and on each lane a Barracks (10% of the way along it)
+  and two Archer Towers (17% and 33%). Blue's buildings fly blue banners and pennants and their lookouts wear blue.
+- **Waves**, in real time: the dial counts down 25 s to the first, then 40 s between them (two taps on the dial send
+  the next at once, for both sides). Each wave, **every Barracks on both sides sends a squad** down its lane (a
+  Barracks you build joins the nearest lane): 2 Men-at-arms and 1 Bowman, +1 Man-at-arms every 3 waves and +1
+  Bowman every 4, up to 8 men, with +4% health a wave.
+- **Squads** march their lane to the enemy's Town Hall. They fight enemy soldiers within 4.5 tiles (chasing up to
+  7), then enemy buildings beside the lane (not walls), and break through any enemy wall in their way. A man struck
+  by a sword turns to fight back. Towers shoot the nearest enemy soldier in range; your towers never hit your men.
+- **Building**: anywhere within 7 tiles of one of your own buildings (walls don't count), so your ground grows as
+  you build out along the lanes. You can't sell, upgrade or repair the enemy's buildings.
+- **Gold**: both sides start with 250 and earn 1.5 a second, plus 6 for each enemy Man-at-arms, 5 per Bowman and 40
+  per building (not walls) that falls. Repairs can be made at any time, but not within 5 s of a hit.
+- **The AI** (blue) thinks every 2.5 s and spends its gold through the same commands as you: Archer Towers on the
+  lane where red soldiers have come nearest its hall (or the lane with fewest towers), and more Barracks (one more
+  allowed every 2½ minutes) on the lane with fewest.
+- **Winning**: bring down the blue Town Hall. Lose yours and it's over.
+
 ## Enemies
 
 A human army in blue-and-cream livery, marching in **squads**. Men walk to the Town Hall and hack at whatever

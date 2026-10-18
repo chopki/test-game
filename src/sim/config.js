@@ -420,6 +420,7 @@ export const TROOPS = {
       attackCooldown: 1.0,
       reach: 0.7,
       height: 0.95,
+      reward: 6, // Conquest: gold to the other side when he falls
     },
     archer: {
       name: 'Bowman',
@@ -430,9 +431,41 @@ export const TROOPS = {
       attackCooldown: 1.3,
       reach: 0.7,
       height: 0.9,
+      reward: 5,
       ranged: { range: 4.5, projectile: 'arrow', projectileSpeed: 15, arc: 0.6 },
     },
   },
+};
+
+/**
+ * Conquest: castle against castle on a long mirrored map (see sim/lanes.js and sim/conquest.js). Red (the player)
+ * holds the south end, blue (the AI) the north; three lanes run between them. Both start with the same fort: the
+ * Town Hall, a Barracks and two Archer Towers on each lane. Every `pushEvery` seconds (the "wave"; the first after
+ * `firstPush`) each Barracks sends a squad down its lane: `squad.base` men of each type plus `squad.perWave` × the
+ * wave number, up to `squad.max` in all, with `hpPerWave` more health each wave. Squads march to the enemy's Town
+ * Hall, fighting enemy soldiers within `aggro` (chasing them up to `chase`) and enemy buildings near the lane, and
+ * breaking through walls in their way. Win by destroying the enemy's Town Hall.
+ *  buildRadius  new buildings must stand within this of one of your own (centre to centre, walls don't count)
+ *  income       gold a second to each side, besides bounties (a soldier's `reward`, `buildingBounty` a building)
+ *  repairDelay  repairs can be made at any time, but not within this many seconds of a hit
+ */
+export const CONQUEST = {
+  width: 48,
+  height: 104,
+  startingGold: 250,
+  income: 1.5,
+  buildingBounty: 40,
+  firstPush: 25,
+  pushEvery: 40,
+  squad: { base: { swordsman: 2, archer: 1 }, perWave: { swordsman: 1 / 3, archer: 1 / 4 }, max: 8 },
+  hpPerWave: 0.04,
+  aggro: 4.5,
+  chase: 7,
+  buildRadius: 7,
+  repairDelay: 5,
+  // Where each side's fort stands along each lane, as fractions of the lane's length from its own Town Hall.
+  fort: { barracks: 0.1, towers: [0.17, 0.33] },
+  ai: { think: 2.5, reserve: 30 },
 };
 
 export const WAVES = {
