@@ -30,14 +30,14 @@
           <span id="phase" class="wave-phase"></span>
           <span id="next-wave" class="wave-next"></span>
         </div>
-        <div class="wave-dial" id="wave-dial" title="Wave progress">
-          <div class="dial-face">
-            <span class="dial-label">Wave</span>
+        <button class="wave-dial" id="wave-dial" type="button" title="Send the next wave early (tap twice)" aria-label="Send the next wave early">
+          <span class="dial-face">
+            <span class="dial-label" id="dial-label">Wave</span>
             <b id="wave-num">01</b>
             <span class="sr-only">Waves fought: <span id="wave">0</span></span>
-          </div>
-          <div class="wave-bar" aria-hidden="true"><div id="wave-progress"></div></div>
-        </div>
+          </span>
+          <span class="wave-bar" aria-hidden="true"><span id="wave-progress"></span></span>
+        </button>
       </div>
       <div class="corner-buttons">
         <span id="fps" class="fps" hidden></span>
@@ -60,7 +60,7 @@
 
       <!-- Bottom left: time. -->
       <div class="corner corner-bl cogs">
-        <button id="start-wave" class="cog cog-primary" title="Start the next wave now (Space)" aria-label="Start wave">
+        <button id="start-wave" class="cog cog-primary" title="Send the next wave early: tap twice (Space sends it at once)" aria-label="Start wave">
           <svg class="cog-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19 19 5M14 5h5v5M5 5l14 14M5 14v5h5" /></svg><span class="cog-label">Send wave</span>
         </button>
         <button id="pause" class="cog" title="Pause (P)" aria-label="Pause">

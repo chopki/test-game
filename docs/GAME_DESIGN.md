@@ -202,7 +202,7 @@ and foe; Options), the live battlefield showing through it as its picture. The *
 iron-framed page: the coming wave and its approach, an ink sketch of the generated battleground with the first
 wave's arrows, its name ("The River Crossing"…), a lore & tactics tip and a progress bar. The battle HUD keeps the middle of
 the map clear (after the C and D concepts): the Town Hall's health as a ring round its portrait and the gold top left,
-the wave dial (time to the next wave, then the wave's progress) with what's coming top right, settings and help
+the wave dial (time to the next wave, then the wave's progress; tap it twice to send the next wave early) with what's coming top right, settings and help
 under it, the time controls (send wave, pause, speed) bottom left, and the **build wheel** bottom right: a hammer
 that fans the towers out on a quarter circle (open on wide screens, on demand on phones, folding away once a tower
 is picked). A selected building's card (stage, stats now → next, Upgrade, Repair, Sell) takes the bottom of the

@@ -248,5 +248,10 @@ test('the corners: the hall ring and gold, the wave dial, time controls and the 
   await page.locator('#info-close').tap();
   await expect(page.locator('#info')).toBeHidden();
   await expect(page.locator('#build-fab')).toBeVisible();
+  // Tapping the wave dial twice sends the next wave early: the first tap only asks.
+  await page.locator('#wave-dial').tap();
+  expect(await page.evaluate(() => [window.game.world.phase, window.game.hud._waveConfirmUntil > performance.now()])).toEqual(['build', true]);
+  await page.locator('#wave-dial').tap();
+  await expect.poll(() => page.evaluate(() => window.game.world.phase)).toBe('wave');
   expect(errors).toEqual([]);
 });

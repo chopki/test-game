@@ -170,6 +170,10 @@ test('right-click cancels build mode', async ({ page }) => {
 
 test('starting a wave spawns enemies', { tag: '@smoke' }, async ({ page }) => {
   await openGame(page, { paused: false });
+  // Two presses: the first asks, the second sends it.
+  await page.getByRole('button', { name: /Start wave/ }).click();
+  await expect(page.locator('#phase')).toContainText('Tap again to send wave 1');
+  expect(await page.evaluate(() => window.game.world.phase)).toBe('build');
   await page.getByRole('button', { name: /Start wave/ }).click();
   await expect(page.locator('#wave')).toHaveText('1');
   await expect.poll(() => page.evaluate(() => window.game.world.enemies.length)).toBeGreaterThan(0);

@@ -17,6 +17,8 @@ const STAT_MAX = {
   rate: Math.max(...attacks.map((a) => 1 / a.cooldown)),
 };
 const CHRONICLE_LENGTH = 6;
+/** How long the "tap again to send the wave" prompt waits for the second tap (ms). */
+const WAVE_CONFIRM_MS = 4000;
 
 /** A small drawn icon for the Sell card: a stack of coins. */
 function sellIcon() {
@@ -97,7 +99,10 @@ export class HUD {
       if (!this.wheelOpen) game.build.setMode(null);
     });
 
-    onPress(this.el.startWave, () => game.world.startWave());
+    // Sending a wave early takes two taps, on the cog or the wave dial: the first asks, the second sends it.
+    this._waveConfirmUntil = 0;
+    onPress(this.el.startWave, () => this.requestEarlyWave());
+    onPress(this.el.waveDial, () => this.requestEarlyWave());
     onPress(this.el.speed, () => game.cycleSpeed());
     onPress(this.el.pause, () => game.togglePause());
     onPress($('help-btn'), () => this.toggleHelp());
@@ -126,6 +131,22 @@ export class HUD {
     });
     this.el.buildbar.appendChild(btn);
     return btn;
+  }
+
+  /**
+   * The first tap asks ("Tap again to send wave N now"); a second within WAVE_CONFIRM_MS sends the wave early.
+   * Only between waves.
+   */
+  requestEarlyWave() {
+    const w = this.world;
+    if (w.phase !== 'build') return;
+    if (performance.now() < this._waveConfirmUntil) {
+      this._waveConfirmUntil = 0;
+      w.startWave();
+      return;
+    }
+    this._waveConfirmUntil = performance.now() + WAVE_CONFIRM_MS;
+    this._last.phase = null; // redraw the prompt now
   }
 
   /** A building's portrait at `stage`, cropped from the atlas (cached). */
@@ -219,7 +240,15 @@ export class HUD {
       phase = 'Fallen';
     }
     if (this.game.paused) phase = `Paused · ${phase}`;
+    const confirming = w.phase === 'build' && performance.now() < this._waveConfirmUntil;
+    if (confirming) phase = `Tap again to send wave ${w.waves.wave + 1} now`;
     this._set('phase', phase);
+    if (this._last.confirming !== confirming) {
+      this._last.confirming = confirming;
+      this.el.waveDial.classList.toggle('confirm', confirming);
+      this.el.startWave.classList.toggle('confirm', confirming);
+      $('dial-label').textContent = confirming ? 'Send?' : 'Wave';
+    }
     const pct = `${Math.round(Math.max(0, Math.min(1, progress)) * 100)}%`;
     if (this._last.progress !== pct) {
       this._last.progress = pct;
