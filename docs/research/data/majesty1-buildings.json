@@ -1,0 +1,445 @@
+{
+ "source": "Majesty: The Fantasy Kingdom Sim wiki (majesty.fandom.com), Oct 2026. Community-sourced; check in game before relying on exact values.",
+ "buildings": [
+  {
+   "name": "Ballista Tower",
+   "cost": 950,
+   "hp": 350,
+   "palaceLevel": 1,
+   "levels": 1,
+   "requires": "Dwarven Settlement",
+   "notes": "Attacks nearby enemies",
+   "role": "Defense"
+  },
+  {
+   "name": "Blacksmith",
+   "cost": [
+    500,
+    570,
+    760
+   ],
+   "hp": [
+    250,
+    300,
+    400
+   ],
+   "palaceLevel": 1,
+   "levels": 3,
+   "sells": "Weapon and Armor Upgrades",
+   "notes": "Reduces building cost by 5%",
+   "role": "Economic"
+  },
+  {
+   "name": "Dwarven Settlement",
+   "cost": 1187,
+   "hp": 600,
+   "palaceLevel": 2,
+   "levels": 1,
+   "repeatCost": "4n",
+   "requires": "Blacksmith Lvl 3",
+   "excludes": "Gnome Hovel or Elven Bungalow",
+   "houses": "3 Dwarves",
+   "notes": "Attacks nearby enemies",
+   "role": "Guild/Defense"
+  },
+  {
+   "name": "Elven Bungalow",
+   "cost": 750,
+   "hp": 300,
+   "palaceLevel": 2,
+   "levels": 1,
+   "repeatCost": "2n",
+   "requires": "Inn, Marketplace",
+   "excludes": "Gnome Hovel or Dwarven Settlement",
+   "houses": "2 Elves",
+   "notes": "Increases Marketplace revenue",
+   "role": "Guild/Economic"
+  },
+  {
+   "name": "Elven Lounge",
+   "hp": 130,
+   "palaceLevel": 1,
+   "levels": 1,
+   "requires": "Elven Bungalow",
+   "notes": "Un-taxable"
+  },
+  {
+   "name": "Fairgrounds",
+   "cost": 3000,
+   "hp": 800,
+   "palaceLevel": 3,
+   "levels": 1,
+   "repeatCost": "3.0"
+  },
+  {
+   "name": "Fountain",
+   "cost": "Appears when conditions met",
+   "hp": 100,
+   "palaceLevel": 1,
+   "levels": 1,
+   "requires": "total of 5 buildings from the following list: Blacksmith, Marketplace, Inn, Gazebo",
+   "notes": "Adds one additional Tax Collector",
+   "role": "Economic"
+  },
+  {
+   "name": "Gambling Hall",
+   "cost": "Appears when conditions met",
+   "hp": 130,
+   "palaceLevel": 1,
+   "levels": 1,
+   "requires": "Elven Bungalow, Rogues Guild",
+   "ability": "Gambling",
+   "notes": "Non-taxable",
+   "role": "Distraction/Economic"
+  },
+  {
+   "name": "Gazebo",
+   "cost": "Appears with Royal Gardens",
+   "notes": "Free inn-style rest for heroes"
+  },
+  {
+   "name": "Gnome Hovel",
+   "palaceLevel": "1 only",
+   "excludes": "Elven Bungalow or Dwarven Settlement; cannot be built once Palace is above level 1",
+   "houses": "3 Gnomes",
+   "notes": "Two more hovels spring up automatically (max 3); rebuilt by gnomes while any gnome lives"
+  },
+  {
+   "name": "Graveyard",
+   "cost": "Appears: after ~15 hero deaths",
+   "notes": "Indestructible; spawns skeletons and zombies"
+  },
+  {
+   "name": "Guardhouse",
+   "cost": [
+    600,
+    500
+   ],
+   "hp": [
+    200,
+    275
+   ],
+   "palaceLevel": 1,
+   "levels": 2,
+   "repeatCost": "1.25n",
+   "houses": "Henchmen",
+   "notes": "Refuge for peasants and gold drop off for tax collectors",
+   "role": "Defense/Economic"
+  },
+  {
+   "name": "House",
+   "cost": "Appears when conditions met",
+   "hp": 75,
+   "palaceLevel": 1,
+   "levels": 1,
+   "excludes": "Every fourth Hero recruited gives a house",
+   "role": "Economic"
+  },
+  {
+   "name": "Inn",
+   "cost": 400,
+   "hp": 120,
+   "palaceLevel": 1,
+   "levels": 1,
+   "repeatCost": "1.1ⁿ",
+   "houses": "Any Heros",
+   "notes": "Heroes can escape danger and rest",
+   "role": "Economic/Defense"
+  },
+  {
+   "name": "Library",
+   "cost": [
+    600,
+    800
+   ],
+   "hp": [
+    100,
+    200
+   ],
+   "palaceLevel": 1,
+   "levels": 2,
+   "repeatCost": 0,
+   "requires": "Wizard's Guild",
+   "sells": "Spells and Training",
+   "notes": "Reduces research costs by 5%",
+   "role": "Economic"
+  },
+  {
+   "name": "Marketplace",
+   "cost": [
+    1500,
+    1000,
+    1000
+   ],
+   "hp": [
+    200,
+    250,
+    300
+   ],
+   "palaceLevel": 1,
+   "levels": 3,
+   "repeatCost": "1.29",
+   "sells": "- Healing Potions - Protection Rings - Teleportation Amulets",
+   "notes": "Passive income",
+   "role": "Economic"
+  },
+  {
+   "name": "Palace",
+   "cost": [
+    3000,
+    3750
+   ],
+   "hp": 1000,
+   "levels": 3,
+   "notes": "Home base; loss = defeat. L1: 2 peasants, 1 tax collector; L2: 4 peasants, 2 collectors, 1 guard; L3: 6 peasants, 3 collectors, 2 guards. Upgrade needs 4 (to L2) / 12 (to L3) heroes recruited"
+  },
+  {
+   "name": "Ranger's Guild",
+   "cost": 700,
+   "hp": 250,
+   "palaceLevel": 1,
+   "levels": 1,
+   "repeatCost": "2n",
+   "houses": "4 Rangers",
+   "ability": "Move Camp | 800g",
+   "role": "Guild"
+  },
+  {
+   "name": "Rogue's Guild",
+   "cost": [
+    600,
+    850
+   ],
+   "hp": [
+    250,
+    350
+   ],
+   "palaceLevel": 1,
+   "levels": 2,
+   "repeatCost": "2n",
+   "houses": "4 Rogues",
+   "sells": "Weapon Poison",
+   "ability": "Extort",
+   "role": "Guild"
+  },
+  {
+   "name": "Royal Gardens",
+   "cost": 1140,
+   "palaceLevel": 3,
+   "notes": "+15 loyalty to every hero (stacks); spawns a free Gazebo (rest spot)"
+  },
+  {
+   "name": "Sewer Entrance",
+   "cost": "Appears: 1 per 9 buildings",
+   "notes": "Indestructible; spawns rats and ratmen"
+  },
+  {
+   "name": "Sorcerers Abode",
+   "cost": [
+    2000,
+    2500,
+    3000
+   ],
+   "hp": [
+    250,
+    300,
+    350
+   ],
+   "palaceLevel": 2,
+   "levels": 3,
+   "requires": "Magic Bazaar",
+   "excludes": "Can only build one",
+   "ability": "Spells",
+   "notes": "Self-Constructing",
+   "role": "Magic"
+  },
+  {
+   "name": "Statue",
+   "cost": 600,
+   "hp": 60,
+   "palaceLevel": "2+",
+   "levels": 0,
+   "role": "Loyalty (Multi-player Only)"
+  },
+  {
+   "name": "Temple to Agrela",
+   "cost": [
+    1000,
+    1500,
+    2600
+   ],
+   "hp": [
+    250,
+    300,
+    400
+   ],
+   "palaceLevel": 2,
+   "levels": 3,
+   "repeatCost": "X1.5",
+   "excludes": "Temple to Krypta, Temple to Fervus, Temple to Krolm",
+   "houses": "4 Healers",
+   "ability": "Spells",
+   "role": "Guild/Spells"
+  },
+  {
+   "name": "Temple to Dauros",
+   "cost": [
+    1600,
+    2200,
+    3400
+   ],
+   "hp": [
+    400,
+    500,
+    700
+   ],
+   "palaceLevel": 2,
+   "levels": 3,
+   "repeatCost": "X2",
+   "excludes": "Temple to Krypta, Temple to Fervus, Temple to Krolm",
+   "houses": "4 Monks",
+   "ability": "Spells",
+   "role": "Guild/Spells"
+  },
+  {
+   "name": "Temple to Fervus",
+   "cost": [
+    900,
+    1300,
+    2500
+   ],
+   "hp": [
+    235,
+    336,
+    444
+   ],
+   "palaceLevel": 2,
+   "levels": 3,
+   "repeatCost": "X2",
+   "excludes": "Temple to Dauros, Temple to Agrela, Temple to Krolm",
+   "houses": "4 Cultists",
+   "ability": "Spells",
+   "role": "Guild/Spells"
+  },
+  {
+   "name": "Temple to Helia",
+   "cost": [
+    1000,
+    2000
+   ],
+   "hp": [
+    400,
+    600
+   ],
+   "palaceLevel": 3,
+   "levels": 2,
+   "repeatCost": "X2",
+   "excludes": "Temple to Lunord, Temple to Krolm",
+   "houses": "4 Solarii",
+   "ability": "Spells",
+   "role": "Guild/Spells"
+  },
+  {
+   "name": "Temple to Krolm",
+   "cost": 900,
+   "hp": 800,
+   "palaceLevel": 2,
+   "levels": 1,
+   "repeatCost": "X1.5",
+   "excludes": "Any different Temples",
+   "houses": "4-6 Barbarians",
+   "ability": "Rage of Krolm | 1500g",
+   "role": "Guild"
+  },
+  {
+   "name": "Temple to Krypta",
+   "cost": [
+    1400,
+    1800,
+    2200
+   ],
+   "hp": [
+    350,
+    425,
+    475
+   ],
+   "palaceLevel": 2,
+   "levels": 3,
+   "repeatCost": "X2",
+   "excludes": "Temple to Dauros, Temple to Agrela, Temple to Krolm",
+   "houses": "4 Priestesses",
+   "ability": "Spells",
+   "role": "Guild/Spells"
+  },
+  {
+   "name": "Temple to Lunord",
+   "cost": [
+    1000,
+    2000
+   ],
+   "hp": [
+    350,
+    500
+   ],
+   "palaceLevel": 3,
+   "levels": 2,
+   "repeatCost": "X2",
+   "excludes": "Temple to Helia, Temple to Krolm",
+   "houses": "4 Adepts",
+   "ability": "Spells",
+   "role": "Guild/Spells"
+  },
+  {
+   "name": "Trading Post",
+   "cost": 600,
+   "hp": 150,
+   "palaceLevel": 1,
+   "levels": 1,
+   "repeatCost": "~1.75n",
+   "requires": "Marketplace",
+   "excludes": "Distance",
+   "sells": "Healing Potions",
+   "notes": "Spawns Caravans",
+   "role": "Economic"
+  },
+  {
+   "name": "Warrior's Guild",
+   "cost": 800,
+   "hp": 700,
+   "palaceLevel": 1,
+   "levels": 1,
+   "repeatCost": "2n",
+   "houses": "4 Warriors/Warriors of Discord/Paladins",
+   "ability": "Call to Arms | 500g",
+   "role": "Guild"
+  },
+  {
+   "name": "Wizard's Guild",
+   "cost": [
+    1500,
+    2500
+   ],
+   "hp": 350,
+   "palaceLevel": 2,
+   "levels": 3,
+   "repeatCost": "4n-1",
+   "houses": "4 Wizards",
+   "sells": "Equipment Enchantments",
+   "ability": "Spells",
+   "notes": "Self-Constructing",
+   "role": "Guild/Magic"
+  },
+  {
+   "name": "Wizards Tower",
+   "cost": 500,
+   "hp": 250,
+   "palaceLevel": 2,
+   "levels": 1,
+   "requires": "Wizards Guild",
+   "excludes": "Distance",
+   "ability": "Enchant | 400g",
+   "notes": "If Enchanted, attacks nearby enemies with magic",
+   "role": "Defense"
+  }
+ ]
+}
