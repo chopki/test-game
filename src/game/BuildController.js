@@ -325,9 +325,13 @@ export class BuildController {
     }
   }
 
-  /** A click or tap on a tile: build, sell or select depending on the mode. */
+  /** A click or tap on a tile: build, sell, select or (Conquest) send your hero, depending on the mode. */
   _activate(tile) {
     if (!tile) return;
+    if (this.mode === 'hero') {
+      this._orderHero(tile);
+      return;
+    }
     if (this.mode === 'sell') {
       const b = this.world.buildingAt(tile.x, tile.z);
       if (this.world.canSell(b)) this.world.sell(b.id);
@@ -342,6 +346,23 @@ export class BuildController {
     }
     const b = this.world.buildingAt(tile.x, tile.z);
     this.select(b ? b.id : null);
+  }
+
+  /** Hero mode: an enemy building or soldier on (or right by) the tile is attacked; anywhere else, gone to. */
+  _orderHero(tile) {
+    const w = this.world;
+    const x = tile.x + 0.5;
+    const z = tile.z + 0.5;
+    const b = w.buildingAt(tile.x, tile.z);
+    let target = b && b.team !== 'red' ? b : null;
+    if (!target) {
+      let best = 1.1;
+      for (const t of w.troops) {
+        const d = Math.hypot(t.x - x, t.z - z);
+        if (t.alive && t.team !== 'red' && d < best) [target, best] = [t, d];
+      }
+    }
+    if (!w.orderHero(target ? { target } : { x, z })) this.game.hud?.toast('Your hero is down: they will be back at the hall soon', 'warn');
   }
 
   _moveGrabbedToFinger() {

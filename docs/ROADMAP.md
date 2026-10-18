@@ -192,10 +192,12 @@ shown by livery hints (the same army on both sides, not two factions).
 - [x] Conquest on the main menu, a win screen
 - [x] Real-time repairs (not within 5 s of a hit)
 - [x] Minimap (press or drag to look there)
-- [ ] Hills and ramps on the lane map; more lane variety
-- [ ] The AI upgrades its buildings (needs blue stage sprites) and builds walls and other towers
-- [ ] Siege squads (knights, rams) in later waves, for both sides
-- [ ] Heroes, one each side
+- [x] Hills and ramps on the lane map (mirrored plateaus on the west and middle lanes)
+- [x] The AI upgrades its Town Hall and towers (blue stage sprites) and walls a pressed lane, leaving a gap
+- [x] Siege squads (knights, rams, siege catapults) in later waves, for both sides
+- [x] Heroes, one each side: orders, XP and levels, war cry, respawn; the AI steers its own
+- [ ] More lane variety (lane layouts, neutral camps in the woods)
+- [ ] Hero abilities beyond the war cry, more than one hero to choose from
 
 ## v0.5: Heroes
 

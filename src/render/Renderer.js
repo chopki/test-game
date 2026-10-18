@@ -726,8 +726,11 @@ export class Renderer {
       ev.on('troopKilled', ({ troop, dismissed }) => {
         if (dismissed) return;
         this._fxDust(troop.x, 0.25, troop.z, 3, 0.35);
-        this.corpses.push({ type: troop.type, elite: false, team: troop.team, heading: troop.heading, x: troop.x, z: troop.z, age: 0 });
+        this.corpses.push({ type: troop.type, elite: troop.elite ?? false, team: troop.team, heading: troop.heading, x: troop.x, z: troop.z, age: 0 });
       }),
+      // Heroes: a gold ring for a war cry, a small one where yours is sent.
+      ev.on('warCry', ({ x, z, radius }) => this._spawnRing(x, z, radius, 0xe8c25a, 0.7)),
+      ev.on('heroOrdered', ({ hero, x, z }) => hero.team === 'red' && this._spawnRing(x, z, 0.8, 0xc23a2a, 0.5)),
       ev.on('buildingHit', (hit) => this._fxHit(hit)),
       ev.on('waveStarted', ({ wave }) => this.setWeather(this.weather.season, this._weatherFor(wave, this.weather.season))),
       ev.on('buildingDestroyed', ({ building }) => this._fxCollapse(building)),
@@ -1163,7 +1166,7 @@ export class Renderer {
     const scale = e.elite ? 1.3 : 1;
     this._addEnemySprite(e.type, e.elite, e.heading, anim, frame, this.toScene(e.x, 0, e.z, this._v), team);
     this.blobShadows.add(this.toScene(e.x, 0.02, e.z, this._v), (ENEMY_BLOB_RADIUS[e.type] ?? 0.3) * scale);
-    const bar = this._barFade(view, e);
+    const bar = this._barFade(view, e, e.hero); // a hero's health always shows
     if (bar) this.healthBars.add(this.toScene(e.x, e.def.height * scale + 0.25, e.z, this._v), ENEMY_BAR_WIDTH[e.type] ?? 0.6, e.hp / e.maxHp, bar);
   }
 

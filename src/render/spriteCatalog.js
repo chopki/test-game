@@ -206,7 +206,8 @@ export function spriteSpecs() {
   // The enemy army in blue, and the player's troops (the same men) in red.
   const units = [...Object.keys(ENEMIES).map((type) => ({ type, team: 'blue' })), ...Object.keys(TROOPS.types).map((type) => ({ type, team: 'red' }))];
   for (const { type, team } of units) {
-    const variants = type === WAVES.bossType && team === 'blue' ? [false, true] : [false];
+    // Elite knights: the enemy's warlords (Survival) and both sides' heroes (Conquest).
+    const variants = type === WAVES.bossType ? [false, true] : [false];
     for (const elite of variants) {
       for (let d = 0; d < ENEMY_DIRECTIONS; d++) {
         const heading = (d / ENEMY_DIRECTIONS) * Math.PI * 2;
@@ -325,8 +326,11 @@ export function spriteSpecs() {
   return specs;
 }
 
-/** Sprites with a blue version (see teamKey): the stage-1 bases and lookouts the enemy castle uses, and pennants. */
-const BLUE_KEY = /^(b:(townHall|archerTower|barracks)|t:archerTower:\d+:0|flag:\d:\d+)$/;
+/**
+ * Sprites with a blue version (see teamKey): the bases (every stage, as the AI upgrades) and lookouts of the
+ * buildings the enemy castle has and builds, and pennants.
+ */
+const BLUE_KEY = /^(b:(townHall|archerTower|barracks)(:s[2-5])?|t:archerTower:\d+:0|flag:\d:\d+)$/;
 
 /** The key of `key`'s version in `team`'s colours: blue for the enemy castle, else the key itself (red). */
 export const teamKey = (key, team) => (team === 'blue' ? `${key}:blue` : key);

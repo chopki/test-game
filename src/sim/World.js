@@ -12,6 +12,7 @@ import { SIDES } from './WaveManager.js';
 import { refreshPosts, updateBarracks, updateTroop } from './troops.js';
 import { generateLaneMap, nearestLane } from './lanes.js';
 import { aiThink, buildForts, otherTeam, sendSquads, updateLaneSoldier } from './conquest.js';
+import { heroFell, heroXp, orderHero, spawnHero, updateHero, updateHeroes, warCry } from './heroes.js';
 
 /**
  * The whole game state and rules, with no rendering or DOM dependencies.
@@ -113,17 +114,30 @@ export class World {
   _setupConquest() {
     const map = generateLaneMap({ width: this.grid.width, height: this.grid.height, rng: createRng(this.seed ^ 0x9e3779b9) });
     this.grid.terrain = map.types;
+    this.grid.levels = map.levels;
     this.lanes = map.lanes;
     this.coast = null;
-    this.hills = false;
+    this.hills = map.levels.some((l) => l > 0);
     this.spawnTiles = { north: [], south: [], west: [], east: [] };
     this.waves = new WaveManager(this.rng, ['north']); // only counts the waves: squads come from the Barracks
     this.phaseTimer = CONQUEST.firstPush;
     this.townHall = this._addBuilding('townHall', map.halls.red.x, map.halls.red.z, 'red');
     this.enemyHall = this._addBuilding('townHall', map.halls.blue.x, map.halls.blue.z, 'blue');
     buildForts(this);
+    this.heroes = {};
+    for (const team of ['red', 'blue']) spawnHero(this, team);
     this._aiTimer = CONQUEST.ai.think;
     this._refreshFlow();
+  }
+
+  /** Conquest: send the player's hero to a point ({ x, z }), at a foe ({ target }), or home (null). See heroes.js. */
+  orderHero(order, team = 'red') {
+    return orderHero(this, team, order);
+  }
+
+  /** Conquest: the hero's war cry (allies near it heal and speed up). */
+  warCry(team = 'red') {
+    return warCry(this, team);
   }
 
   /** A side's gold: the player's (red), or in Conquest the AI's (blue). */
@@ -263,26 +277,28 @@ export class World {
 
   /**
    * Whether `building` can go up a stage now: { ok, reason, cost, next } (`next`: the next stage's definition, or
-   * null at the last stage). Nothing may stand more than UPGRADES.aboveHall stages above the Town Hall.
+   * null at the last stage). Nothing may stand more than UPGRADES.aboveHall stages above its side's Town Hall.
+   * `team`: who's upgrading (the player, or in Conquest the AI), who may only upgrade their own.
    */
-  upgradeCheck(building) {
+  upgradeCheck(building, team = 'red') {
     const cost = building ? nextUpgradeCost(building.type, building.stage) : null;
     if (cost === null) return { ok: false, reason: building && UPGRADES.stages[building.type] ? 'Fully upgraded' : 'Cannot be upgraded', cost: null, next: null };
     const next = stageDef(building.type, building.stage + 1);
     const fail = (reason) => ({ ok: false, reason, cost, next });
     if (this.phase === 'gameover') return fail('The battle is over');
-    if (building.team !== 'red') return fail("The enemy's");
-    if (building.type !== 'townHall' && next.stage > this.townHall.stage + UPGRADES.aboveHall) return fail(`Needs the Town Hall at stage ${next.stage - UPGRADES.aboveHall}`);
-    if (!this.economy.canAfford(cost)) return fail('Not enough gold');
+    if (building.team !== team) return fail("The enemy's");
+    const hall = team === 'blue' ? this.enemyHall : this.townHall;
+    if (building.type !== 'townHall' && next.stage > hall.stage + UPGRADES.aboveHall) return fail(`Needs the Town Hall at stage ${next.stage - UPGRADES.aboveHall}`);
+    if (!this.economyOf(team).canAfford(cost)) return fail('Not enough gold');
     return { ok: true, reason: null, cost, next };
   }
 
   /** Upgrade building `id` a stage: it keeps the damage it has taken and gains the new stage's extra health. */
-  upgrade(id) {
+  upgrade(id, { team = 'red' } = {}) {
     const b = this.buildings.get(id);
-    const check = this.upgradeCheck(b);
+    const check = this.upgradeCheck(b, team);
     if (!check.ok) return check;
-    this.economy.spend(check.cost);
+    this.economyOf(team).spend(check.cost);
     b.stage = check.next.stage;
     b.def = check.next;
     b.hp += check.next.maxHp - b.maxHp;
@@ -431,6 +447,7 @@ export class World {
         this._aiTimer = CONQUEST.ai.think;
         aiThink(this);
       }
+      updateHeroes(this, dt);
     }
     if (this.phase === 'wave') {
       for (const entry of this.waves.update(dt)) this._spawnEnemy(entry);
@@ -452,7 +469,8 @@ export class World {
     }
     for (const t of this.troops) {
       if (!t.alive) continue;
-      if (t.lane !== undefined) updateLaneSoldier(this, t, dt);
+      if (t.hero) updateHero(this, t, dt);
+      else if (t.lane !== undefined) updateLaneSoldier(this, t, dt);
       else updateTroop(this, t, dt);
       if (this.phase === 'gameover') return;
     }
@@ -543,7 +561,10 @@ export class World {
     b.hp = 0;
     this._removeBuilding(b);
     this.events.emit('buildingDestroyed', { building: b });
-    if (this.mode === 'conquest' && b.type !== 'wall') this.economyOf(otherTeam(b.team)).earn(CONQUEST.buildingBounty, 'bounty');
+    if (this.mode === 'conquest' && b.type !== 'wall') {
+      this.economyOf(otherTeam(b.team)).earn(CONQUEST.buildingBounty, 'bounty');
+      heroXp(this, otherTeam(b.team), b.cx, b.cz, CONQUEST.buildingBounty);
+    }
     if (b === this.townHall || b === this.enemyHall) {
       this.phase = 'gameover';
       if (this.mode === 'conquest') this.won = b === this.enemyHall;
@@ -998,6 +1019,8 @@ export class World {
     this._removeTroop(t, 'killed');
     if (this.mode === 'conquest') {
       this.economyOf(otherTeam(t.team)).earn(t.def.reward, 'kill');
+      heroXp(this, otherTeam(t.team), t.x, t.z, t.def.reward);
+      if (t.hero) heroFell(this, t);
       if (t.team === 'blue') this.stats.kills++;
     }
   }
@@ -1013,7 +1036,7 @@ export class World {
       if (building) this._damageBuilding(target, u.def.damage, u);
       else {
         this._damageTroop(target, u.def.damage);
-        if (target.alive && (!target.target || target.target.size !== undefined)) target.target = u;
+        if (target.alive && !target.def.siege && (!target.target || target.target.size !== undefined)) target.target = u;
       }
       return;
     }

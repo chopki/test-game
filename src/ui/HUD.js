@@ -116,6 +116,8 @@ export class HUD {
     onPress(this.el.startWave, () => this.requestEarlyWave());
     onPress(this.el.waveDial, () => this.requestEarlyWave());
     onPress(this.el.speed, () => game.cycleSpeed());
+    onPress($('hero-btn'), () => this.toggleHeroMode());
+    onPress($('warcry-btn'), () => this.game.world.warCry());
     onPress(this.el.pause, () => game.togglePause());
     onPress($('help-btn'), () => this.toggleHelp());
     onPress($('help-close'), () => this.toggleHelp(false));
@@ -215,8 +217,16 @@ export class HUD {
       }
     });
     ev.on('gameOver', (stats) => this.showGameOver(stats));
+    ev.on('heroFell', ({ hero, respawnAt }) => {
+      const back = Math.round(respawnAt - world.time);
+      if (hero.team === 'red') this.toast(`${hero.def.name} has fallen! Back at the hall in ${back}s`, 'warn');
+      else this.toast(`${hero.def.name}, the enemy's champion, has fallen!`, 'good');
+    });
+    ev.on('heroLevelUp', ({ hero, level }) => hero.team === 'red' && this.toast(`${hero.def.name} reaches level ${level}`, 'good'));
     ev.on('buildingUpgraded', ({ building }) => {
-      if (building.type !== 'wall') this.toast(`${building.def.name} upgraded: ${building.def.stageName}`, 'good');
+      if (building.type === 'wall') return;
+      if (building.team === 'blue') this.toast(`The enemy upgraded a ${building.def.name}: ${building.def.stageName}`, 'warn');
+      else this.toast(`${building.def.name} upgraded: ${building.def.stageName}`, 'good');
     });
   }
 
@@ -295,6 +305,7 @@ export class HUD {
     }
 
     this._updateInfo();
+    this._updateHero();
     this.minimap.update();
     this._updateConfirm();
     this._updateBuildTag();
@@ -419,6 +430,48 @@ export class HUD {
         this.game.build.select(null);
       });
     }
+  }
+
+  /** Conquest: start (or stop) giving your hero orders; the camera goes to them. */
+  toggleHeroMode() {
+    const build = this.game.build;
+    const h = this.world.heroes?.red;
+    if (build.mode === 'hero' || !h) {
+      build.setMode(null);
+      return;
+    }
+    build.setMode('hero');
+    if (h.alive) {
+      this.game.renderer.focusOn(h.x, h.z);
+      this.toast(`Tap the map to send ${h.def.name} there, or an enemy to attack it`, 'info');
+    }
+  }
+
+  /** Conquest: the hero cog (portrait, level, health, or when they're back) and the war cry's rest. */
+  _updateHero() {
+    const w = this.world;
+    const heroBtn = $('hero-btn');
+    const cryBtn = $('warcry-btn');
+    const show = w.mode === 'conquest';
+    heroBtn.hidden = cryBtn.hidden = !show;
+    if (!show) return;
+    const h = w.heroes.red;
+    if (!this._heroPortrait) {
+      this._heroPortrait = frameToDataURL(this.game.renderer.atlas, spriteKeys.enemy('knight', Math.PI / 4, true, 'walk', 0, 'red'));
+      $('hero-portrait').src = this._heroPortrait;
+    }
+    const label = h.alive ? h.def.name.split(' ').at(-1) : `Back in ${Math.max(1, Math.ceil(h.respawnAt - w.time))}s`;
+    const rest = Math.ceil(h.warCryReady - w.time);
+    const key = [h.alive, h.level, Math.ceil((h.hp / h.maxHp) * 20), label, rest > 0 ? rest : 0, this.game.build.mode === 'hero'].join(':');
+    if (this._last.hero === key) return;
+    this._last.hero = key;
+    $('hero-level').textContent = h.level;
+    $('hero-label').textContent = label;
+    heroBtn.style.setProperty('--hp', h.alive ? (h.hp / h.maxHp).toFixed(2) : 0);
+    heroBtn.classList.toggle('down', !h.alive);
+    heroBtn.classList.toggle('active', this.game.build.mode === 'hero');
+    cryBtn.disabled = !h.alive || rest > 0;
+    $('warcry-label').textContent = rest > 0 ? `${rest}s` : 'War cry';
   }
 
   /** A Barracks' men: how many stand, and when the next is ready (or why none can be trained). */

@@ -169,6 +169,12 @@ export class Game {
       case 'x':
         this.build.setMode(this.build.mode === 'sell' ? null : 'sell');
         break;
+      case 'e':
+        if (this.world.mode === 'conquest') this.hud.toggleHeroMode();
+        break;
+      case 'q':
+        if (this.world.mode === 'conquest') this.world.warCry();
+        break;
       case 'u':
         if (this.build.selected) this.world.upgrade(this.build.selected.id);
         break;

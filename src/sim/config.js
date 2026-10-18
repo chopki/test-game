@@ -434,6 +434,43 @@ export const TROOPS = {
       reward: 5,
       ranged: { range: 4.5, projectile: 'arrow', projectileSpeed: 15, arc: 0.6 },
     },
+    // Conquest only (they come in later waves; see CONQUEST.squad). Siege engines only attack buildings.
+    knight: {
+      name: 'Knight',
+      plural: 'Knights',
+      maxHp: 260,
+      speed: 1.0,
+      damage: 16,
+      attackCooldown: 1.3,
+      reach: 0.75,
+      height: 1.1,
+      reward: 14,
+    },
+    ram: {
+      name: 'Battering Ram',
+      plural: 'Battering Rams',
+      maxHp: 480,
+      speed: 0.6,
+      damage: 80,
+      attackCooldown: 2.2,
+      reach: 0.8,
+      height: 1.1,
+      siege: true,
+      reward: 20,
+    },
+    mangonel: {
+      name: 'Siege Catapult',
+      plural: 'Siege Catapults',
+      maxHp: 220,
+      speed: 0.55,
+      damage: 65,
+      attackCooldown: 5,
+      reach: 0.8,
+      height: 1.2,
+      siege: true,
+      reward: 20,
+      ranged: { range: 8, projectile: 'boulder', projectileSpeed: 7, arc: 3 },
+    },
   },
 };
 
@@ -441,8 +478,7 @@ export const TROOPS = {
  * Conquest: castle against castle on a long mirrored map (see sim/lanes.js and sim/conquest.js). Red (the player)
  * holds the south end, blue (the AI) the north; three lanes run between them. Both start with the same fort: the
  * Town Hall, a Barracks and two Archer Towers on each lane. Every `pushEvery` seconds (the "wave"; the first after
- * `firstPush`) each Barracks sends a squad down its lane: `squad.base` men of each type plus `squad.perWave` × the
- * wave number, up to `squad.max` in all, with `hpPerWave` more health each wave. Squads march to the enemy's Town
+ * `firstPush`) each Barracks sends a squad down its lane (see `squad`), with `hpPerWave` more health each wave. Squads march to the enemy's Town
  * Hall, fighting enemy soldiers within `aggro` (chasing them up to `chase`) and enemy buildings near the lane, and
  * breaking through walls in their way. Win by destroying the enemy's Town Hall.
  *  buildRadius  new buildings must stand within this of one of your own (centre to centre, walls don't count)
@@ -457,7 +493,16 @@ export const CONQUEST = {
   buildingBounty: 40,
   firstPush: 25,
   pushEvery: 40,
-  squad: { base: { swordsman: 2, archer: 1 }, perWave: { swordsman: 1 / 3, archer: 1 / 4 }, max: 8 },
+  squad: {
+    // Men: `base` of each, plus `per` × the waves since `from` (wave 1 unless given), up to `max` men in all.
+    men: { swordsman: { base: 2, per: 1 / 3 }, archer: { base: 1, per: 1 / 4 }, knight: { base: 1, per: 1 / 4, from: 5 } },
+    max: 8,
+    // Siege engines (on top of the men): one in wave `from`, and every `every` waves after.
+    siege: [
+      { type: 'ram', from: 4, every: 3 },
+      { type: 'mangonel', from: 7, every: 3 },
+    ],
+  },
   hpPerWave: 0.04,
   aggro: 4.5,
   chase: 7,
@@ -465,7 +510,38 @@ export const CONQUEST = {
   repairDelay: 5,
   // Where each side's fort stands along each lane, as fractions of the lane's length from its own Town Hall.
   fort: { barracks: 0.1, towers: [0.17, 0.33] },
-  ai: { think: 2.5, reserve: 30 },
+  // The AI: how often it thinks, the gold it keeps back, its Town Hall's stages (no sooner than `hallEvery` seconds
+  // a stage), and its walls: across a lane once an enemy comes within `wallWhen` × the map's length of its hall,
+  // `wallAt` of the way along the lane from it, with a gap of `wallGap` tiles in the middle.
+  ai: { think: 2.5, reserve: 30, hallEvery: 120, wallWhen: 0.5, wallAt: 0.2, wallGap: 3 },
+};
+
+/**
+ * Conquest heroes (sim/heroes.js): a champion for each side, an elite knight in its colours. Yours goes where you
+ * send it (tap the ground) and fights whatever comes within `aggro` on the way and wherever it stands (chasing up
+ * to `leash` from there), or attacks what you point it at. Blue's is the AI's: it follows its strongest squad and
+ * falls back to its hall when hurt (below `retreatAt` of its health).
+ *  levels      XP needed for each level (level 1 at 0); each level adds `perLevel` of its base health and damage
+ *  xpRange     a hero earns XP (the foe's gold reward) when a foe falls within this, and the full bounty for kills
+ *  atHall      healing a second (fraction of its health) within `radius` of its own Town Hall
+ *  respawn     seconds after it falls before it's back at its hall: `base` + `perLevel` × its level
+ *  bounty      gold (and XP) to the other side when a hero falls
+ *  warCry      its ability: every ally within `radius` (the hero too) heals `heal` of their health and moves and
+ *              strikes `haste`× as fast for `duration` seconds; then it rests for `cooldown`
+ */
+export const HEROES = {
+  names: { red: 'Sir Aldric', blue: 'Lord Vane' },
+  stats: { maxHp: 650, speed: 1.45, damage: 26, attackCooldown: 1.0, reach: 0.8, height: 1.4 },
+  aggro: 5,
+  leash: 6,
+  levels: [0, 60, 150, 280, 450, 670, 950, 1300, 1720, 2200],
+  perLevel: 0.12,
+  xpRange: 7,
+  atHall: { heal: 0.06, radius: 7 },
+  respawn: { base: 20, perLevel: 4 },
+  bounty: 120,
+  retreatAt: 0.3,
+  warCry: { radius: 4.5, heal: 0.25, haste: 1.35, duration: 6, cooldown: 30 },
 };
 
 export const WAVES = {

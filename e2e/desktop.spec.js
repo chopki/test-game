@@ -1145,6 +1145,27 @@ test('conquest: castle against castle on the lane map, squads march both ways, b
   await page.waitForTimeout(1500);
   await testInfo.attach('conquest', { body: await page.screenshot(), contentType: 'image/png' });
 
+  // Heroes: one each side, drawn as crowned knights in their colours. Press E (or the hero cog), then a tile: yours
+  // is sent there. The war cry button (or Q) heals and hastes the men round them, then rests.
+  await expect(page.locator('#hero-btn')).toBeVisible();
+  expect(await page.evaluate(() => ['e:red:knight:0:walk:0', 'e:red:knight:elite:0:walk:0', 'e:red:ram:0:walk:0', 'e:red:mangonel:0:walk:0', 'b:townHall:s2:blue', 'b:archerTower:s3:blue'].filter((k) => !window.game.renderer.atlas.frame(k)))).toEqual([]);
+  const heroView = await page.evaluate(() => ['red', 'blue'].map((t) => window.game.renderer.views.troops.has(window.game.world.heroes[t].id)));
+  expect(heroView).toEqual([true, true]);
+  await page.keyboard.press('e');
+  expect(await page.evaluate(() => window.game.build.mode)).toBe('hero');
+  const spot = await page.evaluate(() => {
+    const h = window.game.world.townHall;
+    return { x: h.x + 1, z: h.z - 5 };
+  });
+  const sp = await tileToScreen(page, spot.x, spot.z);
+  await page.mouse.click(sp.x, sp.y);
+  expect(await page.evaluate(() => window.game.world.heroes.red.order)).toEqual({ x: spot.x + 0.5, z: spot.z + 0.5 });
+  await page.locator('#warcry-btn').click();
+  await expect(page.locator('#warcry-btn')).toBeDisabled();
+  await page.keyboard.press('e'); // done giving orders
+  // Hills: the lane map's plateaus have cliffs round them.
+  expect(await page.evaluate(() => window.game.world.hills)).toBe(true);
+
   // An enemy building's card says whose it is, and offers nothing to do.
   await page.evaluate(() => {
     const w = window.game.world;

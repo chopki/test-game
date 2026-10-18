@@ -63,6 +63,13 @@
 
       <!-- Bottom left: time. -->
       <div class="corner corner-bl cogs">
+        <!-- Conquest: your hero (tap, then tap the map to send them) and their war cry. -->
+        <button id="hero-btn" class="cog hero-cog" type="button" hidden title="Your hero: tap, then tap the map to send them there, or an enemy to attack it (E)" aria-label="Hero">
+          <span class="cog-icon hero-face"><img id="hero-portrait" alt="" draggable="false" /></span><span class="hero-level" id="hero-level">1</span><span class="cog-label" id="hero-label">Hero</span>
+        </button>
+        <button id="warcry-btn" class="cog" type="button" hidden title="War cry: your hero and the soldiers near them heal and speed up (Q)" aria-label="War cry">
+          <span class="cog-icon">⚔</span><span class="cog-label" id="warcry-label">War cry</span>
+        </button>
         <button id="start-wave" class="cog cog-primary" title="Send the next wave early: tap twice (Space sends it at once)" aria-label="Start wave">
           <svg class="cog-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19 19 5M14 5h5v5M5 5l14 14M5 14v5h5" /></svg><span class="cog-label">Send wave</span>
         </button>

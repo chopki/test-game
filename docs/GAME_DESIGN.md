@@ -168,14 +168,27 @@ hack at them. Towers never target soldiers.
 Picked on the main menu (or `?mode=conquest`). A long map, 48 × 104 tiles, mirrored end to end (tile (x, z) matches
 (47 − x, 103 − z)), so neither side has the easier ground: woods everywhere but a castle clearing at each end and
 three **lanes** between them (west, middle, east), crossed halfway by a stream with fords where the lanes meet it, and
-a few clearings and rocks in the woods. **Red** (you) holds the south end, **blue** (the AI) the north.
+a few clearings and rocks in the woods. Each side's half has two low **plateaus** (cliffs round them), one on the
+west lane and one on the middle (mirrored onto the east and middle of the other half), which the lanes climb by
+ramps: towers up there reach further, and arrows shot up at them reload slower (see Terrain). **Red** (you) holds the
+south end, **blue** (the AI) the north.
 
 - **Forts**: both start the same, mirror images: the Town Hall, and on each lane a Barracks (10% of the way along it)
   and two Archer Towers (17% and 33%). Blue's buildings fly blue banners and pennants and their lookouts wear blue.
 - **Waves**, in real time: the dial counts down 25 s to the first, then 40 s between them (two taps on the dial send
   the next at once, for both sides). Each wave, **every Barracks on both sides sends a squad** down its lane (a
   Barracks you build joins the nearest lane): 2 Men-at-arms and 1 Bowman, +1 Man-at-arms every 3 waves and +1
-  Bowman every 4, up to 8 men, with +4% health a wave.
+  Bowman every 4, and from wave 5 a Knight (+1 every 4 waves), up to 8 men, with +4% health a wave. Siege engines
+  come on top: a **Battering Ram** in wave 4 and every 3rd wave after, a **Siege Catapult** in wave 7 and every 3rd
+  after. Siege engines only attack buildings (the catapult from 8 tiles); soldiers attack them.
+
+  | Soldier        | HP  | Speed | Damage | Hit every | Reach | Gold to the other side |
+  | -------------- | --- | ----- | ------ | --------- | ----- | ---------------------- |
+  | Man-at-arms    | 110 | 1.3   | 9      | 1.0s      | melee | 6  |
+  | Bowman         | 60  | 1.25  | 8      | 1.3s      | 4.5   | 5  |
+  | Knight         | 260 | 1.0   | 16     | 1.3s      | melee | 14 |
+  | Battering Ram  | 480 | 0.6   | 80     | 2.2s      | melee, buildings only | 20 |
+  | Siege Catapult | 220 | 0.55  | 65     | 5s        | 8, buildings only     | 20 |
 - **Squads** march their lane to the enemy's Town Hall. They fight enemy soldiers within 4.5 tiles (chasing up to
   7), then enemy buildings beside the lane (not walls), and break through any enemy wall in their way. A man struck
   by a sword turns to fight back. Towers shoot the nearest enemy soldier in range; your towers never hit your men.
@@ -183,9 +196,26 @@ a few clearings and rocks in the woods. **Red** (you) holds the south end, **blu
   you build out along the lanes. You can't sell, upgrade or repair the enemy's buildings.
 - **Gold**: both sides start with 250 and earn 1.5 a second, plus 6 for each enemy Man-at-arms, 5 per Bowman and 40
   per building (not walls) that falls. Repairs can be made at any time, but not within 5 s of a hit.
-- **The AI** (blue) thinks every 2.5 s and spends its gold through the same commands as you: Archer Towers on the
-  lane where red soldiers have come nearest its hall (or the lane with fewest towers), and more Barracks (one more
-  allowed every 2½ minutes) on the lane with fewest.
+- **The AI** (blue) thinks every 2.5 s and spends its gold through the same commands as you, one thing a turn, in
+  this order: more Barracks (one more allowed every 2½ minutes) on the lane with fewest; its Town Hall's next stage
+  (due every 2 minutes a stage, and saved up for unless red soldiers are deep in its half); once red soldiers come
+  within half the map of its hall on a lane, a wall across that lane, a fifth of the way out, with a 3-tile gap in
+  the middle (its own squads use the gap; attackers are funnelled through it or must break the wall); Archer Towers
+  on the lane where red soldiers have come nearest its hall (or the lane with fewest towers); and the weakest tower
+  on that lane up a stage (towers can go one stage above its hall, as yours can).
+- **Heroes**: a champion each side, a crowned knight in their colours: **Sir Aldric** (yours) and **Lord Vane**.
+  650 HP, speed 1.45, a 26-damage blow every second, reach 0.8; health and damage +12% a level. Tap the hero cog (or press
+  <kbd>E</kbd>), then tap the map: on the ground to send them there (they hold that spot, fighting anything that
+  comes within 5 tiles and chasing it up to 6 from the spot), on an enemy soldier or building to attack it. With no
+  orders they wait by their hall's door. They heal 6% a second within 7 tiles of their own hall.
+  - **XP**: when a foe falls within 7 tiles, the hero earns its gold worth as XP (a soldier's reward, 40 for a
+    building, 120 for the other hero). Levels at 60, 150, 280, 450, 670, 950, 1300, 1720 and 2200 XP (level 10).
+  - **War cry** (button, or <kbd>Q</kbd>): the hero and every ally within 4.5 tiles heal 25% of their health and
+    move and strike 1.35× as fast for 6 s; then it rests 30 s.
+  - **Falling**: the other side gets 120 gold; the hero is back at its hall after 20 s + 4 s a level, with its
+    level and XP.
+  - Blue's hero (the AI) goes with its most advanced soldier on the lane where it has most men, falls back to its
+    hall below 30% health, and cries war when it's fighting among 4 or more friends, or hurt.
 - **Winning**: bring down the blue Town Hall. Lose yours and it's over.
 - **Minimap** (under the Town Hall): the whole map in the battlefield's angle, both sides' buildings and soldiers
   as red and blue, and a frame round what you're looking at. Press or drag on it to look there.

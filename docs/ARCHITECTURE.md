@@ -39,6 +39,7 @@ to a fixed-timestep server, replays or AI opponents later.
 | `config.js`      | **All balance data**: grid (and the map sizes), economy, timings, building and enemy tables, wave tuning |
 | `World.js`       | Game state and rules: phases, placement, combat, enemy AI, projectiles, events |
 | `lanes.js`       | The Conquest map: `generateLaneMap` (mirrored terrain, both Town Halls, three lanes of waypoints), `nearestLane` |
+| `heroes.js`      | Conquest heroes: `spawnHero`, `orderHero`, `warCry`, XP and levels (`heroXp`), falling and coming back, the blue hero's orders (`updateHeroes`) |
 | `conquest.js`    | Conquest: the mirrored forts (`buildForts`), each wave's squads (`sendSquads`), lane soldiers (`updateLaneSoldier`), the blue AI (`aiThink`) |
 | `troops.js`      | The player's troops: Barracks posts (`findPost`), training (`updateBarracks`), troop AI and movement (`updateTroop`) |
 | `pathfind.js`    | A* over the grid (`findPath`) for units that go somewhere of their own (troops) |

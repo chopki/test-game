@@ -1,4 +1,5 @@
-import { BUILDINGS, CONQUEST, PATHING, TERRAIN, TROOPS } from './config.js';
+import { BUILDINGS, CONQUEST, PATHING, TERRAIN, TROOPS, UPGRADES } from './config.js';
+import { nextUpgradeCost } from './upgrades.js';
 import { nearestLane } from './lanes.js';
 import { dist, reachOf, walkTo } from './troops.js';
 import { T } from './terrain.js';
@@ -98,13 +99,15 @@ function mirrorFree(world, type, { x, z }) {
 
 /** The men each Barracks sends in wave `n`. */
 export function squadFor(n) {
-  const { base, perWave, max } = CONQUEST.squad;
+  const { men: kinds, max, siege } = CONQUEST.squad;
   const men = [];
-  for (const type of Object.keys(base)) {
-    const count = Math.floor(base[type] + perWave[type] * (n - 1));
+  for (const [type, { base, per, from = 1 }] of Object.entries(kinds)) {
+    if (n < from) continue;
+    const count = Math.floor(base + per * (n - from));
     for (let i = 0; i < count; i++) men.push(type);
   }
-  return men.slice(0, max);
+  const engines = siege.filter(({ from, every }) => n >= from && (n - from) % every === 0).map((s) => s.type);
+  return [...men.slice(0, max), ...engines];
 }
 
 /** A wave: every Barracks on both sides sends its squad down its lane. */
@@ -219,13 +222,14 @@ function openPassable(world, team) {
 function pickLaneTarget(world, u) {
   let best = null;
   let bestD = CONQUEST.aggro;
-  for (const v of world.troops) {
+  // Siege engines go for buildings only.
+  for (const v of u.def.siege ? [] : world.troops) {
     if (!v.alive || v.team === u.team || v.delay > 0) continue;
     const d = dist(u, v);
     if (d <= bestD) [best, bestD] = [v, d];
   }
   if (best) return best;
-  bestD = CONQUEST.aggro;
+  bestD = Math.max(CONQUEST.aggro, reachOf(u.def)); // a siege catapult sees buildings as far as it can throw
   for (const b of world.buildings.values()) {
     if (b.team === u.team || b.type === 'wall' || (u.unreachable?.id === b.id && world.time < u.unreachable.until)) continue;
     const d = world._distanceTo(b, u.x, u.z);
@@ -256,7 +260,7 @@ export function updateLaneSoldier(world, u, dt) {
       u.fighting = true;
       u.attackTimer -= dt;
       if (u.attackTimer <= 0) {
-        u.attackTimer += u.def.attackCooldown;
+        u.attackTimer += u.def.attackCooldown / Math.max(1, u.slowFactor ?? 1); // a war cry speeds them up
         world._soldierStrike(u, target);
       }
       return;
@@ -303,9 +307,12 @@ function march(world, u, dt) {
 // ---------------------------------------------------------------- the AI (blue)
 
 /**
- * The blue side's turn to think (every CONQUEST.ai.think seconds): it spends its gold through World.place, as the
- * player does. It defends the lane where red soldiers have come nearest its Town Hall with Archer Towers, and adds
- * Barracks (more men each wave) to the lane it has fewest on.
+ * The blue side's turn to think (every CONQUEST.ai.think seconds): it spends its gold through World.place and
+ * World.upgrade, as the player does, one thing a turn, in this order: more Barracks (men each wave) on the lane it
+ * has fewest on; its Town Hall's next stage (due every CONQUEST.ai.hallEvery seconds a stage, and saved up for
+ * unless the enemy is near); once the enemy is pressing a lane, a wall across it with a gap in the middle, which
+ * funnels attackers past its towers; Archer Towers on the lane where red soldiers have come nearest its Town Hall
+ * (or the lane with fewest towers); and the weakest tower on that lane up a stage.
  */
 export function aiThink(world) {
   const team = 'blue';
@@ -331,7 +338,52 @@ export function aiThink(world) {
   if (barracksCount < maxBarracks && eco.gold >= BUILDINGS.barracks.cost + reserve) {
     if (aiBuild(world, 'barracks', thinBarracks.i, 0.08 + world.troopRng.range(0, 0.06))) return;
   }
-  if (eco.gold >= BUILDINGS.archerTower.cost + reserve) aiBuild(world, 'archerTower', wantTower.i, world.troopRng.range(0.12, 0.4));
+  // Its Town Hall's next stage when it's due: saved up for, unless the enemy is close.
+  const hallCost = nextUpgradeCost('townHall', hall.stage);
+  const hallDue = hallCost !== null && world.time >= hall.stage * CONQUEST.ai.hallEvery;
+  if (hallDue && eco.gold >= hallCost + reserve && world.upgrade(hall.id, { team }).ok) return;
+  if (hallDue && threatened.threat > world.grid.height * 0.25) return;
+  const pressed = lanes.find((l) => l.threat < world.grid.height * CONQUEST.ai.wallWhen && !world.aiWalls?.has(l.i));
+  if (pressed && eco.gold >= BUILDINGS.wall.cost * 10 + reserve) {
+    aiWall(world, pressed.i);
+    return;
+  }
+  if (eco.gold >= BUILDINGS.archerTower.cost + reserve && aiBuild(world, 'archerTower', wantTower.i, world.troopRng.range(0.12, 0.4))) return;
+  const towers = [...world.buildings.values()].filter((b) => b.team === team && b.def.attack && b.type !== 'townHall' && b.lane === wantTower.i);
+  towers.sort((a, b) => a.stage - b.stage);
+  for (const t of towers) {
+    const cost = nextUpgradeCost(t.type, t.stage);
+    if (cost !== null && eco.gold >= cost + reserve && world.upgrade(t.id, { team }).ok) return;
+  }
+}
+
+/**
+ * A wall across `lane`, inside the blue fort's outer towers, leaving a gap of CONQUEST.ai.wallGap tiles in the
+ * middle (blue's own squads go through it; attackers are funnelled through it, or break the wall).
+ */
+function aiWall(world, lane) {
+  (world.aiWalls ??= new Set()).add(lane);
+  const pts = lanePoints(world, lane, 'blue');
+  const p = alongLane(world, lane, 'blue', CONQUEST.ai.wallAt);
+  // The lane's direction there, and across it.
+  let k = 0;
+  for (let i = 1; i < pts.length; i++) if (Math.hypot(pts[i].x - p.x, pts[i].z - p.z) < Math.hypot(pts[k].x - p.x, pts[k].z - p.z)) k = i;
+  const a = pts[Math.max(0, k - 1)];
+  const b = pts[Math.min(pts.length - 1, k + 1)];
+  const len = Math.hypot(b.x - a.x, b.z - a.z) || 1;
+  const [ax, az] = [-(b.z - a.z) / len, (b.x - a.x) / len];
+  const half = CONQUEST.ai.wallGap / 2;
+  const placed = new Set();
+  for (let o = -8; o <= 8; o += 0.5) {
+    if (Math.abs(o) < half) continue;
+    const x = Math.round(p.x + ax * o);
+    const z = Math.round(p.z + az * o);
+    const key = `${x},${z}`;
+    if (placed.has(key)) continue;
+    placed.add(key);
+    const r = world.place('wall', x, z, { team: 'blue' });
+    if (r.ok) r.building.lane = lane;
+  }
 }
 
 function aiBuild(world, type, lane, t) {

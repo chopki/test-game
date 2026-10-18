@@ -8,7 +8,8 @@ import { T } from './terrain.js';
  * The map is point-symmetric: tile (x, z) matches (W-1-x, H-1-z), so neither side has the easier ground. Everything
  * is carved twice, at a point and its mirror; the west lane's mirror is the east lane.
  *
- * Returns { types, halls: { red, blue } (top-left tiles of the 3×3 Town Halls), lanes } where each lane is
+ * Returns { types, levels (tile levels: the plateaus are 1), halls: { red, blue } (top-left tiles of the 3×3 Town
+ * Halls), lanes } where each lane is
  * { name, points } with `points` the waypoints from the red hall to the blue (blue walks them backwards).
  */
 export function generateLaneMap({ width: W, height: H, rng }) {
@@ -70,6 +71,50 @@ export function generateLaneMap({ width: W, height: H, rng }) {
     if (types[z * W + x] === T.forest) carve(x, z, 0.4, T.rock);
   }
 
+  // Hills: a low, clear plateau on the west lane and one on the middle lane (and their mirrors), which the lanes
+  // climb over by ramps where they cross the cliff round the rim.
+  const levels = new Uint8Array(W * H);
+  const nearestTo = (path, z) => path.reduce((best, p) => (Math.abs(p[1] - z) < Math.abs(best[1] - z) ? p : best));
+  for (const [path, z, rx, rz] of [
+    [west, H * 0.64, 6, 4.5],
+    [midHalf, H * 0.72, 6.5, 4.5],
+  ]) {
+    const [cx, cz] = nearestTo(path, z);
+    for (const [mx, mz] of [[cx, cz], mirror([cx, cz])]) {
+      for (let tz = Math.floor(mz - rz); tz <= Math.ceil(mz + rz); tz++) {
+        for (let tx = Math.floor(mx - rx); tx <= Math.ceil(mx + rx); tx++) {
+          // (Measured from tile corners, like carve, so the mirror image lands on the same tiles.)
+          if (!inside(tx, tz) || ((tx - mx) / rx) ** 2 + ((tz - mz) / rz) ** 2 > 1) continue;
+          // A clear hilltop (room for towers up there), rocks aside.
+          levels[tz * W + tx] = 1;
+          if (types[tz * W + tx] === T.forest) types[tz * W + tx] = T.open;
+        }
+      }
+    }
+  }
+  const level = (x, z) => (x >= 0 && z >= 0 && x < W && z < H ? levels[z * W + x] : 0);
+  const open = (x, z) => x >= 0 && z >= 0 && x < W && z < H && types[z * W + x] === T.open;
+  const rim = [];
+  for (let z = 0; z < H; z++) {
+    for (let x = 0; x < W; x++) {
+      if (!level(x, z)) continue;
+      let edge = false;
+      for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) if (level(x + dx, z + dz) === 0) edge = true;
+      if (edge) rim.push([x, z]);
+    }
+  }
+  // Where the lane crosses the rim (open ground on top on one side and below on the other), a ramp; elsewhere cliff.
+  // (All decided before any tile changes, so both ends come out the same.)
+  const crossing = ([x, z]) =>
+    open(x, z) &&
+    [[0, 1], [1, 0]].some(([dx, dz]) => {
+      const up = (sx, sz) => level(sx, sz) && open(sx, sz);
+      const down = (sx, sz) => !level(sx, sz) && open(sx, sz);
+      return (up(x - dx, z - dz) && down(x + dx, z + dz)) || (up(x + dx, z + dz) && down(x - dx, z - dz));
+    });
+  const ramps = rim.map(crossing);
+  rim.forEach(([x, z], i) => (types[z * W + x] = ramps[i] ? T.ramp : T.cliff));
+
   // The stream across the middle: water in the woods, fords where it crosses a lane. Odd about the centre, so it
   // mirrors onto itself.
   const bend = rng.range(1.2, 2.6);
@@ -94,7 +139,7 @@ export function generateLaneMap({ width: W, height: H, rng }) {
     { name: 'middle', points: [...midPts, ...midPts.slice(0, -1).reverse().map((p) => mirrorPoint(p, W, H))] },
     { name: 'east', points: westPts.map((p) => mirrorPoint(p, W, H)).reverse() },
   ];
-  return { types, halls: { red, blue }, lanes };
+  return { types, levels, halls: { red, blue }, lanes };
 }
 
 const mirrorPoint = ({ x, z }, W, H) => ({ x: W - 1 - x, z: H - 1 - z });
