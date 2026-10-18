@@ -187,6 +187,8 @@ a few clearings and rocks in the woods. **Red** (you) holds the south end, **blu
   lane where red soldiers have come nearest its hall (or the lane with fewest towers), and more Barracks (one more
   allowed every 2½ minutes) on the lane with fewest.
 - **Winning**: bring down the blue Town Hall. Lose yours and it's over.
+- **Minimap** (under the Town Hall): the whole map in the battlefield's angle, both sides' buildings and soldiers
+  as red and blue, and a frame round what you're looking at. Press or drag on it to look there.
 
 ## Enemies
 

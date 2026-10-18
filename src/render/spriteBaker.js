@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { ISO_QUATERNION, SUN_DIRECTION, isoDirection } from './iso.js';
 import { inkSprite } from './inkStyle.js';
+import { packAtlas, pageTexture } from './atlasPacking.js';
 
 /**
  * Pre-renders 3D models into sprites ("baking"), the way classic isometric games were made.
@@ -14,39 +15,10 @@ import { inkSprite } from './inkStyle.js';
  * With `ink` (the default), each object layer also gets the hand-drawn treatment from inkStyle.js: two more
  * renders (surface normals and depth) find the edges to ink, and the shading is flattened and warmed.
  *
- * Sprites are rendered first, then packed into atlas pages tallest first (shelf packing wastes little that
- * way), and the last page is trimmed to what it uses. A frame records where it is in the atlas, its size in
- * world units, and the anchor: where the model's origin (its spot on the ground) falls inside the sprite.
+ * Sprites are rendered first, then packed into atlas pages (see atlasPacking.js). A frame records where it is in
+ * the atlas, its size in world units, and the anchor: where the model's origin (its spot on the ground) falls
+ * inside the sprite.
  */
-
-const PAGE_SIZE = 2048;
-const PADDING = 3;
-
-class Page {
-  constructor() {
-    this.x = PADDING;
-    this.y = PADDING;
-    this.rowHeight = 0;
-  }
-
-  /** Shelf packing: returns { x, y } or null if it doesn't fit on this page. */
-  place(w, h) {
-    if (this.x + w + PADDING > PAGE_SIZE) {
-      this.x = PADDING;
-      this.y += this.rowHeight + PADDING;
-      this.rowHeight = 0;
-    }
-    if (this.y + h + PADDING > PAGE_SIZE || w + 2 * PADDING > PAGE_SIZE) return null;
-    const spot = { x: this.x, y: this.y };
-    this.x += w + PADDING;
-    this.rowHeight = Math.max(this.rowHeight, h);
-    return spot;
-  }
-
-  get usedHeight() {
-    return this.y + this.rowHeight + PADDING;
-  }
-}
 
 /** A canvas of the given size (a sprite on its own, before packing). */
 function canvasOf(w, h) {
@@ -304,49 +276,6 @@ function isOccluder(o) {
   return false;
 }
 
-/** Pack rendered sprites (and their shadows) onto pages, tallest first; trim the last page's height. */
-function packAtlas(atlas, rendered) {
-  const rects = [];
-  for (const item of rendered) {
-    rects.push({ item, image: item.image, shadow: false });
-    if (item.shadowImage) rects.push({ item, image: item.shadowImage, shadow: true });
-  }
-  rects.sort((a, b) => b.image.height - a.image.height || b.image.width - a.image.width);
-  const pages = [new Page()];
-  for (const r of rects) {
-    r.spot = pages.at(-1).place(r.image.width, r.image.height);
-    if (!r.spot) {
-      pages.push(new Page());
-      r.spot = pages.at(-1).place(r.image.width, r.image.height);
-    }
-    r.page = pages.length - 1;
-  }
-  const canvases = pages.map((p, i) => canvasOf(PAGE_SIZE, i === pages.length - 1 ? Math.ceil(p.usedHeight / 4) * 4 : PAGE_SIZE));
-  for (const r of rects) {
-    const c = canvases[r.page];
-    c.getContext('2d').drawImage(r.image, r.spot.x, r.spot.y);
-    const { item } = r;
-    const frame = frameFor(r.page, r.spot, r.image.width, r.image.height, item.w, item.h, item.anchorX, item.anchorY, c.width, c.height);
-    // An object and its shadow are packed separately, in either order; link them up whichever comes second.
-    if (r.shadow) {
-      item.shadowFrame = frame;
-      const objectFrame = atlas.frames.get(item.key);
-      if (objectFrame) objectFrame.shadow = frame;
-    } else {
-      if (item.shadowFrame) frame.shadow = item.shadowFrame;
-      atlas.frames.set(item.key, frame);
-    }
-  }
-  atlas.pages = canvases.map((c) => ({ source: c, texture: pageTexture(new THREE.CanvasTexture(c)) }));
-}
-
-function pageTexture(texture) {
-  texture.colorSpace = THREE.SRGBColorSpace;
-  texture.anisotropy = 4;
-  texture.needsUpdate = true;
-  return texture;
-}
-
 /**
  * Plain data for saving an atlas to files: { frames, pages: [image data URLs] }. Pages are WebP (high quality;
  * its alpha is stored losslessly, so sprite edges stay clean) unless `format` says otherwise.
@@ -376,22 +305,6 @@ export async function loadAtlas(baseUrl) {
   );
   atlas.sourceHash = data.sourceHash;
   return atlas;
-}
-
-function frameFor(pageIndex, spot, outW, outH, w, h, anchorX, anchorY, pageW = PAGE_SIZE, pageH = PAGE_SIZE) {
-  return {
-    page: pageIndex,
-    // UV rectangle (v measured from the bottom, as WebGL textures are flipped).
-    u0: spot.x / pageW,
-    v0: 1 - (spot.y + outH) / pageH,
-    u1: (spot.x + outW) / pageW,
-    v1: 1 - spot.y / pageH,
-    pixels: { x: spot.x, y: spot.y, w: outW, h: outH },
-    w,
-    h,
-    anchorX,
-    anchorY,
-  };
 }
 
 /** A data URL of one baked frame (for UI icons). */

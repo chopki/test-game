@@ -1074,6 +1074,38 @@ body.menu-open #app canvas {
   align-items: center;
 }
 
+/* Conquest's minimap, under the Town Hall: a parchment card with the lane map in the battlefield's iso view. */
+.minimap {
+  position: absolute;
+  top: 96px;
+  left: 10px;
+  width: 264px;
+  height: 136px;
+  border-radius: 10px;
+  background: rgba(240, 226, 190, 0.92);
+  border: 2px solid #6b4a2b;
+  box-shadow: 0 3px 10px rgba(30, 18, 8, 0.35);
+  cursor: crosshair;
+  touch-action: none;
+  pointer-events: auto;
+}
+
+.minimap[hidden] {
+  display: none;
+}
+
+@media (max-width: 899px) {
+  .minimap {
+    top: 84px;
+    width: 160px;
+    height: 82px;
+  }
+
+  body.has-selection .minimap {
+    display: none;
+  }
+}
+
 .corner-tr {
   top: 10px;
   right: 10px;

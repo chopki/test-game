@@ -78,7 +78,8 @@ including the Town Hall.
 The battlefield is drawn like a classic isometric game: a **fixed iso camera** (`iso.js`) and **pre-rendered
 sprites**. Every building, wall shape, turret direction, enemy direction and scenery piece is a 3D model
 (`models.js`) rendered once, with soft shadows and studio lighting, into a sprite atlas (`spriteBaker.js`,
-list of sprites in `spriteCatalog.js`). In game, `SpriteLayer` draws them all as instanced camera-facing quads,
+list of sprites in `spriteCatalog.js`, packed onto pages by kind in `atlasPacking.js`, so what's seen together
+shares pages and draw calls). In game, `SpriteLayer` draws them all as instanced camera-facing quads,
 so the whole battlefield is ~15 draw calls and a few hundred triangles however detailed the models are.
 
 - **Baking is done ahead of time**: `npm run bake` (scripts/bake-sprites.mjs) renders the atlases in headless
@@ -241,6 +242,8 @@ the maths by hand.
   time cogs, and the build wheel (buttons generated from `BUILDINGS` with rendered portraits, laid on a quarter
   circle by `_layoutWheel`; `setWheelOpen`), plus the Battle Chronicle (toasts on small screens), the selected
   building's card (`#info`; `body.has-selection` moves the bottom corners aside on phones) and overlays.
+- `Minimap.js` (Conquest): the lane map in the battlefield's iso view (terrain painted once per map), both sides'
+  buildings and soldiers, and the camera's view; press or drag to move the camera (`Renderer.focusOn`).
 - `MainMenu.js` (main menu, Royal Codex, credits; holds the game via `Game.setHeld` while open) and
   `LoadingScreen.js` (boot and every new map: `Game.newMap()` makes the world first with `createWorld`, sketches it
   with `mapSketch.js`, then lets the renderer paint it). `main.js` shows the loading screen while the sprites load,

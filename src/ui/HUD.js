@@ -2,6 +2,7 @@ import { BUILDINGS, TIMING, TROOPS, UPGRADES } from '../sim/config.js';
 import { onPress } from './press.js';
 import { summarizeWave } from '../sim/WaveManager.js';
 import { squadFor } from '../sim/conquest.js';
+import { Minimap } from './Minimap.js';
 
 /** Conquest: a squad (a list of troop types) as words, e.g. "3 Men-at-arms, 1 Bowman". */
 function summarizeSquad(types) {
@@ -59,6 +60,7 @@ function sellIcon() {
 export class HUD {
   constructor(game) {
     this.game = game;
+    this.minimap = new Minimap(game);
     this.el = {
       gold: $('gold'),
       wave: $('wave'),
@@ -196,6 +198,7 @@ export class HUD {
 
   attach(world) {
     this.world = world;
+    this.minimap.attach(world);
     this.el.gameover.hidden = true;
     this._last = {};
     this.el.toasts.replaceChildren();
@@ -292,6 +295,7 @@ export class HUD {
     }
 
     this._updateInfo();
+    this.minimap.update();
     this._updateConfirm();
     this._updateBuildTag();
     if (!this.el.fps.hidden) {

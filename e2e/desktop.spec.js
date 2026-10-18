@@ -7,12 +7,13 @@ test('loads with the HUD and no errors', { tag: '@smoke' }, async ({ page }) => 
   const errors = await openGame(page, { map: 'terrain' });
   await expect(page.locator('#gold')).toHaveText('300');
   await expect(page.locator('#wave')).toHaveText('0');
-  await expect(page.locator('#buildbar .build-btn')).toHaveCount(6);
+  await expect(page.locator('#buildbar .build-btn')).toHaveCount(7);
   await expect(page.locator('#next-wave')).toContainText('Wave 1');
   // Shadows and other ground decals must leave the canvas opaque (else they show the page colour through).
   expect(await minCanvasAlpha(page)).toBe(255);
   // Desktops get the double-resolution sprite set.
   expect(await page.evaluate(() => window.game.renderer.atlas.set)).toBe('hd');
+  await expect(page.locator('#minimap')).toBeHidden(); // Conquest only
   expect(errors).toEqual([]);
 });
 
@@ -372,8 +373,9 @@ test('draw calls stay flat as walls and enemies are added (instancing)', { tag: 
   await addWalls(9);
   await addWalls(30);
   expect(await page.evaluate(() => [...window.game.world.buildings.values()].filter((b) => b.type === 'wall').length)).toBe(96);
-  // Same wall shapes, three times as many walls: no extra draw calls.
-  expect(await calls()).toBeLessThanOrEqual(withSomeWalls + 2);
+  // Same wall shapes, three times as many walls: no more draw calls than the few atlas pages their ends and
+  // variants add (HD walls fill several pages).
+  expect(await calls()).toBeLessThanOrEqual(withSomeWalls + 3);
 
   // 60 enemies of six types (half damaged, so they show health bars).
   await page.evaluate(() => {
@@ -390,7 +392,9 @@ test('draw calls stay flat as walls and enemies are added (instancing)', { tag: 
   });
   // Enemies are sprites on the same atlas pages as walls; health bars and blob shadows add 3 batches.
   expect(await calls()).toBeLessThanOrEqual(withSomeWalls + 6);
-  expect(await calls()).toBeLessThanOrEqual(25); // the whole battlefield in a couple of dozen draw calls
+  // The whole battlefield in a couple of dozen draw calls (more atlas pages since troops and the enemy castle's
+  // blue buildings came; sprites are packed by kind to keep it down, see atlasPacking.js).
+  expect(await calls()).toBeLessThanOrEqual(28);
 });
 
 test('showcase: a walled base with every tower and enemy renders without errors (screenshot attached)', async ({ page }, testInfo) => {
@@ -1101,6 +1105,30 @@ test('conquest: castle against castle on the lane map, squads march both ways, b
   expect(Math.abs(p.y - view.height / 2)).toBeLessThan(view.height / 4);
   // The enemy's buildings have their own blue sprites (banners, pennants, lookouts).
   expect(await page.evaluate(() => ['b:townHall:blue', 'b:archerTower:blue', 'b:barracks:blue', 'flag:0:0:blue'].every((k) => window.game.renderer.atlas.frame(k)))).toBe(true);
+  // The minimap: shown for Conquest; pressing on the far end of it takes the camera to the blue Town Hall.
+  const minimap = page.locator('#minimap');
+  await expect(minimap).toBeVisible();
+  const target = await page.evaluate(() => {
+    const { minimap } = window.game.hud;
+    const hall = window.game.world.enemyHall;
+    const [x, y] = minimap.project(hall.cx, hall.cz);
+    const r = minimap.el.getBoundingClientRect();
+    return { x: r.left + x, y: r.top + y };
+  });
+  await page.mouse.click(target.x, target.y);
+  const blue = await page.evaluate(() => window.game.world.enemyHall);
+  // (Polled: the camera's matrices catch up on the next frame.)
+  await expect
+    .poll(async () => {
+      const there = await tileToScreen(page, blue.x + 1, blue.z + 1);
+      return Math.max(Math.abs(there.x - view.width / 2), Math.abs(there.y - view.height / 2));
+    })
+    .toBeLessThan(60);
+  await page.evaluate(() => {
+    const h = window.game.world.townHall;
+    window.game.renderer.focusOn(h.cx, h.cz);
+  });
+
   // Building far from your own is refused.
   expect(await page.evaluate(() => window.game.world.canPlace('archerTower', 20, 30).reason)).toBe('Too far from your buildings');
 

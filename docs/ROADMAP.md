@@ -191,7 +191,7 @@ shown by livery hints (the same army on both sides, not two factions).
 - [x] AI opponent (in `sim/conquest.js`): earns gold like the player and spends it through the same World commands
 - [x] Conquest on the main menu, a win screen
 - [x] Real-time repairs (not within 5 s of a hit)
-- [ ] Minimap
+- [x] Minimap (press or drag to look there)
 - [ ] Hills and ramps on the lane map; more lane variety
 - [ ] The AI upgrades its buildings (needs blue stage sprites) and builds walls and other towers
 - [ ] Siege squads (knights, rams) in later waves, for both sides
