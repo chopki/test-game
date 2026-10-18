@@ -4,6 +4,7 @@ import { Renderer } from '../render/Renderer.js';
 import { HUD } from '../ui/HUD.js';
 import { SettingsMenu } from '../ui/SettingsMenu.js';
 import { MainMenu } from '../ui/MainMenu.js';
+import { Intro } from '../ui/Intro.js';
 import { LoadingScreen, painted } from '../ui/LoadingScreen.js';
 import { AUTO_RESOLUTION, startupSettings, stepDown } from '../render/graphicsSettings.js';
 import { DynamicResolution } from '../render/dynamicResolution.js';
@@ -61,6 +62,7 @@ export class Game {
     this.newGame({ world });
     this.loading.icons = this.hud.icons;
     this.menu = new MainMenu(this);
+    this.intro = new Intro(this);
     if (menu) this.menu.open();
     this._last = performance.now();
     this._fpsFrames = 0;
@@ -152,7 +154,7 @@ export class Game {
   _onKeyDown(e) {
     if (e.target instanceof HTMLInputElement) return;
     const key = e.key.toLowerCase();
-    if (this.menu.isOpen || this.loading.isOpen) return;
+    if (this.menu.isOpen || this.loading.isOpen || this.intro?.isOpen) return;
     if (this.settingsMenu.isOpen && key !== 'escape') return;
     this.keys.add(key);
 

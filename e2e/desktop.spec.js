@@ -7,7 +7,7 @@ test('loads with the HUD and no errors', { tag: '@smoke' }, async ({ page }) => 
   const errors = await openGame(page, { map: 'terrain' });
   await expect(page.locator('#gold')).toHaveText('300');
   await expect(page.locator('#wave')).toHaveText('0');
-  await expect(page.locator('#buildbar .build-btn')).toHaveCount(7);
+  await expect(page.locator('#buildbar .build-btn:not([hidden])')).toHaveCount(7); // (the Flag Fort is Conquest's)
   await expect(page.locator('#next-wave')).toContainText('Wave 1');
   // Shadows and other ground decals must leave the canvas opaque (else they show the page colour through).
   expect(await minCanvasAlpha(page)).toBe(255);
@@ -974,14 +974,29 @@ test('main menu: holds the battle at the start; Endless Mode begins it, Continue
   // The Royal Codex: a card for every tower and every foe.
   await page.getByRole('button', { name: 'The Royal Codex' }).click();
   await expect(page.locator('#codex')).toBeVisible();
-  expect(await page.locator('#codex-towers .codex-card').count()).toBe(6);
+  expect(await page.locator('#codex-towers .codex-card').count()).toBe(7);
   expect(await page.locator('#codex-foes .codex-card').count()).toBe(6);
   await page.getByRole('button', { name: 'Close' }).click();
 
   await page.getByRole('button', { name: 'Endless Mode' }).click();
   await expect(menu).toBeHidden();
+  // The briefing: what this kind of battle is about. The battle waits until it's read.
+  const intro = page.locator('#intro');
+  await expect(intro).toBeVisible();
+  await expect(page.locator('#intro-title')).toHaveText('Endless Mode: Hold the Hall');
+  await expect(intro).toContainText('Town Hall');
+  await page.waitForTimeout(300);
+  expect(await timer()).toBe(before);
+  await page.locator('#intro-again').check(); // not again next time
+  await page.getByRole('button', { name: 'To battle!' }).click();
+  await expect(intro).toBeHidden();
   await page.waitForTimeout(300);
   expect(await timer()).toBeLessThan(before);
+  // Help can bring it back.
+  await page.locator('#help-btn').click();
+  await page.getByRole('button', { name: "This battle's briefing" }).click();
+  await expect(intro).toBeVisible();
+  await page.getByRole('button', { name: 'To battle!' }).click();
 
   // Settings → Main menu, then Continue: the same battle.
   const seed = await page.evaluate(() => window.game.world.seed);
@@ -1002,6 +1017,7 @@ test('main menu: holds the battle at the start; Endless Mode begins it, Continue
   await page.getByRole('button', { name: 'Main menu' }).click();
   await page.getByRole('button', { name: 'New Endless Mode' }).click();
   await expect(menu).toBeHidden();
+  await expect(page.locator('#intro')).toBeHidden(); // as asked
   expect(await page.evaluate(() => window.game.world.seed)).not.toBe(seed);
   const shown = await page.evaluate(() => window.__loading);
   expect(shown.length).toBeGreaterThan(0);
@@ -1135,9 +1151,11 @@ test('conquest: castle against castle on the lane map, squads march both ways, b
   await page.keyboard.press('2');
   await expect.poll(() => page.evaluate(() => window.game.build.territoryRings.filter((r) => r.visible).length)).toBe(1);
   await page.keyboard.press('2');
-  // Six flags out on the lanes, each a pole flying a pale pennant until someone takes it.
-  expect(await page.evaluate(() => window.game.world.flags.length)).toBe(6);
-  expect(await page.evaluate(() => ['s:flagpole:0', 'flag:0:0:neutral'].filter((k) => !window.game.renderer.atlas.frame(k)))).toEqual([]);
+  // Three flags in the middle of the map, each a pole flying a pale pennant until someone takes it.
+  expect(await page.evaluate(() => window.game.world.flags.length)).toBe(3);
+  expect(await page.evaluate(() => ['s:flagpole:0', 'flag:0:0:neutral', 'b:flagFort', 'b:flagFort:blue'].filter((k) => !window.game.renderer.atlas.frame(k)))).toEqual([]);
+  // The Flag Fort is in the build wheel here (it's Conquest's).
+  await expect(page.locator('#buildbar .build-btn:not([hidden])')).toHaveCount(8);
 
   // Two taps on the wave dial send the first wave early: every Barracks on both sides sends its squad.
   await page.locator('#wave-dial').click();
@@ -1202,6 +1220,11 @@ test('conquest: the main menu asks for a champion, and the battle begins with th
   await expect(pick).toContainText('Mira, the Ranger');
   await pick.locator('.hero-card[data-hero="ranger"]').click();
   await expect(page.locator('#menu')).toBeHidden();
+  // Conquest's briefing, naming your champion.
+  await expect(page.locator('#intro-title')).toHaveText('Conquest: Castle against Castle');
+  await expect(page.locator('#intro-heroes')).toContainText('Mira, the Ranger');
+  await expect(page.locator('#intro')).toContainText('Flag Fort');
+  await page.getByRole('button', { name: 'To battle!' }).click();
   expect(await page.evaluate(() => [window.game.world.mode, window.game.world.heroKinds.red, window.game.world.heroes.red.type])).toEqual(['conquest', 'ranger', 'archer']);
   // Her abilities on the buttons.
   // (The HUD catches up within a few frames; software rendering makes those slow.)

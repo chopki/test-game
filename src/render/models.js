@@ -95,6 +95,7 @@ export const PENNANTS = {
   gatehouse: [{ x: -0.95, y: 1.64 + 0.85 - 0.02, z: -0.1, w: 0.4 }],
   archerTower: [{ x: 0, y: 1.74 + 0.6 + 0.86 + 0.6 - 0.02, z: 0, w: 0.34 }],
   barracks: [{ x: 0.72, y: 1.25 + 0.55 - 0.02, z: -0.32, w: 0.32 }],
+  flagFort: [{ x: 0, y: 1.05 + 1.25 - 0.02, z: 0, w: PENNANT_W }],
 };
 
 function townHall() {
@@ -960,7 +961,52 @@ function barracks() {
   return p.build();
 }
 
-const BUILDING_MODELS = { townHall, wall, wallJoint, archerTower, cannonTower, magicSpire, catapult, barracks, gatehouse };
+/**
+ * Conquest's Flag Fort, built on a captured flag: a square stockade of sharpened stakes with a gate to the front,
+ * corner posts, a lookout platform on legs in the middle, and the flag on a tall pole above it (its cloth waves
+ * separately, in its holder's colours; see PENNANTS).
+ */
+function flagFort() {
+  const M = MATERIALS;
+  const p = new Parts();
+  const rnd = rng(41);
+  p.add(box(1.94, 0.05, 1.94), M.dirt, { y: 0.025 });
+  const e = 0.86;
+  // Stakes round the edge, a gap for the gate in the front (+z) side.
+  for (const [ax, az, along] of [
+    [0, -e, 'x'],
+    [0, e, 'x'],
+    [-e, 0, 'z'],
+    [e, 0, 'z'],
+  ]) {
+    for (let i = 0; i < 9; i++) {
+      const t = -e + (i * 2 * e) / 8;
+      const [x, z] = along === 'x' ? [t, az] : [ax, t];
+      if (az > 0 && Math.abs(t) < 0.25) continue; // the gate
+      const h = rnd.range(0.62, 0.72);
+      p.add(cyl(0.065, 0.075, h, 7), rnd.pick(LOGS), { x, y: h / 2, z });
+      p.add(cone(0.065, 0.12, 7), rnd.pick(LOGS), { x, y: h + 0.06, z });
+    }
+    p.add(box(along === 'x' ? 2 * e : 0.05, 0.06, along === 'x' ? 0.05 : 2 * e), M.woodDark, { x: ax, y: 0.45, z: az + (az > 0 ? 0.07 : az < 0 ? -0.07 : 0) });
+  }
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) p.add(cyl(0.09, 0.1, 0.95, 8), M.woodDark, { x: sx * e, y: 0.475, z: sz * e });
+  // The lookout platform: four legs, a deck and a rail.
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) p.add(box(0.07, 1.0, 0.07), M.wood, { x: sx * 0.28, y: 0.5, z: sz * 0.28 });
+  p.add(box(0.74, 0.07, 0.74), M.woodDark, { y: 1.02 });
+  for (const sx of [-1, 1]) {
+    p.add(box(0.74, 0.04, 0.04), M.wood, { y: 1.22, z: sx * 0.35 });
+    p.add(box(0.04, 0.04, 0.74), M.wood, { x: sx * 0.35, y: 1.22 });
+  }
+  // Shields on the stockade's front, crates in the yard.
+  for (const sx of [-1, 1]) p.add(cyl(0.11, 0.11, 0.025, 14), M.bannerRed, { x: sx * 0.55, y: 0.42, z: e + 0.08, rx: Math.PI / 2 });
+  crate(p, { x: -0.5, z: -0.45, s: 0.2, ry: 0.3 });
+  barrel(p, { x: 0.5, z: -0.5, r: 0.1, h: 0.24 });
+  pennant(p, { y: 1.05, h: 1.25, w: PENNANT_W });
+  groundDressing(p, { w: 1.8, d: 1.8, rnd, count: 5 });
+  return p.build();
+}
+
+const BUILDING_MODELS = { townHall, wall, wallJoint, archerTower, cannonTower, magicSpire, catapult, barracks, flagFort, gatehouse };
 /** Building types with a version built into a wall (see IN_WALL_SHAPES). */
 export const IN_WALL_TYPES = [...Object.keys(IN_WALL_MODELS), 'gatehouse'];
 

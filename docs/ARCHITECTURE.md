@@ -245,6 +245,8 @@ the maths by hand.
   time cogs, and the build wheel (buttons generated from `BUILDINGS` with rendered portraits, laid on a quarter
   circle by `_layoutWheel`; `setWheelOpen`), plus the Battle Chronicle (toasts on small screens), the selected
   building's card (`#info`; `body.has-selection` moves the bottom corners aside on phones) and overlays.
+- `Intro.js`: the briefing for each kind of battle (objective, how to play, hints), shown when one is begun from the
+  main menu (until "Don't show this again", kept in this browser's storage) and from Help; it holds the game.
 - `Minimap.js` (Conquest): the lane map in the battlefield's iso view (terrain painted once per map), both sides'
   buildings and soldiers, and the camera's view; press or drag to move the camera (`Renderer.focusOn`).
 - `MainMenu.js` (main menu, Royal Codex, credits; holds the game via `Game.setHeld` while open) and

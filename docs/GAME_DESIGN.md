@@ -156,8 +156,8 @@ with no way out trains no one. Selling or losing a Barracks dismisses its men.
 
 | Troop       | HP  | Speed | Damage | Hit every | Reach |
 | ----------- | --- | ----- | ------ | --------- | ----- |
-| Man-at-arms | 110 | 1.3   | 9      | 1.0s      | melee |
-| Bowman      | 60  | 1.25  | 8      | 1.3s      | 4.5   |
+| Man-at-arms | 110 | 1.04  | 9      | 1.0s      | melee |
+| Bowman      | 60  | 1.0   | 8      | 1.3s      | 4.5   |
 
 Enemy men stop to fight a soldier who comes within 0.9 tiles (or strikes them), holding them up while the towers
 work; enemy archers with no building to shoot shoot soldiers in range. Siege engines ignore soldiers, but soldiers
@@ -165,7 +165,8 @@ hack at them. Towers never target soldiers.
 
 ## Conquest (castle against castle)
 
-Picked on the main menu (or `?mode=conquest`). A big map, 72 × 112 tiles, mirrored end to end (tile (x, z) matches
+Picked on the main menu (or `?mode=conquest`). Each kind of battle opens with a briefing (objective, how to play,
+hints) when begun from the menu, until "Don't show this again"; Help shows it any time. A big map, 72 × 112 tiles, mirrored end to end (tile (x, z) matches
 (71 − x, 111 − z)), so neither side has the easier ground: open meadows broken up by groves (45% of the map, from a
 noise field), a castle clearing at each end, and three **lanes** between them (west, middle, east), crossed halfway
 by a stream with fords where the lanes meet it, and rocks and camp clearings in the woods. The lanes aren't roads:
@@ -189,28 +190,30 @@ south end, **blue** (the AI) the north.
 
   | Soldier        | HP  | Speed | Damage | Hit every | Reach | Gold to the other side |
   | -------------- | --- | ----- | ------ | --------- | ----- | ---------------------- |
-  | Man-at-arms    | 110 | 1.3   | 9      | 1.0s      | melee | 6  |
-  | Bowman         | 60  | 1.25  | 8      | 1.3s      | 4.5   | 5  |
-  | Knight         | 260 | 1.0   | 16     | 1.3s      | melee | 14 |
-  | Battering Ram  | 480 | 0.6   | 80     | 2.2s      | melee, buildings only | 20 |
-  | Siege Catapult | 220 | 0.55  | 65     | 5s        | 8, buildings only     | 20 |
+  | Man-at-arms    | 110 | 1.04  | 9      | 1.0s      | melee | 6  |
+  | Bowman         | 60  | 1.0   | 8      | 1.3s      | 4.5   | 5  |
+  | Knight         | 260 | 0.8   | 16     | 1.3s      | melee | 14 |
+  | Battering Ram  | 480 | 0.48  | 80     | 2.2s      | melee, buildings only | 20 |
+  | Siege Catapult | 220 | 0.44  | 65     | 5s        | 8, buildings only     | 20 |
 - **Squads** march their lane to the enemy's Town Hall. They fight enemy soldiers within 4.5 tiles (chasing up to
   7), then enemy buildings beside the lane (not walls), and break through any enemy wall in their way. A man struck
   by a sword turns to fight back. Towers shoot the nearest enemy soldier in range; your towers never hit your men.
 - **Territory**: you may only build inside your territory: within 12 tiles of your Town Hall (14, 16, 18 and 20 as
-  it goes up stages), and within 7 tiles of each flag you hold. (Towers can't creep up the map one after another.)
-  Build mode draws your territory's edges on the ground; the minimap shows both sides'. You can't sell, upgrade or
-  repair the enemy's buildings, and the AI builds by the same rules.
-- **Flags**: six capturable flags, one on each lane 42% of the way out from each side's hall (the far three the
-  mirror of the near three), all no one's at the start. Men (or your hero, worth 3 men) by a flag, within 2.5 tiles
-  and with no enemy there, pull it over to their side: 8 s with 2 men, 4 s with 4 or more. A flag the enemy holds
-  must first be brought down to no one's; with both sides by it, it doesn't move. Each flag held pays 0.4 gold a
-  second and gives territory round it. Squads take flags as they march past; the AI's hero goes for flags on its
-  half that aren't blue's.
-- **Gold**: both sides start with 250 and earn 1.5 a second, plus 6 for each enemy Man-at-arms, 5 per Bowman and 40
-  per building (not walls) that falls. Repairs can be made at any time, but not within 5 s of a hit.
+  it goes up stages), and within 7 tiles of each of your Flag Forts. (Towers can't creep up the map one after
+  another.) Build mode draws your territory's edges on the ground; the minimap shows both sides'. You can't sell,
+  upgrade or repair the enemy's buildings, and the AI builds by the same rules.
+- **Flags**: three, in the middle of the map, where play gathers: one on a dry islet in the stream at the very centre,
+  and one on each side lane just short of the stream (on your side of it on the west lane, on blue's on the east).
+  All no one's at the start. Men (or your hero, worth 3 men) by a flag, within 2.5 tiles and with no enemy there, pull
+  it over to their side: 8 s with 2 men, 4 s with 4 or more. A flag the enemy holds must first be brought down to no
+  one's; with both sides by it, it doesn't move. Squads take flags as they march past; the AI's hero goes for them.
+- **Flag Forts** (220 gold, <kbd>7</kbd>, Conquest only): holding a flag only lets you build its fort, a stockade
+  with archers on it (900 HP, 12 damage, range 6) right on the flag. The fort is what makes the flag count: territory
+  within 7 tiles of it, 0.8 gold a second, and room for one more Barracks. While it stands the flag can't be taken;
+  the enemy must bring the fort down first.
+- **Barracks cap**: 3 Barracks each (the ones each side starts with), plus 1 for each Flag Fort.
 - **The AI** (blue) thinks every 2.5 s and spends its gold through the same commands as you, one thing a turn, in
-  this order: more Barracks (one more allowed every 2½ minutes) on the lane with fewest; its Town Hall's next stage
+  this order: a Flag Fort on any flag it holds; more Barracks (as many as its forts allow) on the lane with fewest; its Town Hall's next stage
   (due every 2 minutes a stage, and saved up for unless red soldiers are deep in its half); once red soldiers come
   within half the map of its hall on a lane, a wall across that lane, a fifth of the way out, with a 3-tile gap in
   the middle (its own squads use the gap; attackers are funnelled through it or must break the wall); Archer Towers
@@ -221,9 +224,9 @@ south end, **blue** (the AI) the north.
 
   | Hero | Yours / theirs | HP | Damage | Hit every | Reach | Speed | Q | E |
   | ---- | -------------- | -- | ------ | --------- | ----- | ----- | - | - |
-  | Knight | Sir Aldric / Lord Vane | 650 | 26 | 1.0s | melee | 1.45 | War Cry | Charge |
-  | Ranger | Mira / Sable | 430 | 22 | 1.1s | 6 | 1.6 | Volley | Fleet Foot |
-  | Warden | Captain Bram / Captain Hask | 820 | 20 | 1.1s | 1.1 | 1.3 | Shield Wall | Rally |
+  | Knight | Sir Aldric / Lord Vane | 650 | 26 | 1.0s | melee | 1.16 | War Cry | Charge |
+  | Ranger | Mira / Sable | 430 | 22 | 1.1s | 6 | 1.27 | Volley | Fleet Foot |
+  | Warden | Captain Bram / Captain Hask | 820 | 20 | 1.1s | 1.1 | 1.04 | Shield Wall | Rally |
 
   - **War Cry** (30 s): the hero and every ally within 4.5 tiles heal 25% and move and strike 1.35× as fast for 6 s.
   - **Charge** (18 s): at a foe within 6 tiles: rushes it 3× as fast (1.5 s) and its next blow does 3× damage.
@@ -261,12 +264,12 @@ hit buildings far harder than men. Damage is against buildings, and against the 
 
 | Enemy          | HP  | Speed (tiles/s) | Damage / hit | Hit every | Range | Gold | Threat | Squad | Appears from |
 | -------------- | --- | --------------- | ------------ | --------- | ----- | ---- | ------ | ----- | ------------ |
-| Swordsman      | 70  | 1.1             | 6            | 1.0s      | melee | 4    | 1      | 3–5   | wave 1 |
-| Pikeman        | 100 | 0.95            | 5            | 1.1s      | melee | 5    | 1      | 3–4   | wave 2 |
-| Archer         | 45  | 1.05            | 3            | 1.6s      | 5     | 4    | 1      | 3–4   | wave 3 |
-| Battering Ram  | 450 | 0.55            | 90           | 2.2s      | melee | 18   | 6      | 1 + 2 Swordsmen | wave 4 |
-| Knight         | 240 | 0.9             | 12           | 1.3s      | melee | 12   | 4      | 1–2   | wave 5 |
-| Siege Catapult | 220 | 0.5             | 70           | 5s        | 8     | 20   | 7      | 1 + 2 Pikemen   | wave 6 |
+| Swordsman      | 70  | 0.88            | 6            | 1.0s      | melee | 4    | 1      | 3–5   | wave 1 |
+| Pikeman        | 100 | 0.76            | 5            | 1.1s      | melee | 5    | 1      | 3–4   | wave 2 |
+| Archer         | 45  | 0.84            | 3            | 1.6s      | 5     | 4    | 1      | 3–4   | wave 3 |
+| Battering Ram  | 450 | 0.44            | 90           | 2.2s      | melee | 18   | 6      | 1 + 2 Swordsmen | wave 4 |
+| Knight         | 240 | 0.72            | 12           | 1.3s      | melee | 12   | 4      | 1–2   | wave 5 |
+| Siege Catapult | 220 | 0.4             | 70           | 5s        | 8     | 20   | 7      | 1 + 2 Pikemen   | wave 6 |
 
 - **Archers** shoot the nearest tower in range; if none, whatever blocks their route once it's in range. Towers
   out-range them (archer tower 7, archers 5).

@@ -13,7 +13,7 @@ test('defaults to the High graphics preset and the HUD fits the screen', { tag: 
     preset: window.game.graphics.preset,
     overflowX: document.documentElement.scrollWidth > window.innerWidth,
     topbarBottom: document.querySelector('.corner-tl').getBoundingClientRect().bottom,
-    buttons: [...document.querySelectorAll('.build-btn')].map((b) => b.getBoundingClientRect().toJSON()),
+    buttons: [...document.querySelectorAll('.build-btn:not([hidden])')].map((b) => b.getBoundingClientRect().toJSON()),
   }));
   expect(r.preset).toBe('high');
   // Phones get the standard sprite set (they can't show more detail than it has).

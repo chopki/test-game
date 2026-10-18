@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { BUILDINGS, CAMPS, CONQUEST, HEROES, TROOPS } from '../src/sim/config.js';
 import { LAYOUTS } from '../src/sim/lanes.js';
-import { inTerritory, updateFlags } from '../src/sim/flags.js';
+import { barracksCap, inTerritory, updateFlags } from '../src/sim/flags.js';
 import { heroXp } from '../src/sim/heroes.js';
 import { aiThink, squadFor } from '../src/sim/conquest.js';
 import { blocksMovement, T } from '../src/sim/terrain.js';
@@ -38,9 +38,9 @@ describe('conquest map', () => {
         }
       }
       expect(findPath(g, walk, red, { x: world.enemyHall.x + 1, z: world.enemyHall.z - 1 }, { maxNodes: 6000 })).not.toBeNull();
-      // The stream is crossed at fords, and only there.
-      expect([...g.terrain].filter((t) => t === T.ford).length).toBeGreaterThan(6);
-      const dry = (x, z) => walk(x, z) && g.terrainAt(x, z) !== T.ford;
+      // The stream is crossed at fords where the lanes meet it, and by the islet in the very middle, and only there.
+      expect([...g.terrain].filter((t) => t === T.ford).length).toBeGreaterThanOrEqual(2);
+      const dry = (x, z) => walk(x, z) && g.terrainAt(x, z) !== T.ford && Math.hypot(x + 0.5 - g.width / 2, z + 0.5 - g.height / 2) > 4;
       expect(findPath(g, dry, red, { x: world.enemyHall.x + 1, z: world.enemyHall.z - 1 }, { maxNodes: 20000 })).toBeNull();
       // Hills: plateaus (mirrored too) that the lanes climb by ramps; ground only changes level at a ramp.
       expect(world.hills).toBe(true);
@@ -426,37 +426,71 @@ describe('territory and flags', () => {
     return men;
   };
 
-  it("six flags on the lanes, the far three the mirror of the near three, no one's at the start", () => {
+  it("three flags in the middle of the map (one on the islet in the stream), mirrored, no one's at the start", () => {
     const world = conquest(1);
     const { width: W, height: H } = world.grid;
-    expect(world.flags.length).toBe(6);
+    expect(world.flags.length).toBe(3);
+    expect(world.flags[0]).toMatchObject({ x: W / 2, z: H / 2 });
     for (const f of world.flags) {
       expect(f.owner).toBeNull();
       expect(world.flags.some((g) => g.x === W - f.x && g.z === H - f.z)).toBe(true);
+      expect(Math.abs(f.z - H / 2)).toBeLessThan(H * 0.1);
+      // Room for its fort.
+      expect(world.canPlace('flagFort', f.x - 1, f.z - 1, { anywhere: true, ignoreCost: true }).ok).toBe(true);
     }
   });
 
-  it('men by a flag, alone, take it; then their side can build round it and it pays', () => {
+  it('men by a flag, alone, take it; a Flag Fort on it then gives territory, gold and room for a Barracks, and locks it', () => {
     const world = conquest(1);
     world.startWave();
-    const f = world.flags.find((g) => g.z > world.grid.height / 2);
-    expect(world.canPlace('archerTower', Math.floor(f.x) + 2, Math.floor(f.z)).reason).toBe('Outside your territory');
+    const f = world.flags[1];
+    expect(world.canPlace('flagFort', f.x - 1, f.z - 1).reason).toBe('Build it on a flag you hold');
     place(world, 'red', f, 2);
-    // (Everyone else stays put, far off.)
     for (const t of world.troops) if (t.team === 'blue') t.delay = 1e9;
     let taken = null;
     world.events.on('flagCaptured', (e) => (taken = e));
     for (let t = 0; t < CONQUEST.flags.capture * 3 && !taken; t += DT) updateFlags(world, DT);
     expect(taken?.team).toBe('red');
-    expect(f.owner).toBe('red');
+    // Holding it isn't enough: no territory or gold until the fort's up.
+    expect(inTerritory(world, 'red', f.x + 3, f.z)).toBe(false);
+    let gold = world.economy.gold;
+    updateFlags(world, 10);
+    expect(world.economy.gold).toBe(gold);
+    expect(barracksCap(world, 'red')).toBe(CONQUEST.barracksCap.base);
     world.economy.earn(1000);
-    // Towers placed near it (somewhere the ground allows).
-    let ok = false;
-    for (let dx = -5; dx <= 5 && !ok; dx++) for (let dz = -5; dz <= 5 && !ok; dz++) ok = world.canPlace('archerTower', Math.floor(f.x) + dx, Math.floor(f.z) + dz).ok;
-    expect(ok).toBe(true);
-    const gold = world.economy.gold;
+    expect(world.anchorFor('flagFort', Math.floor(f.x), Math.floor(f.z))).toEqual({ x: f.x - 1, z: f.z - 1 });
+    const fort = world.place('flagFort', f.x - 1, f.z - 1).building;
+    expect(fort).toBeTruthy();
+    expect(f.fort).toBe(fort.id);
+    expect(inTerritory(world, 'red', f.x + 3, f.z)).toBe(true);
+    expect(barracksCap(world, 'red')).toBe(CONQUEST.barracksCap.base + CONQUEST.barracksCap.perFort);
+    gold = world.economy.gold;
     updateFlags(world, 10);
     expect(world.economy.gold).toBeGreaterThan(gold);
+    // Locked: blue men by it can't pull it while the fort stands; once it falls, they can.
+    for (const t of world.troops) if (t.team === 'red') t.alive = false;
+    for (const t of world.troops) if (t.team === 'blue') t.delay = 0;
+    place(world, 'blue', f, 3);
+    updateFlags(world, 5);
+    expect(f.hold).toBe(1);
+    world._damageBuilding(fort, 1e6);
+    for (let t = 0; t < CONQUEST.flags.capture * 6 && f.owner !== 'blue'; t += DT) updateFlags(world, DT);
+    expect(f.owner).toBe('blue');
+    expect(f.fort).toBeNull();
+  });
+
+  it('Barracks: three at most, plus one for each Flag Fort', () => {
+    const world = conquest(1);
+    world.economy.earn(5000);
+    const hall = world.townHall;
+    let reason = null;
+    for (let dx = -8; dx <= 8 && !reason; dx++) for (let dz = -8; dz <= 2 && !reason; dz++) {
+      const r = world.canPlace('barracks', hall.x + dx, hall.z + dz);
+      if (!r.ok && r.reason.startsWith('Barracks limit')) reason = r.reason;
+    }
+    expect(reason).toBe(`Barracks limit ${CONQUEST.barracksCap.base}: a Flag Fort allows another`);
+    expect(world.canPlace('flagFort', 5, 5).reason).toBe('Build it on a flag you hold');
+    expect(new World({ seed: 1 }).canPlace('flagFort', 10, 10).reason).toBe('Conquest only');
   });
 
   it("a contested flag doesn't move; the other side must bring it down to no one's before taking it", () => {

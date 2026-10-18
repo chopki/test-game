@@ -81,6 +81,7 @@ export class MainMenu {
     const world = this.game.world;
     if (!this.started && world.mode === mode && mode !== 'conquest') {
       this.close();
+      this.game.intro.begin(mode);
       return;
     }
     const underWay = this.started && (world.waves.wave > 0 || world.buildings.size > (world.mode === 'conquest' ? 20 : 1));
@@ -98,6 +99,7 @@ export class MainMenu {
     }
     await this.game.newMap(mode);
     this.close();
+    this.game.intro.begin(mode);
   }
 
   /** Conquest: the hero chosen; a new Conquest with them (or the one laid out behind the menu, if it's theirs). */
@@ -107,10 +109,12 @@ export class MainMenu {
     const world = this.game.world;
     if (!this.started && world.mode === 'conquest' && world.heroKinds.red === kind) {
       this.close();
+      this.game.intro.begin('conquest');
       return;
     }
     await this.game.newMap('conquest');
     this.close();
+    this.game.intro.begin('conquest');
   }
 
   /** A card per hero in HEROES.roster: portrait, stats and abilities. */

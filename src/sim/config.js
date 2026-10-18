@@ -222,6 +222,26 @@ export const BUILDINGS = {
     // Trains one man every `every` seconds, in `roster` order, until `garrison` of its men are alive (see TROOPS).
     trains: { roster: ['swordsman', 'swordsman', 'archer'], garrison: 3, every: 8 },
   },
+  flagFort: {
+    name: 'Flag Fort',
+    description: 'Conquest: a stockade round a flag you hold. Gives territory round it, pays gold, lets you have another Barracks, and the flag can\'t be taken while it stands.',
+    size: 2,
+    maxHp: 900,
+    cost: 220,
+    buildable: true,
+    conquest: true, // Conquest only, and only on a flag you hold (see World.canPlace)
+    hotkey: '7',
+    height: 1.8,
+    attack: {
+      range: 6,
+      damage: 12,
+      cooldown: 1.2,
+      projectile: 'arrow',
+      projectileSpeed: 18,
+      splash: 0,
+      arc: 0.4,
+    },
+  },
   gatehouse: {
     name: 'Gatehouse',
     description: "The fort's log gatehouse. While it stands, enemies can't get through: they must smash it or find another way in.",
@@ -307,7 +327,7 @@ export const ENEMIES = {
     name: 'Swordsman',
     plural: 'Swordsmen',
     maxHp: 70,
-    speed: 1.1,
+    speed: 0.88,
     damage: 6,
     attackCooldown: 1.0,
     reward: 4,
@@ -321,7 +341,7 @@ export const ENEMIES = {
     name: 'Pikeman',
     plural: 'Pikemen',
     maxHp: 100,
-    speed: 0.95,
+    speed: 0.76,
     damage: 5,
     attackCooldown: 1.1,
     reward: 5,
@@ -335,7 +355,7 @@ export const ENEMIES = {
     name: 'Archer',
     plural: 'Archers',
     maxHp: 45,
-    speed: 1.05,
+    speed: 0.84,
     damage: 3,
     attackCooldown: 1.6,
     ranged: { range: 5, projectile: 'arrow', projectileSpeed: 14, arc: 0.6, prefer: 'towers' },
@@ -350,7 +370,7 @@ export const ENEMIES = {
     name: 'Battering Ram',
     plural: 'Battering Rams',
     maxHp: 450,
-    speed: 0.55,
+    speed: 0.44,
     damage: 90,
     attackCooldown: 2.2,
     siege: true,
@@ -366,7 +386,7 @@ export const ENEMIES = {
     name: 'Knight',
     plural: 'Knights',
     maxHp: 240,
-    speed: 0.9,
+    speed: 0.72,
     damage: 12,
     attackCooldown: 1.3,
     reward: 12,
@@ -380,7 +400,7 @@ export const ENEMIES = {
     name: 'Siege Catapult',
     plural: 'Siege Catapults',
     maxHp: 220,
-    speed: 0.5,
+    speed: 0.4,
     damage: 70,
     attackCooldown: 5,
     ranged: { range: 8, projectile: 'boulder', projectileSpeed: 7, arc: 3, prefer: 'breach' },
@@ -415,7 +435,7 @@ export const TROOPS = {
       name: 'Man-at-arms',
       plural: 'Men-at-arms',
       maxHp: 110,
-      speed: 1.3,
+      speed: 1.04,
       damage: 9,
       attackCooldown: 1.0,
       reach: 0.7,
@@ -426,7 +446,7 @@ export const TROOPS = {
       name: 'Bowman',
       plural: 'Bowmen',
       maxHp: 60,
-      speed: 1.25,
+      speed: 1.0,
       damage: 8,
       attackCooldown: 1.3,
       reach: 0.7,
@@ -439,7 +459,7 @@ export const TROOPS = {
       name: 'Knight',
       plural: 'Knights',
       maxHp: 260,
-      speed: 1.0,
+      speed: 0.8,
       damage: 16,
       attackCooldown: 1.3,
       reach: 0.75,
@@ -450,7 +470,7 @@ export const TROOPS = {
       name: 'Battering Ram',
       plural: 'Battering Rams',
       maxHp: 480,
-      speed: 0.6,
+      speed: 0.48,
       damage: 80,
       attackCooldown: 2.2,
       reach: 0.8,
@@ -462,7 +482,7 @@ export const TROOPS = {
       name: 'Siege Catapult',
       plural: 'Siege Catapults',
       maxHp: 220,
-      speed: 0.55,
+      speed: 0.44,
       damage: 65,
       attackCooldown: 5,
       reach: 0.8,
@@ -482,11 +502,14 @@ export const TROOPS = {
  * Hall, fighting enemy soldiers within `aggro` (chasing them up to `chase`) and enemy buildings near the lane, and
  * breaking through walls in their way. Win by destroying the enemy's Town Hall.
  *  territory    where a side may build: within `hall[stage - 1]` tiles of its Town Hall (growing as the hall goes up
- *               stages), and within `flag` of each flag it holds (see `flags`)
- *  flags        capturable flags out on the lanes (sim/flags.js): a side takes one by having men (or its hero) within
- *               `radius` of it, alone, for `capture` seconds (a hero counts as `heroWorth` men; more men take it
- *               faster, up to `maxMen`); the other side must first bring it down to no one's, then take it. Each
- *               flag held pays `income` gold a second.
+ *               stages), and within `flag` of each of its Flag Forts (see `flags`)
+ *  flags        three capturable flags in the middle of the map (sim/flags.js): a side takes one by having men (or its
+ *               hero) within `radius` of it, alone, for `capture` seconds (a hero counts as `heroWorth` men; more men
+ *               take it faster, up to `maxMen`); the other side must first bring it down to no one's, then take it.
+ *               A flag held is only worth having with a Flag Fort built on it (BUILDINGS.flagFort): the fort gives
+ *               territory round it, pays `income` gold a second, and locks the flag (it can't be taken while the
+ *               fort stands)
+ *  barracksCap  how many Barracks a side may have: `base`, plus `perFort` for each Flag Fort it owns
  *  income       gold a second to each side, besides bounties (a soldier's `reward`, `buildingBounty` a building)
  *  repairDelay  repairs can be made at any time, but not within this many seconds of a hit
  */
@@ -512,7 +535,8 @@ export const CONQUEST = {
   aggro: 4.5,
   chase: 7,
   territory: { hall: [12, 14, 16, 18, 20], flag: 7 },
-  flags: { at: [0.42, 0.58], radius: 2.5, capture: 8, maxMen: 4, heroWorth: 3, income: 0.4 },
+  flags: { radius: 2.5, capture: 8, maxMen: 4, heroWorth: 3, income: 0.8 },
+  barracksCap: { base: 3, perFort: 1 },
   repairDelay: 5,
   // Where each side's fort stands along each lane, as fractions of the lane's length from its own Town Hall.
   fort: { barracks: 0.1, towers: [0.17, 0.33] },
@@ -541,7 +565,7 @@ export const HEROES = {
       type: 'knight',
       names: { red: 'Sir Aldric', blue: 'Lord Vane' },
       blurb: 'Heavy armour and a long sword: leads the charge and rallies the men round him.',
-      stats: { maxHp: 650, speed: 1.45, damage: 26, attackCooldown: 1.0, reach: 0.8, height: 1.4 },
+      stats: { maxHp: 650, speed: 1.16, damage: 26, attackCooldown: 1.0, reach: 0.8, height: 1.4 },
       abilities: ['warCry', 'charge'],
     },
     ranger: {
@@ -549,7 +573,7 @@ export const HEROES = {
       type: 'archer',
       names: { red: 'Mira', blue: 'Sable' },
       blurb: 'A longbow and light feet: strikes from afar and is gone before the enemy closes.',
-      stats: { maxHp: 430, speed: 1.6, damage: 22, attackCooldown: 1.1, reach: 0.8, height: 1.3, ranged: { range: 6, projectile: 'arrow', projectileSpeed: 18, arc: 0.5 } },
+      stats: { maxHp: 430, speed: 1.27, damage: 22, attackCooldown: 1.1, reach: 0.8, height: 1.3, ranged: { range: 6, projectile: 'arrow', projectileSpeed: 18, arc: 0.5 } },
       abilities: ['volley', 'fleetFoot'],
     },
     warden: {
@@ -557,7 +581,7 @@ export const HEROES = {
       type: 'pikeman',
       names: { red: 'Captain Bram', blue: 'Captain Hask' },
       blurb: 'A great pike and a stout heart: holds the line and keeps the men about him alive.',
-      stats: { maxHp: 820, speed: 1.3, damage: 20, attackCooldown: 1.1, reach: 1.1, height: 1.4 },
+      stats: { maxHp: 820, speed: 1.04, damage: 20, attackCooldown: 1.1, reach: 1.1, height: 1.4 },
       abilities: ['shieldWall', 'rally'],
     },
   },

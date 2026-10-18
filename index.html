@@ -167,6 +167,21 @@
         </div>
       </div>
 
+      <!-- The briefing for each kind of battle (src/ui/Intro.js). -->
+      <div id="intro" class="overlay" hidden>
+        <div class="panel dialog intro-dialog">
+          <h2 id="intro-title"></h2>
+          <p id="intro-objective" class="intro-objective"></p>
+          <p id="intro-heroes" class="intro-heroes" hidden></p>
+          <h3>How to play</h3>
+          <ul id="intro-how"></ul>
+          <h3>Hints</h3>
+          <ul id="intro-hints"></ul>
+          <label class="intro-again"><input id="intro-again" type="checkbox" /> Don't show this again</label>
+          <button id="intro-start" class="primary" type="button">To battle!</button>
+        </div>
+      </div>
+
       <div id="help" class="overlay" hidden>
         <div class="panel dialog">
           <h2>Hold the Hall</h2>
@@ -196,6 +211,7 @@
             <tr><td><kbd>Space</kbd></td><td>Start the next wave now</td></tr>
             <tr><td><kbd>P</kbd> / <kbd>F</kbd></td><td>Pause / Change speed</td></tr>
           </table>
+          <button id="help-briefing" type="button">This battle's briefing</button>
           <button id="help-close" class="primary">Got it</button>
         </div>
       </div>

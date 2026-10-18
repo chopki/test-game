@@ -1068,6 +1068,7 @@ export class Renderer {
     if (!flags) return;
     const key = spriteKeys.flagpole();
     flags.forEach((f, i) => {
+      if (f.fort !== null && this.world.buildings.has(f.fort)) return; // its fort flies it
       const ground = this.toScene(f.x, 0, f.z, this._v);
       this.sprites.add(key, ground, 1, 0, 0, 0);
       this.shadowSprites.add(key, ground);

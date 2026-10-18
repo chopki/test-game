@@ -1,6 +1,6 @@
 import { BUILDINGS, CONQUEST, PATHING, TERRAIN, TROOPS, UPGRADES } from './config.js';
 import { nextUpgradeCost } from './upgrades.js';
-import { inTerritory } from './flags.js';
+import { barracksCap, fortOf, inTerritory } from './flags.js';
 import { nearestLane } from './lanes.js';
 import { dist, reachOf, walkTo } from './troops.js';
 import { T } from './terrain.js';
@@ -98,21 +98,9 @@ function mirrorFree(world, type, { x, z }) {
   return world.grid.isAreaFree(mx, mz, size);
 }
 
-/**
- * The capturable flags (CONQUEST.flags): on each lane at each of `at` of the way from red's hall (the far ones are
- * the near ones' mirror images), all no one's at the start.
- */
-export function placeFlags(world) {
-  const { width: W, height: H } = world.grid;
-  world.flags = [];
-  const near = Math.min(...CONQUEST.flags.at);
-  for (let lane = 0; lane < world.lanes.length; lane++) {
-    const p = alongLane(world, lane, 'red', near);
-    const [x, z] = [Math.round(p.x), Math.round(p.z)];
-    world.flags.push({ x: x + 0.5, z: z + 0.5, lane, owner: null, hold: 0, contested: false });
-    // Its mirror: on the mirrored lane (west ↔ east, middle ↔ middle), as far from blue's hall.
-    world.flags.push({ x: W - 1 - x + 0.5, z: H - 1 - z + 0.5, lane: world.lanes.length - 1 - lane, owner: null, hold: 0, contested: false });
-  }
+/** The capturable flags (CONQUEST.flags), where the map put them (lanes.js), all no one's at the start. */
+export function placeFlags(world, spots) {
+  world.flags = spots.map(({ x, z }) => ({ x, z, owner: null, hold: 0, contested: false, fort: null }));
 }
 
 /** The men each Barracks sends in wave `n`. */
@@ -327,8 +315,8 @@ function march(world, u, dt) {
 
 /**
  * The blue side's turn to think (every CONQUEST.ai.think seconds): it spends its gold through World.place and
- * World.upgrade, as the player does, one thing a turn, in this order: more Barracks (men each wave) on the lane it
- * has fewest on; its Town Hall's next stage (due every CONQUEST.ai.hallEvery seconds a stage, and saved up for
+ * World.upgrade, as the player does, one thing a turn, in this order: a Flag Fort on any flag it holds; more
+ * Barracks (men each wave; as many as its forts allow) on the lane it has fewest on; its Town Hall's next stage (due every CONQUEST.ai.hallEvery seconds a stage, and saved up for
  * unless the enemy is near); once the enemy is pressing a lane, a wall across it with a gap in the middle, which
  * funnels attackers past its towers; Archer Towers on the lane where red soldiers have come nearest its Town Hall
  * (or the lane with fewest towers); and the weakest tower on that lane up a stage.
@@ -352,7 +340,10 @@ export function aiThink(world) {
   // A tower where the enemy is pressing (or on the lane with fewest towers), between its last tower and its hall.
   const wantTower = threatened.threat < world.grid.height * 0.55 ? threatened : [...lanes].sort((a, b) => a.towers - b.towers)[0];
   const thinBarracks = [...lanes].sort((a, b) => a.barracks - b.barracks)[0];
-  const maxBarracks = world.lanes.length + Math.floor(world.time / 150);
+  const maxBarracks = barracksCap(world, team);
+  // A fort on any flag it holds comes first: territory, gold, and room for another Barracks.
+  const bare = world.flags.find((f) => f.owner === team && !fortOf(world, f));
+  if (bare && eco.gold >= BUILDINGS.flagFort.cost + reserve && world.place('flagFort', bare.x - 1, bare.z - 1, { team }).ok) return;
   const barracksCount = lanes.reduce((s, l) => s + l.barracks, 0);
   if (barracksCount < maxBarracks && eco.gold >= BUILDINGS.barracks.cost + reserve) {
     if (aiBuild(world, 'barracks', thinBarracks.i, 0.08 + world.troopRng.range(0, 0.06))) return;

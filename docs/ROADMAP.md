@@ -202,7 +202,8 @@ shown by livery hints (the same army on both sides, not two factions).
 - [ ] Hero items or talents; a hero shop at the Town Hall
 - [ ] Neutral camp variety (wolves, a boss camp)
 - [x] Territory from the Town Hall (growing with its stage), in place of "within 7 tiles of any building"
-- [x] Capturable flags on the lanes: men or your hero take them; each held flag gives territory round it and gold
+- [x] Three capturable flags in the middle of the map; a Flag Fort on a held flag gives territory, gold and room
+      for another Barracks (capped at 3 plus one a fort), and locks the flag while it stands
 
 ## v0.5: Heroes
 

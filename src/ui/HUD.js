@@ -121,6 +121,10 @@ export class HUD {
     onPress(this.el.pause, () => game.togglePause());
     onPress($('help-btn'), () => this.toggleHelp());
     onPress($('help-close'), () => this.toggleHelp(false));
+    onPress($('help-briefing'), () => {
+      this.toggleHelp(false);
+      game.intro.show(game.world.mode);
+    });
     onPress($('restart'), () => game.newMap());
     onPress($('confirm-yes'), () => game.build.confirmPending());
     onPress($('confirm-no'), () => game.build.cancelPending());
@@ -187,11 +191,12 @@ export class HUD {
    * that fits them (and the screen).
    */
   _layoutWheel() {
-    const n = this.buttons.size;
+    const shown = [...this.buttons.values()].filter((b) => !b.hidden);
+    const n = shown.length;
     const size = this._compact() ? 56 : 64;
     // Far enough out that neighbours (and their cost tags) don't touch: an arc step of about 1.2 medallions.
     const r = Math.min(((size * 1.2 * (n - 1)) / (Math.PI / 2)) | 0, window.innerWidth - 90);
-    [...this.buttons.values()].forEach((btn, i) => {
+    shown.forEach((btn, i) => {
       const a = (Math.PI / 2) * (1 + i / (n - 1)); // 90° (up) to 180° (left)
       btn.style.width = btn.style.height = `${size}px`;
       btn.style.transform = `translate(${Math.cos(a) * r - size / 2}px, ${-Math.sin(a) * r - size / 2}px)`;
@@ -201,6 +206,9 @@ export class HUD {
   attach(world) {
     this.world = world;
     this.minimap.attach(world);
+    // Conquest-only buildings (the Flag Fort) are in the wheel only there.
+    for (const [type, btn] of this.buttons) btn.hidden = Boolean(BUILDINGS[type]?.conquest) && world.mode !== 'conquest';
+    this._layoutWheel();
     this.el.gameover.hidden = true;
     this._last = {};
     this.el.toasts.replaceChildren();
@@ -224,7 +232,8 @@ export class HUD {
     });
     ev.on('heroLevelUp', ({ hero, level }) => hero.team === 'red' && this.toast(`${hero.def.name} reaches level ${level}`, 'good'));
     ev.on('campCleared', ({ by }) => by === 'red' && this.toast('Bandit camp cleared! It will fill again in a while', 'good'));
-    ev.on('flagCaptured', ({ team }) => this.toast(team === 'red' ? 'We hold a flag: you can build round it' : 'The enemy has taken a flag', team === 'red' ? 'good' : 'warn'));
+    ev.on('flagCaptured', ({ team }) => this.toast(team === 'red' ? 'We hold a flag: build a Flag Fort on it (7) to make it count' : 'The enemy has taken a flag', team === 'red' ? 'good' : 'warn'));
+    ev.on('flagFortBuilt', ({ building }) => building.team === 'blue' && this.toast('The enemy has built a Flag Fort', 'warn'));
     ev.on('flagLost', ({ owner }) => owner === 'red' && this.toast('One of our flags is falling!', 'warn'));
     ev.on('buildingUpgraded', ({ building }) => {
       if (building.type === 'wall') return;

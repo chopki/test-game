@@ -10,7 +10,8 @@ import { createNoise } from './noise.js';
  * is carved twice, at a point and its mirror; the west lane's mirror is the east lane.
  *
  * Returns { types, levels (tile levels: the plateaus are 1), halls: { red, blue } (top-left tiles of the 3×3 Town
- * Halls), lanes, camps (the neutral camps' middles, both halves), layout (its name, see LAYOUTS) } where each lane
+ * Halls), lanes, camps (the neutral camps' middles, both halves), flags (where the capturable flags stand), layout
+ * (its name, see LAYOUTS) } where each lane
  * is { name, points } with `points` the waypoints from the red hall to the blue (blue walks them backwards).
  */
 /** Groves: how much of the map is wooded (`cover`), the noise's scale (smaller: bigger groves), and the lanes'
@@ -48,7 +49,7 @@ export const LAYOUTS = {
     name: 'The Winding Way',
     west: [[0.27, -15], [0.12, 0.76], [0.1, 0.56], [0.12, 0.4], [0.12, 0.22], [0.27, 14]],
     middle: [[0.36, 0.82], [0.64, 0.72], [0.38, 0.6], [0.5, 0.5]],
-    plateaus: [['west', 0.62, 3, 3], ['middle', 0.66, 4, 3]],
+    plateaus: [['west', 0.68, 3, 3], ['middle', 0.68, 4, 3]],
     camps: [[0.3, 0.7], [0.74, 0.6]],
     bend: [2.4, 3.6],
     centre: 0,
@@ -184,18 +185,42 @@ export function generateLaneMap({ width: W, height: H, rng, layout = null }) {
   // The stream across the middle: fords where it crosses a lane, deep water elsewhere. Odd about the centre, so it
   // mirrors onto itself.
   const bend = rng.range(...plan.bend);
+  const streamZ = (x) => (H - 1) / 2 + bend * Math.sin(((x - (W - 1) / 2) / W) * Math.PI * 2);
+  // Where each lane crosses the stream (its line passes from one side to the other): fords there only, so a lane
+  // that runs along the bank for a while doesn't turn the whole stretch into a ford.
+  const crossings = [];
+  const middle = [...midHalf, ...[...midHalf].reverse().map(mirror)];
+  for (const path of [west, west.map(mirror), middle]) {
+    for (let i = 1; i < path.length; i++) {
+      const [a, b] = [path[i - 1], path[i]];
+      const [da, db] = [a[1] - streamZ(a[0]), b[1] - streamZ(b[0])];
+      if ((da < 0) === (db < 0)) continue;
+      const k = da / (da - db);
+      crossings.push([a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k]);
+    }
+  }
+  const atCrossing = (x, z) => crossings.some(([cx, cz]) => Math.hypot(x - cx, z - cz) <= GROVES.lane + 1);
   for (let x = 0; x < W; x++) {
-    const u = x - (W - 1) / 2;
-    const zc = (H - 1) / 2 + bend * Math.sin((u / W) * Math.PI * 2);
+    const zc = streamZ(x);
     for (const z of [Math.floor(zc), Math.floor(zc) + 1]) {
       for (const [mx, mz] of [[x, z], mirror([x, z])]) {
         if (!inside(mx, mz)) continue;
         const i = mz * W + mx;
         // Fords where a lane crosses; elsewhere deep water (out in the meadows too), so the crossings matter.
-        types[i] = types[i] === T.open && onLane[i] ? T.ford : types[i] === T.open || types[i] === T.rock || types[i] === T.forest ? T.water : types[i];
+        types[i] = types[i] === T.open && (atCrossing(mx, mz) || atCrossing(...mirror([mx, mz]))) ? T.ford : types[i] === T.open || types[i] === T.rock || types[i] === T.forest ? T.water : types[i];
       }
     }
   }
+
+  // The flags (see CONQUEST.flags): one on a dry islet in the stream at the very middle of the map, and one on each
+  // side lane just short of the stream (on red's side of it on the west lane, and its mirror on blue's side of it
+  // on the east), each on cleared ground for the fort that can be built on it. A flag stands at a tile corner: the
+  // middle of its fort's 2×2 footprint.
+  carve((W - 1) / 2, (H - 1) / 2, 2.6);
+  const flags = [{ x: W / 2, z: H / 2 }];
+  const [fx, fz] = nearestTo(west, H * 0.56).map(Math.round);
+  carve(fx - 0.5, fz - 0.5, 2.6);
+  flags.push({ x: fx, z: fz }, { x: W - fx, z: H - fz });
 
   // Waypoints every few tiles, red to blue. The east lane is the west's mirror, walked the other way.
   const thin = (pts, step = 6) => pts.filter((_, i) => i % step === 0 || i === pts.length - 1).map(([x, z]) => ({ x: Math.round(x), z: Math.round(z) }));
@@ -206,7 +231,7 @@ export function generateLaneMap({ width: W, height: H, rng, layout = null }) {
     { name: 'middle', points: [...midPts, ...midPts.slice(0, -1).reverse().map((p) => mirrorPoint(p, W, H))] },
     { name: 'east', points: westPts.map((p) => mirrorPoint(p, W, H)).reverse() },
   ];
-  return { types, levels, halls: { red, blue }, lanes, camps, layout: plan.name };
+  return { types, levels, halls: { red, blue }, lanes, camps, flags, layout: plan.name };
 }
 
 const mirrorPoint = ({ x, z }, W, H) => ({ x: W - 1 - x, z: H - 1 - z });

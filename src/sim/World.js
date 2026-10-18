@@ -12,7 +12,7 @@ import { SIDES } from './WaveManager.js';
 import { refreshPosts, updateBarracks, updateTroop } from './troops.js';
 import { generateLaneMap, nearestLane } from './lanes.js';
 import { aiThink, buildForts, otherTeam, placeFlags, sendSquads, updateLaneSoldier } from './conquest.js';
-import { inTerritory, updateFlags } from './flags.js';
+import { barracksCap, flagForFort, inTerritory, updateFlags } from './flags.js';
 import { heroFell, heroXp, orderHero, spawnHero, updateHero, updateHeroes, useAbility } from './heroes.js';
 import { campAlarm, campGuardFell, setupCamps, updateCampGuard, updateCamps } from './camps.js';
 
@@ -129,7 +129,7 @@ export class World {
     this.townHall = this._addBuilding('townHall', map.halls.red.x, map.halls.red.z, 'red');
     this.enemyHall = this._addBuilding('townHall', map.halls.blue.x, map.halls.blue.z, 'blue');
     buildForts(this);
-    placeFlags(this);
+    placeFlags(this, map.flags);
     // The player's hero as chosen (else the default); the AI's at random (on a stream of its own).
     const kinds = Object.keys(HEROES.roster);
     this.heroKinds = { red: HEROES.roster[this._heroChoice] ? this._heroChoice : HEROES.default, blue: createRng(this.seed ^ 0x4e40).pick(kinds) };
@@ -168,6 +168,12 @@ export class World {
    * on from both sides) or onto a corner (both arms join it). See _wallSnap().
    */
   anchorFor(type, tileX, tileZ) {
+    if (type === 'flagFort' && this.flags) {
+      // Onto the nearest flag (a fort stands with its flag in the middle).
+      let best = null;
+      for (const f of this.flags) if (Math.hypot(f.x - tileX - 0.5, f.z - tileZ - 0.5) < 4 && (!best || Math.hypot(f.x - tileX, f.z - tileZ) < Math.hypot(best.x - tileX, best.z - tileZ))) best = f;
+      if (best) return { x: best.x - 1, z: best.z - 1 };
+    }
     const offset = Math.floor((BUILDINGS[type].size - 1) / 2);
     const centred = { x: tileX - offset, z: tileZ - offset };
     if (type === 'wall' || this.buildingAt(tileX, tileZ)?.type !== 'wall') return centred;
@@ -213,7 +219,18 @@ export class World {
     const def = BUILDINGS[type];
     if (!def || !def.buildable) return { ok: false, reason: 'Cannot build that' };
     if (this.phase === 'gameover') return { ok: false, reason: 'Game over' };
-    if (this.mode === 'conquest' && !anywhere && !inTerritory(this, team, x + def.size / 2, z + def.size / 2)) return { ok: false, reason: 'Outside your territory' };
+    if (def.conquest && this.mode !== 'conquest') return { ok: false, reason: 'Conquest only' };
+    if (this.mode === 'conquest' && !anywhere) {
+      // A Flag Fort goes on a flag you hold (wherever it is); everything else inside your territory.
+      if (type === 'flagFort') {
+        if (!flagForFort(this, team, x, z)) return { ok: false, reason: 'Build it on a flag you hold' };
+      } else if (!inTerritory(this, team, x + def.size / 2, z + def.size / 2)) return { ok: false, reason: 'Outside your territory' };
+      if (def.trains) {
+        const cap = barracksCap(this, team);
+        const have = [...this.buildings.values()].filter((b) => b.team === team && b.def.trains).length;
+        if (have >= cap) return { ok: false, reason: `Barracks limit ${cap}: a Flag Fort allows another` };
+      }
+    }
     for (const [tx, tz] of this.grid.footprint(x, z, def.size)) {
       if (!this.grid.inBounds(tx, tz)) return { ok: false, reason: 'Out of bounds' };
       if (this.grid.isInSpawnZone(tx, tz)) return { ok: false, reason: 'Too close to the edge' };
@@ -393,6 +410,11 @@ export class World {
     eco.spend(BUILDINGS[type].cost);
     const building = this._addBuilding(type, x, z, team);
     if (this.mode === 'conquest' && building.def.trains) building.lane = nearestLane(this.lanes, building.cx, building.cz).lane;
+    if (type === 'flagFort') {
+      const f = flagForFort(this, team, x, z) ?? this.flags.find((g) => g.x === x + 1 && g.z === z + 1);
+      f.fort = building.id;
+      this.events.emit('flagFortBuilt', { flag: f, building });
+    }
     if (building.def.trains) {
       // Find its way out now (not on the next tick), so it's known even while the game is paused.
       this._postsDirty = false;

@@ -341,7 +341,7 @@ export function spriteSpecs() {
  * Sprites with a blue version (see teamKey): the bases (every stage, as the AI upgrades) and lookouts of the
  * buildings the enemy castle has and builds, and pennants.
  */
-const BLUE_KEY = /^(b:(townHall|archerTower|barracks)(:s[2-5])?|t:archerTower:\d+:0|flag:\d:\d+)$/;
+const BLUE_KEY = /^(b:(townHall|archerTower|barracks|flagFort)(:s[2-5])?|t:archerTower:\d+:0|flag:\d:\d+)$/;
 
 /** The key of `key`'s version in `team`'s colours: blue for the enemy castle, neutral pale, else the key itself (red). */
 export const teamKey = (key, team) => (team === 'blue' || team === 'neutral' ? `${key}:${team}` : key);
