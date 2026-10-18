@@ -12,6 +12,8 @@ const ROWS = [
   ['effects', 'Effects', 'Smoke, dust and debris in battle, scorch marks, drifting cloud shadows and trees swaying in the wind.'],
   ['glow', 'Glow and colour', 'A warm colour grade over the battlefield and a soft glow round crystals, torches and fires.'],
   ['weather', 'Weather', 'Seasons (autumn leaves, winter snow) and rain or snowfall that can change between waves. Looks only: it never changes the battle.'],
+  ['arrows', 'Arrows', 'How arrows in flight look: a dark ink streak with a short fading trail, a volley of three streaks per shot, or the original small 3D arrow.'],
+  ['healthBars', 'Health bars', 'On hit shows a slim bar for a moment after something is hit; While hurt keeps it until it dies; Off hides them (buildings still show their damage, and the Town Hall has its ring).'],
   ['showFps', 'Show FPS', 'Frames per second and current render scale, in the top bar.'],
 ];
 

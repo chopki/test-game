@@ -1002,3 +1002,41 @@ test('main menu: holds the battle at the start; Endless Mode begins it, Continue
   await expect(page.locator('#loading')).toBeHidden();
   expect(errors).toEqual([]);
 });
+
+test('settings: Arrows (ink streak, volley, classic) and Health bars (on hit, while hurt, off)', async ({ page }) => {
+  const errors = await openGame(page);
+  // A hurt enemy in front of an archer tower that can't harm it.
+  await page.evaluate(() => {
+    const w = window.game.world;
+    w.economy.earn(500);
+    const t = w.place('archerTower', 12, 24).building;
+    t.def = { ...t.def, attack: { ...t.def.attack, damage: 0.01 } };
+    w.phase = 'wave';
+    w._spawnEnemy({ type: 'knight', side: 'south', hpMult: 1, elite: false });
+    Object.assign(w.enemies[0], { x: 13.5, z: 29.5, tx: 13, tz: 29 });
+    w.enemies[0].def = { ...w.enemies[0].def, speed: 0 };
+    w.enemies[0].hp -= 50;
+  });
+  if (await page.evaluate(() => window.game.paused)) await page.evaluate(() => window.game.togglePause());
+  const views = () =>
+    page.evaluate(() => {
+      const r = window.game.renderer;
+      return { bars: r.healthBars.count, streaks: [...r.views.projectiles.values()].map((v) => (v.streak ? v.obj.children.length : 0)) };
+    });
+  const set = (label, option) => page.evaluate(([k, v]) => window.game.setGraphics({ ...window.game.graphics, [k]: v, preset: 'custom' }), [label, option]);
+  // Defaults: ink streaks, and a bar for a moment after each hit.
+  await expect.poll(async () => (await views()).streaks.some((n) => n === 1)).toBe(true);
+  await expect.poll(async () => (await views()).bars).toBeGreaterThan(0);
+  await set('arrows', 'volley');
+  await expect.poll(async () => (await views()).streaks.some((n) => n === 3)).toBe(true);
+  await set('healthBars', 'off');
+  await expect.poll(async () => (await views()).bars).toBe(0);
+  await set('healthBars', 'hurt');
+  await expect.poll(async () => (await views()).bars).toBeGreaterThan(0);
+  // The settings menu offers both.
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await settingButton(page, 'Arrows', 'Classic').click();
+  await settingButton(page, 'Health bars', 'Off').click();
+  expect(await page.evaluate(() => [window.game.graphics.arrows, window.game.graphics.healthBars])).toEqual(['classic', 'off']);
+  expect(errors).toEqual([]);
+});

@@ -24,6 +24,7 @@ import { GroundCover, Precipitation } from './weatherLayers.js';
 import { Wildlife } from './wildlife.js';
 import { CATAPULT_ARM_FRAMES, ENEMY_ANIMS, FLAG_FRAMES, crystalHeight, spriteKeys, turretHeight } from './spriteCatalog.js';
 import { hallEffects, STAGE_WALL_VARIANTS } from './stageModels.js';
+import { aimStreaks, createArrowStreaks } from './arrows.js';
 import { PENNANT_W } from './modelKit.js';
 
 const SKY = 0xa9d3ee;
@@ -66,6 +67,9 @@ const NEIGHBOURS = [
 const ENEMY_BAR_WIDTH = { swordsman: 0.55, pikeman: 0.55, archer: 0.5, knight: 0.7, ram: 1.0, mangonel: 1.0 };
 const ENEMY_BLOB_RADIUS = { swordsman: 0.26, pikeman: 0.26, archer: 0.24, knight: 0.32, ram: 0.72, mangonel: 0.78 };
 // Tiles covered by one walk cycle, so feet keep pace with the ground.
+/** With Health bars 'On hit': how long a bar shows after a hit, and how long it takes to fade at the end (s). */
+const BAR_SHOW = 2.5;
+const BAR_FADE = 0.4;
 const WALK_STRIDE = { swordsman: 0.7, pikeman: 0.7, archer: 0.7, knight: 0.75, ram: 0.6, mangonel: 0.6 };
 const DEATH_FRAME_TIME = 0.11; // seconds per death frame
 const CORPSE_TIME = 0.9; // how long a fallen enemy stays before vanishing
@@ -140,6 +144,7 @@ export class Renderer {
 
     this.views = { buildings: new Map(), enemies: new Map(), projectiles: new Map() };
     this.healthBars = new HealthBarBatch(this.overlayLayer);
+    this._streakDir = new THREE.Vector3();
     this.blobShadows = new BlobShadowBatch(this.groundLayer);
     this.effects = [];
     this.particles = new Particles(this.overlayLayer);
@@ -957,9 +962,8 @@ export class Renderer {
       }
       if (!seat.shape) this._drawWallJoints(b, dmg); // in-wall models carry their own wall stubs
     }
-    if (b.hp < b.maxHp || b.type === 'townHall') {
-      this.healthBars.add(this.toScene(b.cx + seat.dx, b.def.height + 0.6, b.cz + seat.dz, this._v), Math.min(2.4, 0.8 * b.size + 0.2), b.hp / b.maxHp);
-    }
+    const bar = this._barFade(view, b, b.type === 'townHall');
+    if (bar) this.healthBars.add(this.toScene(b.cx + seat.dx, b.def.height + 0.6, b.cz + seat.dz, this._v), Math.min(2.4, 0.8 * b.size + 0.2), b.hp / b.maxHp, bar);
   }
 
   // ---------------------------------------------------------------- seasons and weather (weather.js)
@@ -1132,9 +1136,24 @@ export class Renderer {
     const scale = e.elite ? 1.3 : 1;
     this._addEnemySprite(e.type, e.elite, e.heading, anim, frame, this.toScene(e.x, 0, e.z, this._v));
     this.blobShadows.add(this.toScene(e.x, 0.02, e.z, this._v), (ENEMY_BLOB_RADIUS[e.type] ?? 0.3) * scale);
-    if (e.hp < e.maxHp) {
-      this.healthBars.add(this.toScene(e.x, e.def.height * scale + 0.25, e.z, this._v), ENEMY_BAR_WIDTH[e.type] ?? 0.6, e.hp / e.maxHp);
-    }
+    const bar = this._barFade(view, e);
+    if (bar) this.healthBars.add(this.toScene(e.x, e.def.height * scale + 0.25, e.z, this._v), ENEMY_BAR_WIDTH[e.type] ?? 0.6, e.hp / e.maxHp, bar);
+  }
+
+  /**
+   * How much of a health bar to draw over `thing` (0 for none, up to 1), by the Health bars setting: 'hit' shows it
+   * for a moment after each hit and fades it out, 'hurt' all the while it's damaged (and always for the Town Hall,
+   * `always`), 'off' never. The view remembers when the thing last lost health.
+   */
+  _barFade(view, thing, always = false) {
+    const mode = this.graphics.healthBars ?? 'hit';
+    if (view.lastHp === undefined) view.lastHp = thing.hp;
+    if (thing.hp < view.lastHp) view.hitAt = this._time;
+    view.lastHp = thing.hp;
+    if (mode === 'off') return 0;
+    if (mode === 'hurt') return thing.hp < thing.maxHp || always ? 1 : 0;
+    const since = this._time - (view.hitAt ?? -Infinity);
+    return Math.max(0, Math.min(1, (BAR_SHOW - since) / BAR_FADE));
   }
 
   _addEnemySprite(type, elite, heading, anim, frame, ground) {
@@ -1160,6 +1179,14 @@ export class Renderer {
   }
 
   _createProjectileView(p) {
+    const style = this.graphics.arrows ?? 'streak';
+    if (p.kind === 'arrow' && style !== 'classic') {
+      const obj = createArrowStreaks(style === 'volley' && !p.hostile ? 3 : 1);
+      obj.visible = false; // until it has moved, so we know which way it points
+      this.toScene(p.x, p.y + this._projectileLift(p), p.z, obj.position, true);
+      this.entityLayer.add(obj);
+      return { obj, streak: true };
+    }
     const obj = createProjectileModel(p.kind);
     obj.traverse((o) => (o.renderOrder = 3));
     this.toScene(p.x, p.y + this._projectileLift(p), p.z, obj.position, true);
@@ -1177,6 +1204,13 @@ export class Renderer {
   _updateProjectileView(view, p) {
     const prev = view.obj.position.clone();
     this.toScene(p.x, p.y + this._projectileLift(p), p.z, view.obj.position, true);
+    if (view.streak) {
+      if (prev.distanceToSquared(view.obj.position) > 1e-8) {
+        aimStreaks(view.obj, this._streakDir.subVectors(view.obj.position, prev), this.camera);
+        view.obj.visible = true;
+      }
+      return;
+    }
     if (p.kind === 'arrow' && prev.distanceToSquared(view.obj.position) > 1e-8) {
       view.obj.lookAt(view.obj.position.clone().multiplyScalar(2).sub(prev));
       // A faint trail: small pale puffs left behind, fading fast.

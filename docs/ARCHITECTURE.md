@@ -171,6 +171,10 @@ so the whole battlefield is ~15 draw calls and a few hundred triangles however d
   `bridge:<axis>:<mid|start|end>` pieces to the terrain sprites, only where both banks lead on over open ground
   (`fordPaths` in terrain.js clears that way when generating), and paints a worn track on from each end. Fords
   stay fords for the sim.
+- Arrows and health bars (settings `arrows`, `healthBars`): `arrows.js` draws arrows in flight as ink streaks
+  laid flat to the camera along the flight (three for a volley; 'classic' keeps `createProjectileModel`'s 3D
+  arrow). Health bars (`HealthBarBatch`, muted gold to brick red) show for a moment after a hit ('hit', faded by
+  `Renderer._barFade`), all the while a thing is hurt ('hurt'), or never ('off').
 - Glow and colour (High, setting `glow`): `GlowBatch` (batches.js) draws additive halos at light sources (the
   spire's crystal, lit wall decorations via `DECOR_LIGHTS`, burning buildings), not depth-tested; the warm grade is
   a CSS filter on the canvas (`COLOUR_GRADE`), so it costs no render pass and leaves the HUD alone.

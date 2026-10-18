@@ -82,16 +82,19 @@ export class InstancedModel {
 
 // ------------------------------------------------------------------ health bars
 
-const BAR_HEIGHT = 0.12;
+const BAR_HEIGHT = 0.075;
 
 /** All health bars in two draw calls: billboarded backgrounds and coloured fills. */
+const FULL_HP = new THREE.Color(0xd9a33a);
+const LOW_HP = new THREE.Color(0xb8281a);
+
 export class HealthBarBatch {
   constructor(parent) {
     const geo = new THREE.PlaneGeometry(1, BAR_HEIGHT);
     // Fill grows from its left edge.
     const fillGeo = new THREE.PlaneGeometry(1, BAR_HEIGHT).translate(0.5, 0, 0);
     // Both transparent so they're sorted together and renderOrder puts the fill on top.
-    const bgMat = new THREE.MeshBasicMaterial({ color: 0x1a0c0c, transparent: true, opacity: 0.8, depthTest: false });
+    const bgMat = new THREE.MeshBasicMaterial({ color: 0x24160c, transparent: true, opacity: 0.7, depthTest: false });
     const fgMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, depthTest: false });
     this.bg = new InstancedModel(new THREE.Mesh(geo, bgMat), parent, { castShadow: false, receiveShadow: false });
     this.fg = new InstancedModel(new THREE.Mesh(fillGeo, fgMat), parent, { castShadow: false, receiveShadow: false });
@@ -115,14 +118,15 @@ export class HealthBarBatch {
     this._ratios.length = 0;
   }
 
-  /** A bar centred at scene position `pos`, `width` wide, filled to `ratio` (0–1). */
-  add(pos, width, ratio) {
+  /** A bar centred at scene position `pos`, `width` wide, filled to `ratio` (0–1); `fade` (0–1) thins it away. */
+  add(pos, width, ratio, fade = 1) {
+    if (fade <= 0) return;
     const r = Math.max(0, Math.min(1, ratio));
-    this.bg.push(this._m.compose(pos, this.quaternion, this._scale.set(width + 0.06, 1.4, 1)));
+    this.bg.push(this._m.compose(pos, this.quaternion, this._scale.set(width + 0.04, 1.5 * fade, 1)));
     // Fill starts at the bar's left edge (in the camera-facing plane).
     this._offset.set(-width / 2, 0, 0.001).applyQuaternion(this.quaternion);
     this._pos.copy(pos).add(this._offset);
-    this.fg.push(this._m.compose(this._pos, this.quaternion, this._scale.set(Math.max(0.001, r * width), 1, 1)));
+    this.fg.push(this._m.compose(this._pos, this.quaternion, this._scale.set(Math.max(0.001, r * width), fade, 1)));
     this._ratios.push(r);
   }
 
@@ -131,7 +135,8 @@ export class HealthBarBatch {
     this.fg.end();
     // Colours are applied here, after any mid-frame growth has replaced the instanced mesh.
     const mesh = this.fg.parts[0].mesh;
-    this._ratios.forEach((r, i) => mesh.setColorAt(i, this._color.setHSL(r * 0.33, 0.75, 0.5)));
+    // Muted: from old gold when healthy to brick red when nearly gone (no bright traffic-light greens).
+    this._ratios.forEach((r, i) => mesh.setColorAt(i, this._color.copy(LOW_HP).lerp(FULL_HP, r)));
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
   }
 

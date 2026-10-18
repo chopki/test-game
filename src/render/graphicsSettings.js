@@ -1,9 +1,9 @@
 // Graphics quality presets and the player's saved choice. No three.js here, so it can be unit-tested.
 
 export const PRESETS = {
-  low: { resolution: 'auto', antialias: false, fpsCap: 30, scenery: 'low', effects: true, glow: false, weather: true },
-  medium: { resolution: 'auto', antialias: false, fpsCap: 60, scenery: 'medium', effects: true, glow: false, weather: true },
-  high: { resolution: 'native', antialias: true, fpsCap: 0, scenery: 'high', effects: true, glow: true, weather: true },
+  low: { resolution: 'auto', antialias: false, fpsCap: 30, scenery: 'low', effects: true, glow: false, weather: true, arrows: 'streak', healthBars: 'hit' },
+  medium: { resolution: 'auto', antialias: false, fpsCap: 60, scenery: 'medium', effects: true, glow: false, weather: true, arrows: 'streak', healthBars: 'hit' },
+  high: { resolution: 'native', antialias: true, fpsCap: 0, scenery: 'high', effects: true, glow: true, weather: true, arrows: 'streak', healthBars: 'hit' },
 };
 
 export const PRESET_ORDER = ['low', 'medium', 'high'];
@@ -49,6 +49,19 @@ export const OPTIONS = {
   weather: [
     [false, 'Off'],
     [true, 'On'],
+  ],
+  // How arrows in flight are drawn: an ink streak with a fading trail, a volley of three streaks per shot, or the
+  // original small 3D arrow with puffs.
+  arrows: [
+    ['streak', 'Ink streak'],
+    ['volley', 'Volley'],
+    ['classic', 'Classic'],
+  ],
+  // Health bars over enemies and buildings: for a moment after each hit, all the while they're hurt, or never.
+  healthBars: [
+    ['off', 'Off'],
+    ['hit', 'On hit'],
+    ['hurt', 'While hurt'],
   ],
   showFps: [
     [false, 'Off'],
