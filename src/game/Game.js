@@ -192,11 +192,17 @@ export class Game {
   }
 
   _frame(now) {
-    // Frame-rate cap: skip this animation frame if it's too soon (less GPU work and heat on phones).
+    // Frame-rate cap: draw on a steady schedule of 1000 / cap ms (with a millisecond's slack for timer jitter), so a
+    // cap holds on screens of any refresh rate (120 on a 144 Hz screen, 60 on 120 Hz).
     const cap = this.graphics.fpsCap;
-    if (cap > 0 && now - this._last < 1000 / cap - 2) {
-      requestAnimationFrame((t) => this._frame(t));
-      return;
+    if (cap > 0) {
+      const step = 1000 / cap;
+      if (now < (this._nextFrame ?? 0) - 1) {
+        requestAnimationFrame((t) => this._frame(t));
+        return;
+      }
+      // Keep to the schedule, but don't try to catch up after a stall.
+      this._nextFrame = Math.max((this._nextFrame ?? now) + step, now);
     }
     const interval = now - this._last;
     const dt = Math.min(0.1, interval / 1000);

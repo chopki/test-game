@@ -260,6 +260,8 @@ test('overriding one setting marks the preset Custom; FPS counter and frame cap 
   expect((await graphicsState(page)).scenerySprites).toBeGreaterThan(0);
 
   await settingButton(page, 'Show FPS', 'On').click();
+  await settingButton(page, 'Frame rate cap', '120').click();
+  expect((await graphicsState(page)).fpsCap).toBe(120);
   await settingButton(page, 'Frame rate cap', '30').click();
   await page.getByRole('button', { name: 'Done' }).click();
   await expect(page.locator('#fps')).toBeVisible();

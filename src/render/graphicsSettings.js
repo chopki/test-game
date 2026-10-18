@@ -29,6 +29,7 @@ export const OPTIONS = {
   fpsCap: [
     [30, '30'],
     [60, '60'],
+    [120, '120'],
     [0, 'Unlimited'],
   ],
   scenery: [
