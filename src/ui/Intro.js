@@ -38,6 +38,7 @@ const INTROS = {
     ],
     hints: [
       "The squads march on their own; your job is to win the middle. Take the flags and fortify them.",
+      'Upgrade your Barracks (Drill Yard, then Garrison Hall) for bigger, tougher squads: that is how a deadlock in the middle is broken.',
       `Your hero levels up from foes that fall near them. If they fall, they're back at the hall after a while.`,
       'Bandit camps in the woods are worth gold and hero XP, and fill again after a while.',
       "Siege engines come with later waves and go for your buildings: catch them before they reach your towers.",

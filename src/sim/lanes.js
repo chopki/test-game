@@ -17,6 +17,9 @@ import { createNoise } from './noise.js';
 /** Groves: how much of the map is wooded (`cover`), the noise's scale (smaller: bigger groves), and the lanes'
  * half-width where they're carved through the woods. */
 export const GROVES = { cover: 0.45, scale: 0.11, lane: 2.2 };
+/** The open strip round each plateau (tiles), and how wide a ramp up one is. */
+const APRON = 2;
+const RAMP_WIDTH = 3;
 
 /**
  * The map's layouts (one per map, from its seed): where the lanes run (control points of the west lane, red to
@@ -144,12 +147,13 @@ export function generateLaneMap({ width: W, height: H, rng, layout = null }) {
     const [px, pz] = nearestTo(lane === 'west' ? west : midHalf, fz * H);
     const [cx, cz] = [Math.round(px), Math.round(pz)];
     for (const [mx, mz] of [[cx, cz], mirror([cx, cz])]) {
-      for (let tz = mz - rz - 1; tz <= mz + rz + 1; tz++) {
-        for (let tx = mx - rx - 1; tx <= mx + rx + 1; tx++) {
+      for (let tz = mz - rz - APRON; tz <= mz + rz + APRON; tz++) {
+        for (let tx = mx - rx - APRON; tx <= mx + rx + APRON; tx++) {
           if (!inside(tx, tz)) continue;
           const top = Math.abs(tx - mx) <= rx && Math.abs(tz - mz) <= rz;
           if (top) levels[tz * W + tx] = 1;
-          if (types[tz * W + tx] === T.forest) types[tz * W + tx] = T.open; // the top, and the strip round it
+          // The top, and the strip round it, cleared (so no tree or rock hides the cliffs or crowds them).
+          if (types[tz * W + tx] === T.forest || types[tz * W + tx] === T.rock) types[tz * W + tx] = T.open;
         }
       }
     }
@@ -179,8 +183,31 @@ export function generateLaneMap({ width: W, height: H, rng, layout = null }) {
       const down = (sx, sz) => !level(sx, sz) && open(sx, sz);
       return (up(x - dx, z - dz) && down(x + dx, z + dz)) || (up(x + dx, z + dz) && down(x - dx, z - dz));
     });
-  const ramps = rim.map(crossing);
-  rim.forEach(([x, z], i) => (types[z * W + x] = ramps[i] ? T.ramp : T.cliff));
+  // Of the tiles where a lane could climb, a ramp RAMP_WIDTH wide in the middle of each run of them along a side
+  // (a lane running beside a plateau would otherwise turn that whole side into one long slope), never at a corner.
+  // Worked out on red's half and mirrored, so both ends match.
+  const key = (x, z) => z * W + x;
+  const offX = (x, z) => level(x - 1, z) === 0 || level(x + 1, z) === 0;
+  const offZ = (x, z) => level(x, z - 1) === 0 || level(x, z + 1) === 0;
+  const can = new Set(rim.filter((p, i) => p[1] >= H / 2 && offX(...p) !== offZ(...p) && crossing(p)).map(([x, z]) => key(x, z)));
+  const ramps = new Set();
+  const seen = new Set();
+  for (const k of can) {
+    if (seen.has(k)) continue;
+    const [x, z] = [k % W, Math.floor(k / W)];
+    const [ax, az] = offZ(x, z) ? [1, 0] : [0, 1]; // along the side
+    let [sx, sz] = [x, z];
+    while (can.has(key(sx - ax, sz - az))) [sx, sz] = [sx - ax, sz - az];
+    const run = [];
+    for (let [rx, rz] = [sx, sz]; can.has(key(rx, rz)); rx += ax, rz += az) run.push([rx, rz]);
+    for (const [rx, rz] of run) seen.add(key(rx, rz));
+    const from = Math.max(0, Math.floor((run.length - RAMP_WIDTH) / 2));
+    for (const [rx, rz] of run.slice(from, from + RAMP_WIDTH)) {
+      ramps.add(key(rx, rz));
+      ramps.add(key(...mirror([rx, rz])));
+    }
+  }
+  for (const [x, z] of rim) types[key(x, z)] = ramps.has(key(x, z)) ? T.ramp : T.cliff;
 
   // The stream across the middle: fords where it crosses a lane, deep water elsewhere. Odd about the centre, so it
   // mirrors onto itself.
@@ -223,7 +250,15 @@ export function generateLaneMap({ width: W, height: H, rng, layout = null }) {
   flags.push({ x: fx, z: fz }, { x: W - fx, z: H - fz });
 
   // Waypoints every few tiles, red to blue. The east lane is the west's mirror, walked the other way.
-  const thin = (pts, step = 6) => pts.filter((_, i) => i % step === 0 || i === pts.length - 1).map(([x, z]) => ({ x: Math.round(x), z: Math.round(z) }));
+  // (One that lands on a cliff, now the ramps are narrow, moves to the nearest walkable tile.)
+  const walkable = (x, z) => x >= 0 && z >= 0 && x < W && z < H && [T.open, T.ford, T.ramp].includes(types[z * W + x]);
+  const onFoot = ({ x, z }) => {
+    if (walkable(x, z)) return { x, z };
+    let best = null;
+    for (let dz = -3; dz <= 3; dz++) for (let dx = -3; dx <= 3; dx++) if (walkable(x + dx, z + dz) && (!best || Math.hypot(dx, dz) < best.d)) best = { x: x + dx, z: z + dz, d: Math.hypot(dx, dz) };
+    return best ? { x: best.x, z: best.z } : { x, z };
+  };
+  const thin = (pts, step = 6) => pts.filter((_, i) => i % step === 0 || i === pts.length - 1).map(([x, z]) => onFoot({ x: Math.round(x), z: Math.round(z) }));
   const westPts = thin(west);
   const midPts = thin(midHalf);
   const lanes = [

@@ -120,6 +120,7 @@ export class World {
     this.grid.levels = map.levels;
     this.lanes = map.lanes;
     this.layout = map.layout; // its name (see LAYOUTS in lanes.js)
+    this.aiTeams = ['blue']; // the sides the AI plays (tests may add red)
     this.camps = map.camps;
     this.coast = null;
     this.hills = map.levels.some((l) => l > 0);
@@ -470,7 +471,7 @@ export class World {
       for (const team of ['red', 'blue']) this.economyOf(team).earn(CONQUEST.income * dt, 'income');
       if ((this._aiTimer -= dt) <= 0) {
         this._aiTimer = CONQUEST.ai.think;
-        aiThink(this);
+        for (const team of this.aiTeams) aiThink(this, team);
       }
       updateHeroes(this, dt);
       updateFlags(this, dt);

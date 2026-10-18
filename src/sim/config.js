@@ -221,6 +221,8 @@ export const BUILDINGS = {
     height: 1.4,
     // Trains one man every `every` seconds, in `roster` order, until `garrison` of its men are alive (see TROOPS).
     trains: { roster: ['swordsman', 'swordsman', 'archer'], garrison: 3, every: 8 },
+    // Conquest: the men it adds to each wave's squad (CONQUEST.squad) and the extra health they march with.
+    levy: { men: {}, hp: 0 },
   },
   flagFort: {
     name: 'Flag Fort',
@@ -254,8 +256,8 @@ export const BUILDINGS = {
 };
 
 /**
- * Upgrades: every tower, wall and the Town Hall has five stages (after the reference's upgrade rows). `stages[type]`
- * lists them from stage 1 (the building as built, BUILDINGS above) to 5; each later stage gives its upgrade `cost`
+ * Upgrades: every tower, wall and the Town Hall has five stages (after the reference's upgrade rows), the Barracks
+ * three. `stages[type]` lists them from stage 1 (the building as built, BUILDINGS above) on; each later stage gives its upgrade `cost`
  * and only the stats it changes (`maxHp`, `height`, and `attack` fields), the rest carry on from the stage before.
  * No building may stand more than `aboveHall` stages above the Town Hall, so the hall's upgrades open the way.
  */
@@ -297,6 +299,26 @@ export const UPGRADES = {
       { name: 'Mage Spire', height: 2.4, cost: 140, maxHp: 520, attack: { damage: 19, range: 4 } },
       { name: 'Arcane Tower', height: 2.7, cost: 200, maxHp: 620, attack: { damage: 24, slow: { factor: 0.5, duration: 1.8 } } },
       { name: 'Starfall Spire', height: 3.0, cost: 280, maxHp: 740, attack: { damage: 30, range: 4.5 } },
+    ],
+    // Barracks have three stages: more men (and in Conquest, bigger and tougher squads each wave).
+    barracks: [
+      { name: 'Barracks' },
+      {
+        name: 'Drill Yard',
+        height: 1.5,
+        cost: 140,
+        maxHp: 600,
+        trains: { roster: ['swordsman', 'swordsman', 'archer'], garrison: 4, every: 7 },
+        levy: { men: { swordsman: 1, archer: 1 }, hp: 0.15 },
+      },
+      {
+        name: 'Garrison Hall',
+        height: 1.75,
+        cost: 240,
+        maxHp: 800,
+        trains: { roster: ['swordsman', 'archer', 'knight'], garrison: 5, every: 6 },
+        levy: { men: { swordsman: 2, archer: 1, knight: 1 }, hp: 0.3 },
+      },
     ],
     catapult: [
       { name: 'Catapult' },

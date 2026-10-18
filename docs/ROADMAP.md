@@ -172,7 +172,7 @@ Pre-rendered sprites on a fixed isometric camera (see ARCHITECTURE.md), working 
 - [x] Troops guard the Barracks' post on their own: out to fight enemies near it, back when they're gone
 - [x] Enemies that fight troops they meet; enemy archers shoot them
 - [ ] Rally points: click to set where troops gather
-- [ ] Barracks upgrades (bigger garrison, knights)
+- [x] Barracks upgrades (bigger garrison, knights; in Conquest, bigger and tougher squads each wave)
 - [ ] Shared `combat` and `movement` modules for both sides (see [ARCHITECTURE.md](ARCHITECTURE.md#planned-extensions-and-where-they-plug-in))
 - [ ] Simple formation / spacing so groups don't stack
 
@@ -204,6 +204,8 @@ shown by livery hints (the same army on both sides, not two factions).
 - [x] Territory from the Town Hall (growing with its stage), in place of "within 7 tiles of any building"
 - [x] Three capturable flags in the middle of the map; a Flag Fort on a held flag gives territory, gold and room
       for another Barracks (capped at 3 plus one a fort), and locks the flag while it stands
+- [x] Tidier plateaus (short ramps mid-side, never round a corner; a wider clearing round the cliffs)
+- [x] AI against AI in tests (`world.aiTeams`): a long game where no soldier stands stuck and the battle ends
 
 ## v0.5: Heroes
 

@@ -94,7 +94,8 @@ export function refreshPosts(world) {
 /** Train the next man of a Barracks' roster when its timer comes round, while it has a way out and a gap to fill. */
 export function updateBarracks(world, b, dt) {
   const { roster, garrison, every } = b.def.trains;
-  b.squad ??= new Array(garrison).fill(null);
+  b.squad ??= [];
+  while (b.squad.length < garrison) b.squad.push(null); // (an upgrade raises it)
   const slot = b.squad.findIndex((t) => !t?.alive);
   if (slot === -1 || !b.door) {
     b.trainTimer = 0;

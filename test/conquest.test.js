@@ -55,6 +55,17 @@ describe('conquest map', () => {
         }
       }
       expect(world.lanes.filter((l) => l.points.some((p) => g.levelAt(p.x, p.z) > 0)).length).toBe(3); // west, middle and east
+      // Ramps are short (no more than 3 in a row along a side), and never round a corner.
+      const ramp = (x, z) => g.inBounds(x, z) && g.terrainAt(x, z) === T.ramp;
+      for (let z = 0; z < g.height; z++) {
+        for (let x = 0; x < g.width; x++) {
+          if (!ramp(x, z)) continue;
+          expect(ramp(x + 1, z) && ramp(x + 2, z) && ramp(x + 3, z), `run at ${x},${z}`).toBe(false);
+          expect(ramp(x, z + 1) && ramp(x, z + 2) && ramp(x, z + 3), `run at ${x},${z}`).toBe(false);
+          const low = (dx, dz) => g.inBounds(x + dx, z + dz) && g.levelAt(x + dx, z + dz) === 0;
+          expect((low(-1, 0) || low(1, 0)) && (low(0, -1) || low(0, 1)), `corner at ${x},${z}`).toBe(false);
+        }
+      }
     });
   }
 
@@ -238,8 +249,8 @@ describe('conquest rules', () => {
     const man = world.troops.find((t) => t.team === 'red' && t.lane === 1);
     const deep = world.lanes[1].points.at(-6);
     Object.assign(man, { x: deep.x + 0.5, z: deep.z + 0.5, tx: deep.x, tz: deep.z, delay: 0 });
-    for (let i = 0; i < 12 && !world.aiWalls?.has(1); i++) aiThink(world);
-    expect(world.aiWalls.has(1)).toBe(true);
+    for (let i = 0; i < 12 && !world.aiWalls?.has('blue1'); i++) aiThink(world);
+    expect(world.aiWalls.has('blue1')).toBe(true);
     const walls = teamBuildings(world, 'blue').filter((b) => b.type === 'wall' && b.lane === 1);
     expect(walls.length).toBeGreaterThanOrEqual(3);
     // The gap: blue's own men still get from their hall down the lane without breaking anything.
@@ -524,3 +535,70 @@ describe('territory and flags', () => {
     expect(edge(r[0] + 1)).toBe(true);
   });
 });
+
+describe('barracks upgrades and the long game', () => {
+  it('an upgraded Barracks sends a bigger, tougher squad each wave', () => {
+    const world = conquest(1);
+    world.economy.earn(2000);
+    const yard = teamBuildings(world, 'red').find((b) => b.type === 'barracks');
+    const sent = () => {
+      world.troops = world.troops.filter((t) => t.lane === undefined);
+      world.startWave();
+      return world.troops.filter((t) => t.team === 'red' && t.lane !== undefined && world.lanes[t.lane] && t.lane === yard.lane);
+    };
+    const before = sent();
+    expect(world.upgrade(yard.id).ok).toBe(true);
+    expect(yard.def.stageName).toBe('Drill Yard');
+    world.phase = 'build';
+    const after = sent();
+    const n = world.waves.wave;
+    expect(after.length).toBe(squadFor(n, yard.def.levy).length);
+    expect(squadFor(n, yard.def.levy).length).toBe(squadFor(n).length + 2);
+    expect(after.length).toBeGreaterThan(before.length);
+    const man = after.find((t) => t.type === 'swordsman');
+    expect(man.maxHp).toBe(Math.round(TROOPS.types.swordsman.maxHp * (1 + CONQUEST.hpPerWave * (n - 1) + yard.def.levy.hp)));
+    // Stage 3 needs the Town Hall at stage 2.
+    expect(world.upgradeCheck(yard).reason).toBe('Needs the Town Hall at stage 2');
+  });
+
+  it('the AI upgrades its Barracks once it has all it may have', () => {
+    const world = conquest(1);
+    world.blueEconomy.earn(5000);
+    for (let i = 0; i < 30; i++) aiThink(world);
+    expect(teamBuildings(world, 'blue').some((b) => b.type === 'barracks' && b.stage > 1)).toBe(true);
+  });
+
+  it('in Endless Mode an upgraded Barracks keeps more men', () => {
+    const world = new World({ seed: 1 });
+    world.economy.earn(2000);
+    const r = world.place('barracks', 5, 5);
+    expect(r.ok).toBe(true);
+    run(world, BUILDINGS.barracks.trains.every * 4);
+    expect(world.troops.filter((t) => t.barracksId === r.building.id).length).toBe(3);
+    expect(world.upgrade(r.building.id).ok).toBe(true);
+    run(world, r.building.def.trains.every + 1);
+    expect(world.troops.filter((t) => t.barracksId === r.building.id).length).toBe(4);
+  });
+
+  it('two AIs at war: no soldier stands stuck, and the battle is decided', () => {
+    const world = conquest(2);
+    world.aiTeams.push('red');
+    const seen = new Map();
+    let stuck = null;
+    for (let t = 0; t < 900 && world.phase !== 'gameover' && !stuck; t += DT) {
+      world.update(DT);
+      if (Math.round(world.time * 30) % 30) continue;
+      for (const u of world.troops) {
+        if (!u.alive || u.lane === undefined || u.delay > 0) continue;
+        // Somewhere new, or hurting what he's after, counts as getting on.
+        const key = `${Math.round(u.x)},${Math.round(u.z)},${u.target?.id}`;
+        const s = seen.get(u);
+        if (!s || s.key !== key || (u.target && u.target.hp < s.hp)) seen.set(u, { key, hp: u.target?.hp, since: world.time });
+        else if (world.time - s.since > 15) stuck = `${u.team} ${u.type} at ${u.x.toFixed(1)},${u.z.toFixed(1)}`;
+      }
+    }
+    expect(stuck).toBeNull();
+    expect(world.phase).toBe('gameover');
+  }, 120000);
+});
+

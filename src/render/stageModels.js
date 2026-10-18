@@ -38,6 +38,7 @@ import { roughStoneTexture } from './textures.js';
 import {
   addCatapultTurret,
   archerTower,
+  barracks,
   cannonTower,
   cannonTurret,
   catapult,
@@ -583,7 +584,54 @@ export function createStagedWallArm(dir, from, straight, stage) {
 
 // ------------------------------------------------------------------ the entry point
 
-const STAGED = { archerTower: stagedArcherTower, cannonTower: stagedCannonTower, magicSpire: stagedMagicSpire, catapult: stagedCatapult };
+// ------------------------------------------------------------------ barracks
+// The hall keeps its place and its pennant (PENNANTS.barracks) at every stage; the yard fills up round it.
+
+/**
+ * Stage 2, Drill Yard: shields along the hall's front, banners on poles at the yard's front corners, and an archery
+ * butt. Stage 3, Garrison Hall: as well, a square stone tower with battlements and a roof at the hall's back corner,
+ * a stone kerb round the yard and more shields.
+ */
+function stagedBarracks(stage) {
+  const base = barracks();
+  const M = MATERIALS;
+  const p = new Parts();
+  const rnd = rng(251 + stage);
+  // The hall's front wall (see barracks() in models.js): shields between the door and windows.
+  const front = -0.32 + 0.45 + 0.03;
+  shield(p, { x: -0.3, y: 0.52, z: front, mat: SHIELD_COLORS[0] });
+  shield(p, { x: 0.25, y: 0.52, z: front, mat: stage >= 3 ? SHIELD_COLORS[2] : SHIELD_COLORS[1] });
+  for (const x of [-0.86, 0.86]) {
+    p.add(cyl(0.025, 0.03, 1.05, 6), M.woodDark, { x, y: 0.525, z: 0.86 });
+    p.add(box(0.2, 0.02, 0.02), M.wood, { x: x - Math.sign(x) * 0.09, y: 1.0, z: 0.86 });
+    banner(p, { x: x - Math.sign(x) * 0.09, y: 0.8, z: 0.87, w: 0.16, h: 0.34 });
+  }
+  // The archery butt: a straw boss on a stand, with a red ring round the gold.
+  const [bx, bz] = [-0.12, 0.76];
+  for (const s of [-1, 1]) p.add(box(0.035, 0.42, 0.035), M.woodDark, { x: bx + s * 0.12, y: 0.21, z: bz - 0.04, rx: -0.15 });
+  p.add(cyl(0.16, 0.16, 0.06, 14), M.gambeson, { x: bx, y: 0.36, z: bz, rx: Math.PI / 2 - 0.15 });
+  p.add(torus(0.1, 0.018, 12), M.bannerRed, { x: bx, y: 0.365, z: bz + 0.035, rx: -0.15 });
+  p.add(cyl(0.04, 0.04, 0.02, 10), M.gold, { x: bx, y: 0.37, z: bz + 0.04, rx: Math.PI / 2 - 0.15 });
+  if (stage >= 3) {
+    // The tower at the hall's back-left corner.
+    const [tx, tz, w, h] = [-0.74, -0.62, 0.5, 1.42];
+    roughBlocks(p, { x: tx, z: tz, y: 0.05, w: w + 0.06, d: w + 0.06, h: 0.16, rows: 1, rnd, minBlock: 0.18, maxBlock: 0.28 });
+    p.add(box(w, h - 0.21, w), WORN_WALL, { x: tx, y: 0.21 + (h - 0.21) / 2, z: tz });
+    quoins(p, rnd, { x: tx, z: tz, y0: 0.21, y1: h, w0: w, w1: w });
+    p.add(rbox(w + 0.08, 0.06, w + 0.08, 0.02), WORN_TRIM, { x: tx, y: h + 0.03, z: tz });
+    merlonsRect(p, { x: tx, z: tz, y: h + 0.06, w: w + 0.04, d: w + 0.04, size: 0.12, height: 0.14, spacing: 0.22, rnd, stones: WORNSTONE });
+    roof(p, { x: tx, z: tz, y: h + 0.2, r: 0.36, h: 0.42, mat: rnd.pick(ROOF_TILES) });
+    deepWindow(p, rnd, { x: tx, y: h * 0.72, z: tz + w / 2 + 0.01, nx: 0, nz: 1, s: 0.08, stones: WORNSTONE });
+    banner(p, { x: tx + w / 2 + 0.02, y: h * 0.62, z: tz + 0.06, ry: Math.PI / 2, w: 0.18, h: 0.36 });
+    // A low stone kerb along the yard's left side and the back of the plot behind the hall.
+    roughBlocks(p, { x: -0.9, z: 0.3, y: 0.05, w: 0.12, d: 1.0, h: 0.14, rows: 1, rnd, along: 'z', minBlock: 0.16, maxBlock: 0.26 });
+    shield(p, { x: -0.62, y: 0.52, z: front, mat: SHIELD_COLORS[2] });
+  }
+  base.add(p.build());
+  return base;
+}
+
+const STAGED = { barracks: stagedBarracks, archerTower: stagedArcherTower, cannonTower: stagedCannonTower, magicSpire: stagedMagicSpire, catapult: stagedCatapult };
 
 /**
  * A building model at `stage`: like createBuildingModel (same `opts`), which it is at stage 1. A tower built into a

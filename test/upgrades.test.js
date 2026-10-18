@@ -26,14 +26,21 @@ describe('stages', () => {
     expect(stageDef('archerTower', 3)).toBe(three); // cached
   });
 
-  it('every upgradeable building has five stages that only ever get stronger', () => {
+  it('every upgradeable building has five stages (the Barracks three) that only ever get stronger', () => {
     for (const [type, stages] of Object.entries(UPGRADES.stages)) {
-      expect(stages.length, type).toBe(UPGRADES.maxStage);
-      expect(stageCount(type)).toBe(UPGRADES.maxStage);
+      const count = type === 'barracks' ? 3 : UPGRADES.maxStage;
+      expect(stages.length, type).toBe(count);
+      expect(stageCount(type)).toBe(count);
       for (let s = 2; s <= stages.length; s++) {
         const [a, b] = [stageDef(type, s - 1), stageDef(type, s)];
         expect(nextUpgradeCost(type, s - 1), `${type} ${s}`).toBeGreaterThan(0);
         expect(b.maxHp, `${type} ${s}`).toBeGreaterThan(a.maxHp);
+        if (a.trains) {
+          expect(b.trains.garrison).toBeGreaterThan(a.trains.garrison);
+          expect(b.levy.hp).toBeGreaterThan(a.levy.hp);
+          const men = (d) => Object.values(d.levy.men).reduce((x, y) => x + y, 0);
+          expect(men(b)).toBeGreaterThan(men(a));
+        }
         if (a.attack) {
           expect(b.attack.damage).toBeGreaterThan(a.attack.damage);
           expect(b.attack.range).toBeGreaterThanOrEqual(a.attack.range);

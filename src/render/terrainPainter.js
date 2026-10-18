@@ -42,6 +42,8 @@ const C = {
   sandWall: [196, 164, 106],
   ford: [156, 184, 168],
   outer: hexRgb(OUTER_GROUND),
+  highland: [192, 182, 104], // plateau tops, a touch sunnier than the ground below
+  shade: [104, 100, 48], // the ground behind a plateau, in its shadow
 };
 
 function hexRgb(hex) {
@@ -108,6 +110,8 @@ export function paintTerrain(grid, { pxPerTile = 16, detail = 1, seed = 1, borde
   // Worn tracks (tiles { x, z }): the ways on from the footbridges.
   for (const { x, z } of tracks) ramp[(z + border) * TW + x + border] = 1;
   let hasWater = false;
+  const hilly = grid.levels?.some((l) => l > 0);
+  const levelOf = (x, z) => (grid.inBounds(x, z) ? grid.levels[z * W + x] : 0);
   // Beyond the coast edge it's all sea.
   const offshore = (x, z) => isOffshore(grid, coast, x, z);
   for (let tz = 0; tz < TH; tz++) {
@@ -227,6 +231,31 @@ export function paintTerrain(grid, { pxPerTile = 16, detail = 1, seed = 1, borde
       // Ramps up onto the hills, and the tracks on from the footbridges: worn earth.
       const rp = sample(ramp, u, v) + wobble * 0.3;
       mix(col, C.earth, smooth(0.45, 0.55, rp) * 0.9);
+
+      // Plateau tops: a little lighter, with an ink line along the rims away from the camera (north and west,
+      // whose cliffs face away) and a sunlit lip just inside it, so the raised ground reads all the way round.
+      // Behind them, the low ground at the foot of those hidden cliffs lies in shade.
+      if (hilly) {
+        const [tx, tz] = [Math.floor(x), Math.floor(z)];
+        const l = levelOf(tx, tz);
+        const isRamp = (ax, az) => grid.inBounds(ax, az) && grid.terrain[az * W + ax] === T.ramp;
+        if (l > 0) {
+          mix(col, C.highland, 0.35);
+          if (!isRamp(tx, tz)) {
+            let d = Infinity;
+            if (levelOf(tx, tz - 1) < l && !isRamp(tx, tz - 1)) d = Math.min(d, z - tz);
+            if (levelOf(tx - 1, tz) < l && !isRamp(tx - 1, tz)) d = Math.min(d, x - tx);
+            mix(col, C.ink, smooth(0.3, 0.1, d) * 0.85);
+          }
+        }
+        // (Two tiles deep: the raised top, drawn nearer the camera, covers the first of them.)
+        let foot = Infinity;
+        for (const k of [2, 1]) {
+          if (levelOf(tx, tz + k) > l && !isRamp(tx, tz + k)) foot = Math.min(foot, tz + k - z);
+          if (levelOf(tx + k, tz) > l && !isRamp(tx + k, tz)) foot = Math.min(foot, tx + k - x);
+        }
+        mix(col, C.shade, smooth(1.9, 0.6, foot) * 0.55);
+      }
 
       // Beach: pale sand, damper where the sea reaches it.
       const sd = sample(sand, u, v) + wobble * 0.3;

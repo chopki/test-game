@@ -42,7 +42,7 @@ to a fixed-timestep server, replays or AI opponents later.
 | `heroes.js`      | Conquest heroes (`HEROES.roster`): `spawnHero`, `orderHero`, `useAbility`, XP and levels (`heroXp`), falling and coming back, the blue hero's orders and abilities (`updateHeroes`) |
 | `flags.js`       | Conquest's capturable flags (`updateFlags`) and territory (`inTerritory`, `territoryOf`): where a side may build |
 | `camps.js`       | Conquest's neutral camps: their guards (team 'neutral'), the camp turning on attackers, filling again |
-| `conquest.js`    | Conquest: the mirrored forts (`buildForts`), each wave's squads (`sendSquads`), lane soldiers (`updateLaneSoldier`), the blue AI (`aiThink`) |
+| `conquest.js`    | Conquest: the mirrored forts (`buildForts`), each wave's squads (`sendSquads`), lane soldiers (`updateLaneSoldier`), the AI (`aiThink(world, team)`: blue, and red as well for sides listed in `world.aiTeams`, as tests do) |
 | `troops.js`      | The player's troops: Barracks posts (`findPost`), training (`updateBarracks`), troop AI and movement (`updateTroop`) |
 | `pathfind.js`    | A* over the grid (`findPath`) for units that go somewhere of their own (troops) |
 | `upgrades.js`    | Building stages: `stageDef(type, stage)` lays UPGRADES' stage changes over BUILDINGS (World swaps `b.def` on `upgrade`) |

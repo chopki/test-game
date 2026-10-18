@@ -1912,4 +1912,4 @@ export function createSceneryObject(kind, variant = 0) {
 }
 
 // The pieces the upgrade stages (stageModels.js) build on.
-export { LOGS, LOG_SETS, RAIL, addCatapultTurret, archerTower, bastion, cannonTower, cannonTurret, catapult, crystalCluster, defender, fence, hidePennant, inWallParts, lookouts, magicSpire, palisadeLog, palisadeRun, townHall, wall, wallArm, wallJoint };
+export { LOGS, LOG_SETS, RAIL, addCatapultTurret, archerTower, barracks, bastion, cannonTower, cannonTurret, catapult, crystalCluster, defender, fence, hidePennant, inWallParts, lookouts, magicSpire, palisadeLog, palisadeRun, townHall, wall, wallArm, wallJoint };

@@ -123,7 +123,8 @@ starting fort was free, so only its upgrades count).
 
 ### Upgrades
 
-Select a building and press **Upgrade** (or <kbd>U</kbd>): towers, walls and the Town Hall have **five stages**.
+Select a building and press **Upgrade** (or <kbd>U</kbd>): towers, walls and the Town Hall have **five stages**,
+the Barracks three.
 Each costs gold and improves the stats below (unlisted stats carry on); a building keeps the damage it has taken
 and gains the extra health. **Nothing may stand more than one stage above the Town Hall**, so the hall's upgrades
 open the way. A selected wall offers **Upgrade the whole line**: every joined wall at the same stage, as far as the
@@ -137,6 +138,7 @@ taken (the Town Hall is reckoned at 400).
 | Archer Tower | Guard Tower · 60 · 380 HP, 18 dmg | Stone Tower · 100 · 480 HP, 22 dmg, range 7.5 | Arrow Keep · 150 · 600 HP, 28 dmg, 1.4 shots/s | Royal Tower · 220 · 760 HP, 36 dmg, range 8 |
 | Cannon Tower | Gun Platform · 110 · 620 HP, 52 dmg | Stone Battery · 170 · 760 HP, 64 dmg, range 6.5, splash 1.8 | Bombard Tower · 240 · 920 HP, 80 dmg, every 2.0s | Great Bastion · 320 · 1100 HP, 100 dmg, range 7, splash 2.1 |
 | Magic Spire | Rune Circle · 90 · 430 HP, 15 dmg | Mage Spire · 140 · 520 HP, 19 dmg, range 4 | Arcane Tower · 200 · 620 HP, 24 dmg, slows to 50% for 1.8s | Starfall Spire · 280 · 740 HP, 30 dmg, range 4.5 |
+| Barracks | Drill Yard · 140 · 600 HP; keeps 4 men, one every 7s; Conquest squads +1 Man-at-arms, +1 Bowman, +15% HP | Garrison Hall · 240 · 800 HP; keeps 5 men (Man-at-arms, Bowman, Knight), one every 6s; Conquest squads +2 Men-at-arms, +1 Bowman, +1 Knight, +30% HP | – | – |
 | Catapult | Reinforced Catapult · 130 · 370 HP, 70 dmg | Mangonel · 200 · 450 HP, 88 dmg, range 11 | Trebuchet · 280 · 540 HP, 110 dmg, splash 2.1 | Great Trebuchet · 380 · 650 HP, 140 dmg, range 12, every 3.1s |
 
 Stage 1 names: Timber Hall, Wooden Palisade, Watchtower, Cannon Emplacement, Crystal Cairn, Catapult.
@@ -174,8 +176,8 @@ they're only carved as narrow gaps through the groves (out in the open there's n
 are other ways round); they're the routes the squads march by. Each map has one of three **layouts**: *The Three Roads* (the side lanes run
 up the map's edges), *The Crossing* (the side lanes swing in to meet the middle one at a crossroads by the stream)
 and *The Winding Way* (the middle lane zigzags; the stream bends more). Each side's half has two low, square-cut
-**plateaus** (a cliff round the rim, cleared ground round the cliff), one on the west lane and one on the middle
-(mirrored onto the east and middle of the other half), which the lanes climb by ramps: towers up there reach
+**plateaus** (a cliff round the rim, two tiles of cleared ground round the cliff), one on the west lane and one on the middle
+(mirrored onto the east and middle of the other half), which the lanes climb by ramps (3 tiles wide, in the middle of the side the lane crosses): towers up there reach
 further, and arrows shot up at them reload slower (see Terrain). **Red** (you) holds the
 south end, **blue** (the AI) the north.
 
@@ -184,7 +186,9 @@ south end, **blue** (the AI) the north.
 - **Waves**, in real time: the dial counts down 25 s to the first, then 40 s between them (two taps on the dial send
   the next at once, for both sides). Each wave, **every Barracks on both sides sends a squad** down its lane (a
   Barracks you build joins the nearest lane): 2 Men-at-arms and 1 Bowman, +1 Man-at-arms every 3 waves and +1
-  Bowman every 4, and from wave 5 a Knight (+1 every 4 waves), up to 8 men, with +4% health a wave. Siege engines
+  Bowman every 4, and from wave 5 a Knight (+1 every 4 waves), up to 8 men, with +4% health a wave. An upgraded
+  Barracks adds men of its own on top, and they march tougher (see Upgrades): upgrading is how a side breaks a
+  stalemate in the middle. Siege engines
   come on top: a **Battering Ram** in wave 4 and every 3rd wave after, a **Siege Catapult** in wave 7 and every 3rd
   after. Siege engines only attack buildings (the catapult from 8 tiles); soldiers attack them.
 
@@ -211,9 +215,11 @@ south end, **blue** (the AI) the north.
   with archers on it (900 HP, 12 damage, range 6) right on the flag. The fort is what makes the flag count: territory
   within 7 tiles of it, 0.8 gold a second, and room for one more Barracks. While it stands the flag can't be taken;
   the enemy must bring the fort down first.
-- **Barracks cap**: 3 Barracks each (the ones each side starts with), plus 1 for each Flag Fort.
+- **Barracks cap**: 3 Barracks each (the ones each side starts with), plus 1 for each Flag Fort. Barracks can be
+  upgraded twice (Drill Yard, Garrison Hall) for bigger, tougher squads.
 - **The AI** (blue) thinks every 2.5 s and spends its gold through the same commands as you, one thing a turn, in
-  this order: a Flag Fort on any flag it holds; more Barracks (as many as its forts allow) on the lane with fewest; its Town Hall's next stage
+  this order: a Flag Fort on any flag it holds; more Barracks (as many as its forts allow) on the lane with fewest, and once it has them all, Barracks
+  upgrades (lowest stage first); its Town Hall's next stage
   (due every 2 minutes a stage, and saved up for unless red soldiers are deep in its half); once red soldiers come
   within half the map of its hall on a lane, a wall across that lane, a fifth of the way out, with a 3-tile gap in
   the middle (its own squads use the gap; attackers are funnelled through it or must break the wall); Archer Towers

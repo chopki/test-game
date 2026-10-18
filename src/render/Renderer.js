@@ -973,7 +973,7 @@ export class Renderer {
       const turned = b.type === 'gatehouse' && seat.shape?.startsWith('ns');
       const hall = b.type === 'townHall' && b.stage > 1 ? hallEffects(b.stage) : null;
       // (Towers' pennants are on their first-stage models; the Town Hall's stages say where theirs fly.)
-      const flags = hall?.pennants ?? (b.stage === 1 || b.type === 'gatehouse' ? PENNANTS[b.type] : null) ?? [];
+      const flags = hall?.pennants ?? (b.stage === 1 || b.type === 'gatehouse' || b.type === 'barracks' ? PENNANTS[b.type] : null) ?? [];
       for (const flag of flags) this._drawFlag(view, b.cx + seat.dx, b.cz + seat.dz, flag, turned, b.team);
       if (hall || CHIMNEYS[b.type]) this._chimneySmoke(view, b, hall?.chimney ?? CHIMNEYS[b.type]);
       if (b.type === 'magicSpire') {

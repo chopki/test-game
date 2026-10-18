@@ -1201,6 +1201,19 @@ test('conquest: castle against castle on the lane map, squads march both ways, b
   await expect(page.locator('#sell-selected')).toHaveCount(0);
   await expect(page.locator('#upgrade-selected')).toHaveCount(0);
 
+  // Your Barracks' card tells what an upgrade adds to its squads, and the upgrade goes through.
+  const yard = await page.evaluate(() => {
+    const w = window.game.world;
+    w.economy.earn(500);
+    const b = [...w.buildings.values()].find((b) => b.team === 'red' && b.type === 'barracks');
+    window.game.build.select(b.id);
+    return b.id;
+  });
+  await expect(page.locator('#info .garrison')).toContainText('Drill Yard: the squad +1 Man-at-arms, +1 Bowman, all 15% tougher');
+  await page.locator('#upgrade-selected').click();
+  expect(await page.evaluate((id) => window.game.world.buildings.get(id).stage, yard)).toBe(2);
+  await expect(page.locator('#info .stage-pips span')).toHaveText('Drill Yard · stage 2 of 3');
+
   // Bring down the blue hall: victory.
   await page.evaluate(() => {
     const w = window.game.world;

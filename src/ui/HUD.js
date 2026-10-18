@@ -373,7 +373,7 @@ export class HUD {
     const up = b && w.upgradeCheck(b);
     const fix = b && w.repairCheck(b);
     const line = b?.type === 'wall' && up.next ? w.wallLine(b.id) : [];
-    const garrison = b?.def.trains ? this._garrison(b) : '';
+    const garrison = b?.def.trains ? this._garrison(b, b.team === 'blue' ? null : up.next) : '';
     const key = b ? [b.id, Math.ceil(b.hp), b.stage, up.ok, up.reason, fix.ok, fix.cost, line.length, w.canSell(b) && w.sellValue(b), garrison].join(':') : '';
     if (this._last.info === key) return;
     this._last.info = key;
@@ -499,13 +499,26 @@ export class HUD {
     });
   }
 
-  /** A Barracks' men: how many stand, and when the next is ready (or why none can be trained). */
-  _garrison(b) {
+  /**
+   * A Barracks' men: how many stand, and when the next is ready (or why none can be trained); in Conquest, what it
+   * adds to each wave's squad, and what its next stage (`next`) would.
+   */
+  _garrison(b, next) {
+    if (this.world.mode === 'conquest') {
+      const levy = ({ men, hp }) => {
+        const extra = Object.entries(men).map(([t, n]) => `+${summarizeSquad(Array(n).fill(t))}`);
+        return extra.length ? `${extra.join(', ')}, all ${Math.round(hp * 100)}% tougher` : '';
+      };
+      const now = levy(b.def.levy);
+      const then = next ? levy(next.levy) : '';
+      return `Each wave: the squad${now ? ` ${now}` : ''}${then ? `<br><b class="up">→ ${next.stageName}: the squad ${then}</b>` : ''}`;
+    }
     const { garrison, every } = b.def.trains;
     const alive = b.squad?.filter((t) => t?.alive).length ?? 0;
-    if (!b.door) return `${alive}/${garrison} men · walled in: leave it a way out to train more`;
-    if (alive >= garrison) return `${alive}/${garrison} men · full strength`;
-    return `${alive}/${garrison} men · next in ${Math.max(1, Math.ceil(every - (b.trainTimer ?? 0)))}s`;
+    const more = next && next.trains.garrison > garrison ? ` <b class="up">→ ${next.trains.garrison} men</b>` : '';
+    if (!b.door) return `${alive}/${garrison} men${more} · walled in: leave it a way out to train more`;
+    if (alive >= garrison) return `${alive}/${garrison} men${more} · full strength`;
+    return `${alive}/${garrison} men${more} · next in ${Math.max(1, Math.ceil(every - (b.trainTimer ?? 0)))}s`;
   }
 
   // ---------------------------------------------------------------- notifications
