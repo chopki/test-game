@@ -4,7 +4,8 @@ import { territoryOf } from '../sim/flags.js';
 /**
  * The minimap (Conquest): the whole lane map in the battlefield's own isometric view, so the lanes run the same way
  * on both, with each side's buildings and soldiers in their colours and a frame round what the camera sees. Press
- * or drag on it to move the camera there. It only reads the world.
+ * or drag on it to move the camera there; while giving your hero orders, press it to send them there. It only
+ * reads the world (orders go through World, as from the battlefield).
  */
 
 const GROUND = {
@@ -34,6 +35,12 @@ export class Minimap {
     };
     this.el.addEventListener('pointerdown', (e) => {
       e.preventDefault();
+      // Giving your hero orders: a press on the minimap sends them there, however far.
+      if (this.game.build.mode === 'hero') {
+        const at = this.toMap(e.clientX, e.clientY);
+        if (at) this.game.build.orderHeroAt({ x: Math.floor(at.x), z: Math.floor(at.z) });
+        return;
+      }
       this.el.setPointerCapture(e.pointerId);
       this._dragging = true;
       move(e);

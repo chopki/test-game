@@ -192,6 +192,11 @@ so the whole battlefield is ~15 draw calls and a few hundred triangles however d
   laid flat to the camera along the flight (three for a volley; 'classic' keeps `createProjectileModel`'s 3D
   arrow). Health bars (`HealthBarBatch`, muted gold to brick red) show for a moment after a hit ('hit', faded by
   `Renderer._barFade`), all the while a thing is hurt ('hurt'), or never ('off').
+- Zoom and far-off detail (settings `zoomOut`, `lod`; `ZOOM`, `LOD` and `farness()` in graphicsSettings.js): the
+  camera zooms in to `ZOOM.in` and out to the map's normal limit (`Renderer._normalMinZoom`) × the setting's
+  factor (`_applyZoomRange`). Beyond the normal limit `Renderer.farness` rises 0 → 1: `TeamMarkerBatch`
+  (batches.js) fades in rings in each side's colour under soldiers, cloud shadows fade out, and past 0.5 wildlife
+  and ordinary soldiers' health bars are left out. `lod: 'full'` keeps farness at 0.
 - Glow and colour (High, setting `glow`): `GlowBatch` (batches.js) draws additive halos at light sources (the
   spire's crystal, lit wall decorations via `DECOR_LIGHTS`, burning buildings), not depth-tested; the warm grade is
   a CSS filter on the canvas (`COLOUR_GRADE`), so it costs no render pass and leaves the HUD alone.
@@ -224,7 +229,8 @@ so the whole battlefield is ~15 draw calls and a few hundred triangles however d
   small details are stamped in. Resolution and detail follow the Scenery setting (`GROUND_PX`, `GROUND_DETAIL`).
   The renderer adds a tree sprite per forest tile, an outcrop per rock tile, a water shimmer (one shader mesh
   over wet tiles) and the build-mode tint, all built in `Renderer._buildTerrain()` when a world is attached.
-- `batches.js`: `HealthBarBatch` (all health bars in two draw calls) and `BlobShadowBatch` (unit shadows).
+- `batches.js`: `HealthBarBatch` (all health bars in two draw calls), `BlobShadowBatch` (unit shadows) and
+  `TeamMarkerBatch` (far-out team rings, one draw call a side).
 - `dynamicResolution.js`: the 'auto' render-scale controller (no three.js, unit-tested). `Game` feeds it the time
   between rendered frames and applies its result with `renderer.setRenderScale()`.
 - `textures.js`: procedural canvas textures (sandstone, roof tiles, wood, half-timbering, grass, dirt). Each texture

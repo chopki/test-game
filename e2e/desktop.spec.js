@@ -1245,3 +1245,39 @@ test('conquest: the main menu asks for a champion, and the battle begins with th
   await expect(page.locator('#ability-1-label')).toHaveText('Fleet Foot');
   expect(errors).toEqual([]);
 });
+
+test('zoom out setting and far-off detail: further out, soldiers get rings in their colours and wildlife is left out', async ({ page }) => {
+  const errors = await openGame(page, { query: 'mode=conquest' });
+  const limits = () => page.evaluate(() => ({ min: window.game.renderer.controls.minZoom, max: window.game.renderer.controls.maxZoom, normal: window.game.renderer._normalMinZoom }));
+  const far = await limits();
+  expect(far.min).toBeCloseTo(far.normal * 0.7, 5); // Far is the default
+  expect(far.max).toBeGreaterThanOrEqual(3.5);
+  await page.locator('#settings-btn').click();
+  await settingButton(page, 'Zoom out', 'Farthest').click();
+  expect((await limits()).min).toBeCloseTo(far.normal * 0.5, 5);
+  await settingButton(page, 'Zoom out', 'Normal').click();
+  expect((await limits()).min).toBeCloseTo(far.normal, 5);
+  await settingButton(page, 'Zoom out', 'Far').click();
+  await page.keyboard.press('Escape');
+  // Pull right out with soldiers on the field.
+  await page.evaluate(() => {
+    const w = window.game.world;
+    w.startWave();
+    for (let i = 0; i < 90; i++) w.update(1 / 30);
+    const r = window.game.renderer;
+    r.camera.zoom = r.controls.minZoom;
+    r.camera.updateProjectionMatrix();
+  });
+  const markers = () => page.evaluate(() => Object.values(window.game.renderer.teamMarkers.batches).reduce((n, b) => n + b.count, 0));
+  await expect.poll(markers).toBeGreaterThan(5);
+  expect(await page.evaluate(() => window.game.renderer.farness)).toBeGreaterThan(0.5);
+  // Back in close: no rings.
+  await page.evaluate(() => {
+    const r = window.game.renderer;
+    r.camera.zoom = 1.5;
+    r.camera.updateProjectionMatrix();
+  });
+  await expect.poll(markers).toBe(0);
+  expect(errors).toEqual([]);
+});
+

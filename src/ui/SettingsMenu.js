@@ -14,6 +14,8 @@ const ROWS = [
   ['weather', 'Weather', 'Seasons (autumn leaves, winter snow) and rain or snowfall that can change between waves. Looks only: it never changes the battle.'],
   ['arrows', 'Arrows', 'How arrows in flight look: a dark ink streak with a short fading trail, a volley of three streaks per shot, or the original small 3D arrow.'],
   ['healthBars', 'Health bars', 'On hit shows a slim bar for a moment after something is hit; While hurt keeps it until it dies; Off hides them (buildings still show their damage, and the Town Hall has its ring).'],
+  ['zoomOut', 'Zoom out', 'How far out the camera can pull back (pinch or mouse wheel). Further shows more of the battle at once.'],
+  ['lod', 'Detail when far', 'Zoomed far out, soldiers get a ring in their side\'s colour so you can tell them apart, and wildlife, cloud shadows and soldiers\' health bars are left out. Always full keeps everything.'],
   ['showFps', 'Show FPS', 'Frames per second and current render scale, in the top bar.'],
 ];
 

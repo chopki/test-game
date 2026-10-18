@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
+  LOD,
   OPTIONS,
+  ZOOM,
+  farness,
   PRESETS,
   STARTUP_PRESET,
   carrySettingsThroughReload,
@@ -69,5 +72,18 @@ describe('graphics settings', () => {
     expect(fixed.fpsCap).toBe(60);
     expect(matchPreset(fixed)).toBe(fixed.preset);
     expect(startupSettings(memoryStorage({ 'hold-the-hall:graphics-for-reload': '{not json' })).preset).toBe('high');
+  });
+
+  it('zoom out and far detail: new settings default to Far and Simplify; markers fade in beyond the normal limit', () => {
+    const s = settingsForPreset('high');
+    expect([s.zoomOut, s.lod]).toEqual(['far', 'auto']);
+    for (const key of ['zoomOut', 'lod']) expect(OPTIONS[key].some(([v]) => v === s[key])).toBe(true);
+    expect(withPreset(withSetting(s, 'zoomOut', 'farthest'), 'low').zoomOut).toBe('farthest'); // not part of a preset
+    expect(Object.keys(ZOOM.out)).toEqual(OPTIONS.zoomOut.map(([v]) => v));
+    expect(farness(1.5)).toBe(0);
+    expect(farness(LOD.from)).toBe(0);
+    expect(farness(LOD.to)).toBe(1);
+    expect(farness((LOD.from + LOD.to) / 2)).toBeCloseTo(0.5);
+    expect(farness(0.3, 'full')).toBe(0);
   });
 });

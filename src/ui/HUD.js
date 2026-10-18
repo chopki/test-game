@@ -456,7 +456,7 @@ export class HUD {
     build.setMode('hero');
     if (h.alive) {
       this.game.renderer.focusOn(h.x, h.z);
-      this.toast(`Tap the map to send ${h.def.name} there, or an enemy to attack it`, 'info');
+      this.toast(`Tap the map (or the minimap) to send ${h.def.name} there, or an enemy to attack it. Drag to look around`, 'info');
     }
   }
 

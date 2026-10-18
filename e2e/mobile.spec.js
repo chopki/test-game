@@ -255,3 +255,24 @@ test('the corners: the hall ring and gold, the wave dial, time controls and the 
   await expect.poll(() => page.evaluate(() => window.game.world.phase)).toBe('wave');
   expect(errors).toEqual([]);
 });
+
+test('conquest on a phone: giving the hero orders, a drag still pans and the minimap sends them far', async ({ page }) => {
+  test.setTimeout(150000); // the Conquest map takes a while to paint on a phone
+  const errors = await openGame(page, { query: 'mode=conquest' });
+  const touch = await touchInput(page);
+  await page.evaluate(() => window.game.hud.toggleHeroMode());
+  expect(await page.evaluate(() => window.game.build.mode)).toBe('hero');
+  const before = await cameraTarget(page);
+  await touch.drag({ x: 200, y: 600 }, { x: 200, y: 350 });
+  await touch.end();
+  await expect.poll(() => cameraTarget(page)).not.toEqual(before);
+  expect(await page.evaluate(() => window.game.world.heroes.red.order)).toBeNull(); // a drag isn't an order
+  // A press on the minimap, near the middle of the map, sends the hero there.
+  const box = await page.locator('#minimap').boundingBox();
+  await page.locator('#minimap').tap({ position: { x: box.width / 2, y: box.height / 2 } });
+  const order = await page.evaluate(() => window.game.world.heroes.red.order);
+  const H = await page.evaluate(() => window.game.world.grid.height);
+  expect(Math.abs(order.z - H / 2)).toBeLessThan(H * 0.2);
+  expect(errors).toEqual([]);
+});
+

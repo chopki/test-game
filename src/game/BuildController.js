@@ -112,8 +112,9 @@ export class BuildController {
     this.pending = null;
     this.wallPlan = null;
     this._mouseWallDrag = false;
-    // On touch screens one finger pans the camera, except while building or selling, when it places.
-    this.game.renderer.controls.touches.ONE = mode ? null : THREE.TOUCH.PAN;
+    // On touch screens one finger pans the camera, except while building or selling, when it places. (Giving your
+    // hero orders it still pans: a tap sends them, a drag looks further afield.)
+    this.game.renderer.controls.touches.ONE = mode && mode !== 'hero' ? null : THREE.TOUCH.PAN;
     if (mode && BUILDINGS[mode]) {
       this.select(null);
       this._makeGhost(null);
@@ -352,6 +353,10 @@ export class BuildController {
   }
 
   /** Hero mode: an enemy building or soldier on (or right by) the tile is attacked; anywhere else, gone to. */
+  orderHeroAt(tile) {
+    this._orderHero(tile);
+  }
+
   _orderHero(tile) {
     const w = this.world;
     const x = tile.x + 0.5;

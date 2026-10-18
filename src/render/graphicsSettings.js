@@ -67,7 +67,37 @@ export const OPTIONS = {
     [false, 'Off'],
     [true, 'On'],
   ],
+  // How far the camera may zoom out (see ZOOM), and whether far out the small things are simplified (see LOD).
+  zoomOut: [
+    ['normal', 'Normal'],
+    ['far', 'Far'],
+    ['farthest', 'Farthest'],
+  ],
+  lod: [
+    ['auto', 'Simplify when far'],
+    ['full', 'Always full'],
+  ],
 };
+
+/**
+ * Camera zoom: how far in it may go (zoom factor), and how far out for each Zoom out setting, as a fraction of the
+ * map's normal limit (the furthest out that keeps the painted ground's edge out of view on a Medium map).
+ */
+export const ZOOM = { in: 3.6, out: { normal: 1, far: 0.7, farthest: 0.5 } };
+
+/**
+ * Level of detail when zoomed out (with Detail when far on 'Simplify'): from `from` × the normal limit out to
+ * `to` × it, soldiers get a ring in their side's colour (growing to `markerGrow` × its size), and past halfway the
+ * clutter too small to make out is left out: wildlife and the health bars of ordinary soldiers. Cloud
+ * shadows fade out too.
+ */
+export const LOD = { from: 1, to: 0.62, markerGrow: 2.4 };
+
+/** 0 at normal zoom, rising to 1 by LOD.to (always 0 with lod 'full'). `zoom` relative to the normal limit. */
+export function farness(relativeZoom, lod = 'auto') {
+  if (lod === 'full') return 0;
+  return Math.min(1, Math.max(0, (LOD.from - relativeZoom) / (LOD.from - LOD.to)));
+}
 
 /**
  * Bounds for automatic render scale ('auto' resolution). The upper bound is also capped at the
@@ -88,7 +118,7 @@ export const GROUND_DETAIL = { off: 0, low: 0.6, medium: 1, high: 1.4 };
 export const RELOAD_REQUIRED = ['antialias'];
 
 export function settingsForPreset(preset) {
-  return { preset, ...PRESETS[preset], showFps: false };
+  return { preset, ...PRESETS[preset], showFps: false, zoomOut: 'far', lod: 'auto' };
 }
 
 /** The preset whose values all match `settings`, or 'custom'. */

@@ -242,7 +242,8 @@ south end, **blue** (the AI) the north.
   - **Rally** (35 s): the hero heals 40%.
   - **Orders**: tap the hero cog (or press <kbd>G</kbd>), then tap the map: on the ground to send them there (they
     hold that spot, fighting anything that comes within 5 tiles and chasing it up to 6 from the spot; a tap in the
-    woods sends them to the nearest open ground), on an enemy soldier or building to attack it. With no orders they
+    woods sends them to the nearest open ground), on an enemy soldier or building to attack it. A drag still pans
+    the camera, and a press on the minimap sends them there, however far. With no orders they
     wait by their hall's door. Abilities on the two buttons beside the cog, or <kbd>Q</kbd> and <kbd>E</kbd>. They
     heal 6% a second within 7 tiles of their own hall.
   - **XP**: when a foe falls within 7 tiles, the hero earns its gold worth as XP (a soldier's reward, 40 for a

@@ -263,3 +263,58 @@ export class GlowBatch {
     if (this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
   }
 }
+
+function ringTexture() {
+  const size = 64;
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = size;
+  const g = canvas.getContext('2d');
+  // A filled disc, paler in the middle, with a solid rim and a dark ink edge round it.
+  const fill = g.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+  fill.addColorStop(0, 'rgba(255,255,255,0.35)');
+  fill.addColorStop(0.62, 'rgba(255,255,255,0.55)');
+  fill.addColorStop(0.7, 'rgba(255,255,255,1)');
+  fill.addColorStop(0.86, 'rgba(255,255,255,1)');
+  fill.addColorStop(0.9, 'rgba(40,30,20,0.9)');
+  fill.addColorStop(1, 'rgba(40,30,20,0)');
+  g.fillStyle = fill;
+  g.fillRect(0, 0, size, size);
+  return new THREE.CanvasTexture(canvas);
+}
+
+/**
+ * Rings on the ground under soldiers in their side's colour, for when the camera is far out (see LOD in
+ * graphicsSettings.js): one draw call per side. `opacity` fades them in.
+ */
+export class TeamMarkerBatch {
+  constructor(parent, colours) {
+    const map = ringTexture();
+    const geo = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
+    this.batches = {};
+    this.materials = [];
+    for (const [team, colour] of Object.entries(colours)) {
+      const mat = new THREE.MeshBasicMaterial({ map, color: colour, transparent: true, depthTest: false, depthWrite: false, opacity: 0 });
+      this.materials.push(mat);
+      this.batches[team] = new InstancedModel(new THREE.Mesh(geo, mat), parent, { castShadow: false, receiveShadow: false, renderOrder: 1 });
+    }
+    this._m = new THREE.Matrix4();
+    this._q = new THREE.Quaternion();
+    this._s = new THREE.Vector3();
+    this.opacity = 0;
+  }
+
+  begin(opacity) {
+    this.opacity = opacity;
+    for (const mat of this.materials) mat.opacity = opacity;
+    for (const b of Object.values(this.batches)) b.begin();
+  }
+
+  add(team, pos, radius) {
+    if (this.opacity <= 0) return;
+    this.batches[team]?.push(this._m.compose(pos, this._q, this._s.set(radius * 2, 1, radius * 2)));
+  }
+
+  end() {
+    for (const b of Object.values(this.batches)) b.end();
+  }
+}

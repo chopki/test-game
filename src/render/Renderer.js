@@ -3,7 +3,7 @@ import { MapControls } from 'three/addons/controls/MapControls.js';
 import { GRID, TERRAIN } from '../sim/config.js';
 import { groundHeight, T, tileCorners } from '../sim/terrain.js';
 import { createRng } from '../sim/rng.js';
-import { AUTO_RESOLUTION, GROUND_DETAIL, GROUND_PX, SCENERY_COUNT } from './graphicsSettings.js';
+import { AUTO_RESOLUTION, farness, GROUND_DETAIL, GROUND_PX, LOD, SCENERY_COUNT, ZOOM } from './graphicsSettings.js';
 import { isOffshore, OCEAN, OUTER_GROUND, outsideForest, PAINT_BORDER, paintTerrain } from './terrainPainter.js';
 import { cloudTexture } from './textures.js';
 import { wallSeat } from './wallSeat.js';
@@ -12,7 +12,7 @@ import { waterFlow } from './waterFlow.js';
 import { cliffGeometry, cliffTexture, pushDepth, raisedGroundGeometry } from './hills.js';
 import { waterTexture } from './waterTextures.js';
 import { CHIMNEYS, CLIFF_VARIANTS, createProjectileModel, FLAGPOLE, IN_WALL_RADIUS, PENNANTS, SCENERY_SWAY, SCENERY_VARIANTS, WALL_VARIANTS, wallArmOffset } from './models.js';
-import { BlobShadowBatch, GlowBatch, HealthBarBatch } from './batches.js';
+import { BlobShadowBatch, GlowBatch, HealthBarBatch, TeamMarkerBatch } from './batches.js';
 import { ISO_QUATERNION, isoDirection } from './iso.js';
 import { fordBridges } from './bridges.js';
 import { damageAmount, damageStage } from './damage.js';
@@ -74,6 +74,8 @@ const WALK_STRIDE = { swordsman: 0.7, pikeman: 0.7, archer: 0.7, knight: 0.75, r
 const DEATH_FRAME_TIME = 0.11; // seconds per death frame
 /** Ring colours for hero abilities (see HEROES.abilities). */
 const ABILITY_RINGS = { warCry: 0xe8c25a, charge: 0xd9562e, volley: 0xc23a2a, fleetFoot: 0x9fd1a8, shieldWall: 0x7fa6d9, rally: 0xf2e2a0 };
+/** Far-out rings under soldiers, in each side's colour (see TeamMarkerBatch). */
+const TEAM_MARKERS = { red: 0xd23a2a, blue: 0x3a64c8, neutral: 0xd8cfb8 };
 const CORPSE_TIME = 0.9; // how long a fallen enemy stays before vanishing
 // Visible world height at zoom 1 is at least this; portrait screens show at least VIEW_WIDTH across.
 const VIEW_HEIGHT = 30;
@@ -130,7 +132,8 @@ export class Renderer {
     this.controls.dampingFactor = 0.12;
     this.controls.screenSpacePanning = false;
     this.controls.minZoom = 0.55;
-    this.controls.maxZoom = 2.6;
+    this.controls.maxZoom = ZOOM.in;
+    this._normalMinZoom = 0.55; // the map's normal zoom-out limit (see _applyZoomRange)
 
     this._setupLights();
     this._setupTerrain();
@@ -148,6 +151,7 @@ export class Renderer {
     this.healthBars = new HealthBarBatch(this.overlayLayer);
     this._streakDir = new THREE.Vector3();
     this.blobShadows = new BlobShadowBatch(this.groundLayer);
+    this.teamMarkers = new TeamMarkerBatch(this.groundLayer, TEAM_MARKERS);
     this.effects = [];
     this.particles = new Particles(this.overlayLayer);
     this.groundMarks = new GroundMarks(this.groundLayer);
@@ -215,7 +219,7 @@ export class Renderer {
    */
   _createClouds() {
     const material = new THREE.ShaderMaterial({
-      uniforms: { mask: { value: cloudTexture() }, time: { value: 0 } },
+      uniforms: { mask: { value: cloudTexture() }, time: { value: 0 }, strength: { value: 1 } },
       vertexShader: /* glsl */ `
         varying vec2 vWorld;
         void main() {
@@ -226,6 +230,7 @@ export class Renderer {
       fragmentShader: /* glsl */ `
         uniform sampler2D mask;
         uniform float time;
+        uniform float strength; // fades out far from the ground (see LOD), where clouds would be blots
         varying vec2 vWorld;
         void main() {
           // Two layers drifting at different speeds and slightly different headings, so the clouds visibly move
@@ -233,7 +238,7 @@ export class Renderer {
           float a = texture2D(mask, (vWorld - vec2(1.6, 0.9) * time) / 46.0).r;
           float b = texture2D(mask, (vWorld * 0.7 - vec2(1.1, 1.0) * time + 13.0) / 46.0).r;
           float cloud = smoothstep(0.22, 0.5, a * 0.7 + b * 0.55);
-          vec3 shade = mix(vec3(1.0), vec3(0.66, 0.69, 0.78), cloud);
+          vec3 shade = mix(vec3(1.0), vec3(0.66, 0.69, 0.78), cloud * strength);
           gl_FragColor = vec4(shade, 1.0);
         }`,
       depthTest: false,
@@ -632,10 +637,26 @@ export class Renderer {
     }
   }
 
+  /** The zoom-out limit: the map's normal limit, scaled by the Zoom out setting (and the zoom brought inside it). */
+  _applyZoomRange() {
+    this.controls.minZoom = this._normalMinZoom * (ZOOM.out[this.graphics?.zoomOut] ?? ZOOM.out.far);
+    const zoom = THREE.MathUtils.clamp(this.camera.zoom, this.controls.minZoom, this.controls.maxZoom);
+    if (zoom !== this.camera.zoom) {
+      this.camera.zoom = zoom;
+      this.camera.updateProjectionMatrix();
+    }
+  }
+
+  /** How far out the camera is, for level of detail: 0 at the normal limit or nearer, 1 well beyond it (see LOD). */
+  get farness() {
+    return farness(this.camera.zoom / this._normalMinZoom, this.graphics?.lod);
+  }
+
   /** Apply graphics settings without recreating the WebGL context (anti-aliasing is fixed at creation). */
   applySettings(graphics) {
     const prev = this.graphics;
     this.graphics = { ...graphics };
+    this._applyZoomRange();
     if (graphics.resolution !== 'auto') this.setRenderScale(graphics.resolution);
     else if (!prev || prev.resolution !== 'auto') this.setRenderScale(defaultAutoScale());
     if (prev && prev.scenery !== graphics.scenery) this._buildTerrain();
@@ -693,11 +714,8 @@ export class Renderer {
     // far that the edge of the painted ground (map + border) comes into view.
     this.offsetX = world.grid.width / 2;
     this.offsetZ = world.grid.height / 2;
-    this.controls.minZoom = (0.55 * (GRID.width + 2 * PAINT_BORDER)) / (world.grid.width + 2 * PAINT_BORDER);
-    if (this.camera.zoom < this.controls.minZoom) {
-      this.camera.zoom = this.controls.minZoom;
-      this.camera.updateProjectionMatrix();
-    }
+    this._normalMinZoom = (0.55 * (GRID.width + 2 * PAINT_BORDER)) / (world.grid.width + 2 * PAINT_BORDER);
+    this._applyZoomRange();
     this._buildTerrain();
     this.focusOn(world.townHall.cx, world.townHall.cz); // the middle of the map in Survival; your end in Conquest
     // This map's season, and its weather before the first wave (?season= / ?weather= override them).
@@ -822,6 +840,9 @@ export class Renderer {
     this.shadowSprites.begin();
     this.healthBars.begin(this.camera.quaternion);
     this.blobShadows.begin();
+    const far = this.farness;
+    this._far = far;
+    this.teamMarkers.begin(far);
     this.groundMarks.begin();
     this.glows.begin();
     this._drawScorches(dt);
@@ -834,9 +855,10 @@ export class Renderer {
       }
     }
     this._updateWeather(dt);
-    this.wildlife.update(dt, this._time);
+    if (far < 0.5) this.wildlife.update(dt, this._time); // too small to make out further out
     if (this._shimmer) this._shimmer.material.uniforms.time.value = this._time;
     this._clouds.material.uniforms.time.value = this._time;
+    this._clouds.material.uniforms.strength.value = 1 - far;
     if (world) {
       this._sync(this.views.buildings, world.buildings.values(), (b) => this._createBuildingView(b), (v, b) => this._updateBuildingView(v, b));
       this._drawFlags();
@@ -848,6 +870,7 @@ export class Renderer {
     this.sprites.end();
     this.shadowSprites.end();
     this.blobShadows.end();
+    this.teamMarkers.end();
     this.groundMarks.end();
     this.glows.end();
     this.healthBars.end();
@@ -1187,6 +1210,9 @@ export class Renderer {
     const scale = e.elite ? 1.3 : 1;
     this._addEnemySprite(e.type, e.elite, e.heading, anim, frame, this.toScene(e.x, 0, e.z, this._v), team);
     this.blobShadows.add(this.toScene(e.x, 0.02, e.z, this._v), (ENEMY_BLOB_RADIUS[e.type] ?? 0.3) * scale);
+    // Far out: a ring in his side's colour (bigger for a hero), and only heroes keep their health bars.
+    if (this._far > 0) this.teamMarkers.add(team, this.toScene(e.x, 0.03, e.z, this._v), (e.hero ? 0.55 : 0.36) * (1 + (LOD.markerGrow - 1) * this._far));
+    if (this._far >= 0.5 && !e.hero) return;
     const bar = this._barFade(view, e, e.hero); // a hero's health always shows
     if (bar) this.healthBars.add(this.toScene(e.x, e.def.height * scale + 0.25, e.z, this._v), ENEMY_BAR_WIDTH[e.type] ?? 0.6, e.hp / e.maxHp, bar);
   }
