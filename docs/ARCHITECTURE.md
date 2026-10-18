@@ -196,7 +196,10 @@ so the whole battlefield is ~15 draw calls and a few hundred triangles however d
   camera zooms in to `ZOOM.in` and out to the map's normal limit (`Renderer._normalMinZoom`) × the setting's
   factor (`_applyZoomRange`). Beyond the normal limit `Renderer.farness` rises 0 → 1: `TeamMarkerBatch`
   (batches.js) fades in rings in each side's colour under soldiers, cloud shadows fade out, and past 0.5 wildlife
-  and ordinary soldiers' health bars are left out. `lod: 'full'` keeps farness at 0.
+  and ordinary soldiers' health bars are left out. `lod: 'full'` keeps farness at 0. Zoomed in, `groundDetail.js`
+  multiplies a tiling texture of grass strokes into the painted ground and plateau tops (masked off water),
+  fading in between `GROUND_DETAIL_ZOOM.from` and `.to`, so the ground's 32 px a tile doesn't look stretched.
+  Setting `sprites` (Auto / Standard / HD, reload) picks the atlas in main.js via `pickSpriteSet(preference)`.
 - Glow and colour (High, setting `glow`): `GlowBatch` (batches.js) draws additive halos at light sources (the
   spire's crystal, lit wall decorations via `DECOR_LIGHTS`, burning buildings), not depth-tested; the warm grade is
   a CSS filter on the canvas (`COLOUR_GRADE`), so it costs no render pass and leaves the HUD alone.

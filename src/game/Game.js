@@ -18,10 +18,11 @@ const BEST_KEY = 'hold-the-hall:best-wave';
 export class Game {
   /**
    * `atlas` is the battlefield sprite atlas (see render/spriteAssets.js). `world`: the first map, if it's already
-   * been made (createWorld); `loading`: the loading screen; `menu`: whether to open the main menu at the start.
+   * been made (createWorld); `loading`: the loading screen; `menu`: whether to open the main menu at the start;
+   * `graphics`: the startup settings, if main.js has already read them (it needs Sprite detail to load the atlas).
    */
-  constructor(container, atlas, { world = null, loading = new LoadingScreen(), menu = false } = {}) {
-    this.graphics = startupSettings(); // always Low on a fresh start (see graphicsSettings.js)
+  constructor(container, atlas, { world = null, loading = new LoadingScreen(), menu = false, graphics = null } = {}) {
+    this.graphics = graphics ?? startupSettings(); // always the startup preset on a fresh start (see graphicsSettings.js)
     // Settings fixed when the WebGL context was created (anti-aliasing); used to flag "reload to apply".
     this.startupGraphics = { ...this.graphics };
     this.renderer = new Renderer(container, this.graphics, atlas);

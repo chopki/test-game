@@ -92,7 +92,8 @@ Pre-rendered sprites on a fixed isometric camera (see ARCHITECTURE.md), working 
       zooms out further on bigger maps
 - [x] **Zoom and detail**: Settings → Zoom out (Normal, Far (default), Farthest) and closer zoom in; Detail when far:
       zoomed far out, soldiers get rings in their side's colour, and wildlife, cloud shadows and soldiers' health
-      bars are left out (or Always full)
+      bars are left out (or Always full). Close up, fine grass detail fades in over the painted ground; Settings →
+      Sprite detail (Auto, Standard, HD) lets a phone load the HD sprites for sharper close-ups
 - [x] **Hills**: on about 60% of maps, raised plateaus behind cliffs, climbed by ramps (slower going); towers on
       high ground reach further, and arrows shot uphill come slower (Settings → Hills). Cliff faces are baked
       sprites: rocky earth banks with boulders under a grass lip, and sloping sides beside the ramps

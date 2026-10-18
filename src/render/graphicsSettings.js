@@ -77,6 +77,12 @@ export const OPTIONS = {
     ['auto', 'Simplify when far'],
     ['full', 'Always full'],
   ],
+  // Which baked sprite set to load (see spriteAssets.js): Auto picks HD on desktops and standard on touch screens.
+  sprites: [
+    ['auto', 'Auto'],
+    ['standard', 'Standard'],
+    ['hd', 'HD'],
+  ],
 };
 
 /**
@@ -115,10 +121,10 @@ export const GROUND_PX = { off: 12, low: 16, medium: 24, high: 32 };
 export const GROUND_DETAIL = { off: 0, low: 0.6, medium: 1, high: 1.4 };
 
 /** Settings that only take effect when the WebGL context is created (i.e. after a reload). */
-export const RELOAD_REQUIRED = ['antialias'];
+export const RELOAD_REQUIRED = ['antialias', 'sprites'];
 
 export function settingsForPreset(preset) {
-  return { preset, ...PRESETS[preset], showFps: false, zoomOut: 'far', lod: 'auto' };
+  return { preset, ...PRESETS[preset], showFps: false, zoomOut: 'far', lod: 'auto', sprites: 'auto' };
 }
 
 /** The preset whose values all match `settings`, or 'custom'. */

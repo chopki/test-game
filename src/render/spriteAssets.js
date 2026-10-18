@@ -3,12 +3,14 @@ import { bakeSprites, SpriteAtlas } from './spriteBaker.js';
 import { SPRITE_SETS, spriteSpecs } from './spriteCatalog.js';
 
 /**
- * Which sprite set suits this device: 'hd' on desktops (zooming in would stretch the standard sprites), 'standard'
- * on touch screens (they can't show more detail than it has). `?sprites=standard|hd` in the URL overrides it.
+ * Which sprite set to load: `?sprites=standard|hd` in the URL, else the Sprite detail setting (`preference`), else
+ * what suits this device: 'hd' on desktops (zooming in would stretch the standard sprites), 'standard' on touch
+ * screens (lighter on graphics memory).
  */
-export function pickSpriteSet() {
+export function pickSpriteSet(preference = 'auto') {
   const asked = new URLSearchParams(location.search).get('sprites');
   if (asked in SPRITE_SETS) return asked;
+  if (preference in SPRITE_SETS) return preference;
   const touch = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
   return touch ? 'standard' : 'hd';
 }

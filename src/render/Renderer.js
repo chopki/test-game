@@ -12,6 +12,7 @@ import { waterFlow } from './waterFlow.js';
 import { cliffGeometry, cliffTexture, pushDepth, raisedGroundGeometry } from './hills.js';
 import { waterTexture } from './waterTextures.js';
 import { CHIMNEYS, CLIFF_VARIANTS, createProjectileModel, FLAGPOLE, IN_WALL_RADIUS, PENNANTS, SCENERY_SWAY, SCENERY_VARIANTS, WALL_VARIANTS, wallArmOffset } from './models.js';
+import { addGroundDetail, groundDetailStrength, groundDetailTexture } from './groundDetail.js';
 import { BlobShadowBatch, GlowBatch, HealthBarBatch, TeamMarkerBatch } from './batches.js';
 import { ISO_QUATERNION, isoDirection } from './iso.js';
 import { fordBridges } from './bridges.js';
@@ -275,6 +276,7 @@ export class Renderer {
     this._ground = this._shimmer = this._blockedTint = this._ocean = this._raised = this._cliffs = null;
     this._raisedCover?.dispose();
     this._raisedCover = null;
+    this._detailUniforms?.waterMask.value.dispose();
     if (this._gridLines) {
       this._gridLines.removeFromParent();
       this._gridLines.geometry.dispose();
@@ -304,7 +306,10 @@ export class Renderer {
     texture.colorSpace = THREE.SRGBColorSpace;
     texture.anisotropy = 4;
     const { width: TW, height: TH } = painted.tiles;
-    this._ground = new THREE.Mesh(new THREE.PlaneGeometry(TW, TH), new THREE.MeshBasicMaterial({ map: texture, depthWrite: false }));
+    // Close up, fine detail fades in over the painted ground (groundDetail.js), on the flat ground and plateau tops.
+    const waterMask = new THREE.CanvasTexture(painted.waterMask);
+    this._detailUniforms = { detail: { value: groundDetailTexture() }, waterMask: { value: waterMask }, strength: { value: 0 } };
+    this._ground = new THREE.Mesh(new THREE.PlaneGeometry(TW, TH), addGroundDetail(new THREE.MeshBasicMaterial({ map: texture, depthWrite: false }), this._detailUniforms));
     this._ground.rotation.x = -Math.PI / 2;
     this._ground.renderOrder = -1;
     this.scene.add(this._ground);
@@ -312,7 +317,7 @@ export class Renderer {
     // Hills: the plateau tops wear the same painted ground, raised to their level, above cliff faces (hills.js).
     const raised = raisedGroundGeometry(grid, painted, this.offsetX, this.offsetZ);
     if (raised) {
-      this._raised = new THREE.Mesh(raised, pushDepth(new THREE.MeshBasicMaterial({ map: texture }), this.camera));
+      this._raised = new THREE.Mesh(raised, addGroundDetail(pushDepth(new THREE.MeshBasicMaterial({ map: texture }), this.camera), this._detailUniforms));
       this._cliffTexture ??= cliffTexture();
       const cliffs = cliffGeometry(grid, this.offsetX, this.offsetZ, TERRAIN.hills.levelHeight);
       this._cliffs = new THREE.Mesh(cliffs, pushDepth(new THREE.MeshBasicMaterial({ map: this._cliffTexture, vertexColors: true, side: THREE.DoubleSide }), this.camera));
@@ -859,6 +864,7 @@ export class Renderer {
     if (this._shimmer) this._shimmer.material.uniforms.time.value = this._time;
     this._clouds.material.uniforms.time.value = this._time;
     this._clouds.material.uniforms.strength.value = 1 - far;
+    if (this._detailUniforms) this._detailUniforms.strength.value = groundDetailStrength(this.camera.zoom);
     if (world) {
       this._sync(this.views.buildings, world.buildings.values(), (b) => this._createBuildingView(b), (v, b) => this._updateBuildingView(v, b));
       this._drawFlags();

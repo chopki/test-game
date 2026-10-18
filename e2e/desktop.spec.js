@@ -1246,7 +1246,7 @@ test('conquest: the main menu asks for a champion, and the battle begins with th
   expect(errors).toEqual([]);
 });
 
-test('zoom out setting and far-off detail: further out, soldiers get rings in their colours and wildlife is left out', async ({ page }) => {
+test('zoom and detail settings: further out, soldiers get rings in their colours; right in, the ground gains fine detail', async ({ page }) => {
   const errors = await openGame(page, { query: 'mode=conquest' });
   const limits = () => page.evaluate(() => ({ min: window.game.renderer.controls.minZoom, max: window.game.renderer.controls.maxZoom, normal: window.game.renderer._normalMinZoom }));
   const far = await limits();
@@ -1258,6 +1258,12 @@ test('zoom out setting and far-off detail: further out, soldiers get rings in th
   await settingButton(page, 'Zoom out', 'Normal').click();
   expect((await limits()).min).toBeCloseTo(far.normal, 5);
   await settingButton(page, 'Zoom out', 'Far').click();
+  // Sprite detail is chosen at start-up: changing it asks for a reload.
+  await expect(page.locator('#settings-reload-note')).toBeHidden();
+  await settingButton(page, 'Sprite detail', 'Standard').click();
+  await expect(page.locator('#settings-reload-note')).toBeVisible();
+  await settingButton(page, 'Sprite detail', 'Auto').click();
+  await expect(page.locator('#settings-reload-note')).toBeHidden();
   await page.keyboard.press('Escape');
   // Pull right out with soldiers on the field.
   await page.evaluate(() => {
@@ -1271,13 +1277,22 @@ test('zoom out setting and far-off detail: further out, soldiers get rings in th
   const markers = () => page.evaluate(() => Object.values(window.game.renderer.teamMarkers.batches).reduce((n, b) => n + b.count, 0));
   await expect.poll(markers).toBeGreaterThan(5);
   expect(await page.evaluate(() => window.game.renderer.farness)).toBeGreaterThan(0.5);
-  // Back in close: no rings.
+  // Back to a middling zoom: no rings.
   await page.evaluate(() => {
     const r = window.game.renderer;
-    r.camera.zoom = 1.5;
+    r.camera.zoom = 1;
     r.camera.updateProjectionMatrix();
   });
   await expect.poll(markers).toBe(0);
+  // Right in close, fine detail fades in over the painted ground (none at middling zoom).
+  const detail = () => page.evaluate(() => window.game.renderer._detailUniforms.strength.value);
+  expect(await detail()).toBe(0);
+  await page.evaluate(() => {
+    const r = window.game.renderer;
+    r.camera.zoom = r.controls.maxZoom;
+    r.camera.updateProjectionMatrix();
+  });
+  await expect.poll(detail).toBeGreaterThan(0.4);
   expect(errors).toEqual([]);
 });
 

@@ -5,6 +5,7 @@ import {
   ZOOM,
   farness,
   PRESETS,
+  RELOAD_REQUIRED,
   STARTUP_PRESET,
   carrySettingsThroughReload,
   matchPreset,
@@ -14,6 +15,7 @@ import {
   withPreset,
   withSetting,
 } from '../src/render/graphicsSettings.js';
+import { GROUND_DETAIL_ZOOM, groundDetailStrength } from '../src/render/groundDetail.js';
 
 function memoryStorage(initial = {}) {
   const data = { ...initial };
@@ -86,4 +88,17 @@ describe('graphics settings', () => {
     expect(farness((LOD.from + LOD.to) / 2)).toBeCloseTo(0.5);
     expect(farness(0.3, 'full')).toBe(0);
   });
+
+  it('close-up ground detail fades in as the camera zooms in; Sprite detail needs a reload', () => {
+    expect(groundDetailStrength(1)).toBe(0);
+    expect(groundDetailStrength(GROUND_DETAIL_ZOOM.from)).toBe(0);
+    expect(groundDetailStrength(GROUND_DETAIL_ZOOM.to)).toBeCloseTo(GROUND_DETAIL_ZOOM.strength);
+    expect(groundDetailStrength(ZOOM.in)).toBeCloseTo(GROUND_DETAIL_ZOOM.strength);
+    const mid = groundDetailStrength((GROUND_DETAIL_ZOOM.from + GROUND_DETAIL_ZOOM.to) / 2);
+    expect(mid).toBeGreaterThan(0);
+    expect(mid).toBeLessThan(GROUND_DETAIL_ZOOM.strength);
+    expect(settingsForPreset('high').sprites).toBe('auto');
+    expect(RELOAD_REQUIRED).toContain('sprites');
+  });
 });
+

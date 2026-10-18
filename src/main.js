@@ -1,7 +1,8 @@
 import './style.css';
 import { createWorld, Game, readMapOptions } from './game/Game.js';
 import { LoadingScreen, painted } from './ui/LoadingScreen.js';
-import { loadSprites } from './render/spriteAssets.js';
+import { loadSprites, pickSpriteSet } from './render/spriteAssets.js';
+import { startupSettings } from './render/graphicsSettings.js';
 
 // Show failures on screen rather than leaving a blank page.
 function showFatal(title, err) {
@@ -21,13 +22,14 @@ const loading = new LoadingScreen();
 try {
   loading.show(null, 0.05);
   loading.setProgress(0.6, { trickle: true });
-  const atlas = await loadSprites();
+  const graphics = startupSettings(); // (read once: it uses up the settings carried through a "Reload now")
+  const atlas = await loadSprites({ set: pickSpriteSet(graphics.sprites) });
   const world = createWorld(readMapOptions());
   loading.setWorld(world);
   loading.setProgress(0.85, { trickle: true });
   await painted();
   // Handy for poking at the simulation from the browser console.
-  window.game = new Game(document.getElementById('app'), atlas, { world, loading, menu: params.get('menu') !== '0' });
+  window.game = new Game(document.getElementById('app'), atlas, { world, loading, graphics, menu: params.get('menu') !== '0' });
   await loading.finish(params.get('menu') === '0' ? 0 : 450);
 } catch (err) {
   document.getElementById('loading').hidden = true;

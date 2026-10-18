@@ -16,6 +16,7 @@ const ROWS = [
   ['healthBars', 'Health bars', 'On hit shows a slim bar for a moment after something is hit; While hurt keeps it until it dies; Off hides them (buildings still show their damage, and the Town Hall has its ring).'],
   ['zoomOut', 'Zoom out', 'How far out the camera can pull back (pinch or mouse wheel). Further shows more of the battle at once.'],
   ['lod', 'Detail when far', 'Zoomed far out, soldiers get a ring in their side\'s colour so you can tell them apart, and wildlife, cloud shadows and soldiers\' health bars are left out. Always full keeps everything.'],
+  ['sprites', 'Sprite detail', 'How sharp buildings, walls and trees look close up. HD is twice the detail but needs much more graphics memory: on a phone it may slow down or crash. Auto: HD on computers, Standard on phones and tablets. Takes effect after a reload.'],
   ['showFps', 'Show FPS', 'Frames per second and current render scale, in the top bar.'],
 ];
 
