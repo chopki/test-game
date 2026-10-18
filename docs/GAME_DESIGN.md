@@ -112,6 +112,7 @@ alongside, a crossroads) keep the normal tower with anchor posts where the walls
 | Cannon Tower | 2×2  | 150  | 500  | 40 dmg splash r1.6, range 6, 0.45 shots/s | Fires at the ground where the target stood, so it can miss fast enemies |
 | Magic Spire  | 2×2  | 125  | 350  | 12 dmg pulse to **all** enemies within 3.5, every 1.4s | Hit enemies are slowed to 60% speed for 1.5s. Best at chokepoints and wall breaches |
 | Catapult     | 2×2  | 180  | 300  | 55 dmg splash r1.8, range 10, min range 3, every 3.5s | Long-range siege; can't hit anything closer than 3 tiles, so protect it |
+| Barracks     | 2×2  | 120  | 450  | none (trains troops)                     | Trains a man every 8s (2 Men-at-arms, 1 Bowman) up to 3; see Troops |
 | Gatehouse    | 2×2  | n/a  | 1200 | none                                     | Starting fort only (not buildable or sellable); blocks enemies while it stands, so they smash it or go round |
 
 Towers target the enemy in range that is **closest to the Town Hall** by path distance.
@@ -140,11 +141,33 @@ taken (the Town Hall is reckoned at 400).
 
 Stage 1 names: Timber Hall, Wooden Palisade, Watchtower, Cannon Emplacement, Crystal Cairn, Catapult.
 
+## Troops
+
+The player's soldiers wear **red** (with straw-gold trim); the enemy army wears **blue** (with cream). The colours
+are hints, not whole uniforms: a tabard, a cape and stripe, a shield's face, a plume. Troops are the same men as the
+enemy's, so later both castles can field the same army.
+
+A **Barracks** trains one man every 8 s, in roster order (Man-at-arms, Man-at-arms, Bowman), until 3 of its men are
+alive; a fallen man is replaced the same way. Its men stand at its **post**, 2 tiles out from its door on the side
+away from the Town Hall, and run themselves (no orders yet): they go out to fight any enemy within **5 tiles of the
+post**, give up a chase more than 7 tiles from it, and walk back when none are left, healing 4 HP/s at the post.
+They walk their own way (A* round walls; they can pass the gatehouse, not other buildings). A Barracks walled in
+with no way out trains no one. Selling or losing a Barracks dismisses its men.
+
+| Troop       | HP  | Speed | Damage | Hit every | Reach |
+| ----------- | --- | ----- | ------ | --------- | ----- |
+| Man-at-arms | 110 | 1.3   | 9      | 1.0s      | melee |
+| Bowman      | 60  | 1.25  | 8      | 1.3s      | 4.5   |
+
+Enemy men stop to fight a soldier who comes within 0.9 tiles (or strikes them), holding them up while the towers
+work; enemy archers with no building to shoot shoot soldiers in range. Siege engines ignore soldiers, but soldiers
+hack at them. Towers never target soldiers.
+
 ## Enemies
 
 A human army in blue-and-cream livery, marching in **squads**. Men walk to the Town Hall and hack at whatever
 blocks their way (walls, towers, the gatehouse); ranged enemies stop and shoot from range instead. Siege engines
-hit buildings far harder than men. Damage is against buildings (enemies don't fight anything else yet).
+hit buildings far harder than men. Damage is against buildings, and against the player's troops (see Troops).
 
 | Enemy          | HP  | Speed (tiles/s) | Damage / hit | Hit every | Range | Gold | Threat | Squad | Appears from |
 | -------------- | --- | --------------- | ------------ | --------- | ----- | ---- | ------ | ----- | ------------ |

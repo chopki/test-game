@@ -25,6 +25,8 @@ import {
   place,
   rbox,
   rng,
+  shingleGable,
+  timberFace,
   sphere,
   std,
   stoneBlocks,
@@ -896,7 +898,65 @@ function gatehouse(opts = {}) {
   return g;
 }
 
-const BUILDING_MODELS = { townHall, wall, wallJoint, archerTower, cannonTower, magicSpire, catapult, gatehouse };
+/**
+ * Barracks: a long timber-framed hall on a stone footing under a clay roof, its door to the front (+z) and a red
+ * banner on the side; in the yard, a straw training dummy, a rack of spears and red shields, and a water barrel.
+ */
+function barracks() {
+  const M = MATERIALS;
+  const p = new Parts();
+  const rnd = rng(23);
+  p.add(box(1.94, 0.05, 1.94), M.dirt, { y: 0.025 });
+  // The hall runs along x at the back of the plot.
+  const hx = -0.08;
+  const hz = -0.32;
+  const L = 1.6;
+  const D = 0.9;
+  const wallH = 0.62;
+  stoneBlocks(p, { x: hx, z: hz, y: 0.05, w: L + 0.08, d: D + 0.08, h: 0.16, rows: 1, rnd, minBlock: 0.26, maxBlock: 0.42 });
+  const y0 = 0.21;
+  p.add(box(L, wallH, D), M.plaster, { x: hx, y: y0 + wallH / 2, z: hz });
+  timberFace(p, { x: hx, y: y0 + wallH / 2, z: hz + D / 2, w: L, h: wallH, spacing: 0.4 });
+  timberFace(p, { x: hx + L / 2, y: y0 + wallH / 2, z: hz, w: D, h: wallH, ry: Math.PI / 2, spacing: 0.45, braces: false });
+  shingleGable(p, { x: hx, y: y0 + wallH, z: hz, length: L, width: D, height: 0.5, rnd });
+  // Door and windows on the front, a window on the side.
+  p.add(box(0.3, 0.44, 0.04), M.woodDark, { x: hx + 0.1, y: y0 + 0.22, z: hz + D / 2 + 0.02 });
+  for (const t of [0.04, 0.2]) p.add(box(0.31, 0.03, 0.05), M.iron, { x: hx + 0.1, y: y0 + t + 0.06, z: hz + D / 2 + 0.035 });
+  p.add(box(0.36, 0.05, 0.06), M.beam, { x: hx + 0.1, y: y0 + 0.47, z: hz + D / 2 + 0.03 });
+  for (const lx of [-0.5, 0.55]) windowFrame(p, { x: hx + lx, y: y0 + 0.38, z: hz + D / 2 + 0.01, w: 0.18, h: 0.2 });
+  windowFrame(p, { x: hx + L / 2 + 0.01, y: y0 + 0.38, z: hz - 0.1, ry: Math.PI / 2, w: 0.18, h: 0.2 });
+  banner(p, { x: hx + L / 2 + 0.03, y: y0 + 0.4, z: hz + 0.22, ry: Math.PI / 2, w: 0.2, h: 0.4 });
+
+  // Training dummy: a post and crossbar with a straw sack and a pot helm.
+  const dx = -0.55;
+  const dz = 0.55;
+  p.add(cyl(0.035, 0.04, 0.7, 6), M.woodDark, { x: dx, y: 0.35, z: dz });
+  p.add(box(0.46, 0.05, 0.05), M.wood, { x: dx, y: 0.55, z: dz });
+  p.add(capsule(0.1, 0.16), M.gambeson, { x: dx, y: 0.48, z: dz });
+  p.add(sphere(0.08, 8, 6), M.gambeson, { x: dx, y: 0.7, z: dz });
+  p.add(dome(0.085), M.steel, { x: dx, y: 0.72, z: dz });
+  // Weapon rack: two posts and a rail, spears leaning on it, two red shields hung on the front.
+  const rx = 0.42;
+  const rz = 0.62;
+  for (const s of [-1, 1]) p.add(box(0.05, 0.42, 0.05), M.woodDark, { x: rx + s * 0.28, y: 0.21, z: rz });
+  p.add(box(0.62, 0.04, 0.05), M.wood, { x: rx, y: 0.38, z: rz });
+  for (let i = 0; i < 4; i++) {
+    const x = rx - 0.21 + i * 0.14;
+    p.add(cyl(0.012, 0.012, 0.72, 5), M.woodDark, { x, y: 0.34, z: rz - 0.06, rx: -0.18 });
+    p.add(cone(0.025, 0.08, 5), M.steel, { x, y: 0.72, z: rz - 0.13, rx: -0.18 });
+  }
+  for (const s of [-1, 1]) {
+    p.add(cyl(0.11, 0.11, 0.025, 14), M.bannerRed, { x: rx + s * 0.15, y: 0.25, z: rz + 0.05, rx: Math.PI / 2 });
+    p.add(torus(0.11, 0.012, 14), M.steel, { x: rx + s * 0.15, y: 0.25, z: rz + 0.06 });
+    p.add(sphere(0.03, 6, 5), M.gold, { x: rx + s * 0.15, y: 0.25, z: rz + 0.07 });
+  }
+  barrel(p, { x: 0.8, z: -0.05 });
+  crate(p, { x: 0.82, z: 0.25, s: 0.2, ry: 0.4 });
+  groundDressing(p, { w: 1.8, d: 1.8, rnd, count: 6 });
+  return p.build();
+}
+
+const BUILDING_MODELS = { townHall, wall, wallJoint, archerTower, cannonTower, magicSpire, catapult, barracks, gatehouse };
 /** Building types with a version built into a wall (see IN_WALL_SHAPES). */
 export const IN_WALL_TYPES = [...Object.keys(IN_WALL_MODELS), 'gatehouse'];
 
@@ -912,7 +972,8 @@ export function createBuildingModel(type, opts) {
 }
 
 // ------------------------------------------------------------------ enemies
-// The enemy army: men in blue-and-cream livery, and the siege engines they bring. Men are rigs, so the baker can
+// The enemy army: men in blue-and-cream livery, and the siege engines they bring (the player's troops are the
+// same men in red; see createEnemyModel). Men are rigs, so the baker can
 // pose them for walk, attack and death frames (see poseEnemy):
 //
 //   root          (feet on the ground, faces +z; the catalogue turns it to each heading)
@@ -975,11 +1036,11 @@ function manLeg(p, { trousers = MATERIALS.leatherDark, boots = MATERIALS.leather
 }
 
 /** Torso, belt and bare head (pivot at the hips). `coat`: the tabard or padded jacket over `under`. */
-function manBody(p, { coat, under = MATERIALS.mail, stripe = MATERIALS.liveryTrim }) {
+function manBody(p, { coat, under = MATERIALS.mail, stripe = MATERIALS.liveryTrim, skirt = coat }) {
   const M = MATERIALS;
   p.add(capsule(0.12, 0.16), under, { y: 0.21 });
   p.add(rbox(0.3, 0.3, 0.25, 0.05), coat, { y: 0.2 });
-  p.add(cyl(0.14, 0.18, 0.16, 10), coat, { y: 0 }); // skirt
+  p.add(cyl(0.14, 0.18, 0.16, 10), skirt, { y: 0 });
   p.add(box(0.31, 0.04, 0.26), M.leatherDark, { y: 0.07 }); // belt
   if (stripe) p.add(box(0.07, 0.27, 0.01), stripe, { y: 0.2, z: 0.126 });
   for (const s of [-1, 1]) p.add(sphere(0.075, 10, 7), under, { x: s * 0.16, y: 0.33 });
@@ -1032,7 +1093,7 @@ function swordsman() {
     legX: 0.08,
     buildLeg: (p) => manLeg(p),
     buildBody: (p) => {
-      manBody(p, { coat: MATERIALS.livery });
+      manBody(p, { coat: MATERIALS.livery, skirt: MATERIALS.mail });
       nasalHelm(p);
     },
     shoulder: SHOULDER,
@@ -1083,10 +1144,10 @@ function bowman() {
     legX: 0.075,
     buildLeg: (p) => manLeg(p, { trousers: M.leather }),
     buildBody: (p) => {
-      manBody(p, { coat: M.livery, under: M.gambeson });
-      // Hood and short cape.
-      p.add(dome(0.122), M.livery, { y: HEAD_Y + 0.01 });
-      p.add(cone(0.05, 0.18, 6), M.livery, { y: HEAD_Y + 0.05, z: -0.12, rx: -1.15 });
+      manBody(p, { coat: M.gambeson, under: M.leather, stripe: M.livery });
+      // Hood and short cape (the cape in livery).
+      p.add(dome(0.122), M.hood, { y: HEAD_Y + 0.01 });
+      p.add(cone(0.05, 0.18, 6), M.hood, { y: HEAD_Y + 0.05, z: -0.12, rx: -1.15 });
       p.add(cyl(0.12, 0.21, 0.1, 12), M.livery, { y: 0.38 });
       // Quiver on the back, arrows showing.
       p.add(cyl(0.045, 0.04, 0.27, 8), M.leather, { x: 0.07, y: 0.26, z: -0.15, rx: -0.25, rz: 0.3 });
@@ -1290,8 +1351,28 @@ function mangonel() {
 
 const ENEMY_MODELS = { swordsman, pikeman, archer: bowman, knight, ram, mangonel };
 
-export function createEnemyModel(type, elite = false) {
-  const g = ENEMY_MODELS[type]();
+/**
+ * Each side's colours, worn as hints rather than head to toe: the coat or cape, the shield's face, a stripe, a
+ * plume, an engine's flag. The enemy army wears blue and cream; the player's troops (see TROOPS) red and straw gold.
+ */
+export const TEAMS = ['blue', 'red'];
+const LIVERIES = {
+  blue: { livery: MATERIALS.livery, liveryTrim: MATERIALS.liveryTrim },
+  red: { livery: std({ color: 0x9a382a }), liveryTrim: std({ color: 0xe0c58a }) },
+};
+
+/** A man or siege engine of `type`, in `team`'s livery (the models read MATERIALS.livery while they're built). */
+export function createEnemyModel(type, elite = false, team = 'blue') {
+  const saved = { livery: MATERIALS.livery, liveryTrim: MATERIALS.liveryTrim };
+  Object.assign(MATERIALS, LIVERIES[team]);
+  try {
+    return dressEnemy(ENEMY_MODELS[type](), elite);
+  } finally {
+    Object.assign(MATERIALS, saved);
+  }
+}
+
+function dressEnemy(g, elite) {
   if (elite) {
     // A warlord: 1.3× size and a gold crown on the helm.
     g.scale.setScalar(1.3);

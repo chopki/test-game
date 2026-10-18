@@ -168,11 +168,29 @@ Pre-rendered sprites on a fixed isometric camera (see ARCHITECTURE.md), working 
 
 ## v0.4: Troops
 
-- [ ] Barracks building that trains troops (swordsmen, archers)
+- [x] Barracks building that trains troops (Men-at-arms, Bowmen), in red livery (the enemy wears blue)
+- [x] Troops guard the Barracks' post on their own: out to fight enemies near it, back when they're gone
+- [x] Enemies that fight troops they meet; enemy archers shoot them
 - [ ] Rally points: click to set where troops gather
-- [ ] Shared `combat` and `movement` modules for both factions (see [ARCHITECTURE.md](ARCHITECTURE.md#planned-extensions-and-where-they-plug-in))
-- [ ] Enemies that fight troops they meet
+- [ ] Barracks upgrades (bigger garrison, knights)
+- [ ] Shared `combat` and `movement` modules for both sides (see [ARCHITECTURE.md](ARCHITECTURE.md#planned-extensions-and-where-they-plug-in))
 - [ ] Simple formation / spacing so groups don't stack
+
+## v0.4b: Conquest (castle vs castle)
+
+A second mode beside Survival: a long, mirrored map with a castle at each end and three lanes between them. The
+opponent is an AI for now; building and waves are real time; troops run themselves. Red is the player, blue the AI,
+shown by livery hints (the same army on both sides, not two factions).
+
+- [ ] Lane map generator: mirrored long map (about 64×128), three lanes carved through woods, rivers and hills,
+      chokepoints at fords and ramps
+- [ ] Lane pathing: waypoints per lane, a flow field per waypoint per side; walls still breachable
+- [ ] Troops march lanes: Barracks feed squads into lanes on a timer, both sides; squads fight what they meet
+- [ ] Enemy castle: a pre-built blue fort with towers on each lane; destroy its Town Hall to win
+- [ ] Blue buildings: team-coloured banners and pennants on the enemy's buildings
+- [ ] AI opponent (`sim/ai.js`): earns gold like the player and spends it through the same World commands
+- [ ] Minimap, Conquest on the main menu, a win screen
+- [ ] Real-time repairs (not in the middle of being hit) in place of between-wave repairs
 
 ## v0.5: Heroes
 

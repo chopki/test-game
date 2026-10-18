@@ -194,7 +194,7 @@ export class HUD {
     ev.on('waveStarted', ({ wave, sides }) => this.toast(`Wave ${wave} incoming from the ${joinSides(sides)}!`, 'danger'));
     ev.on('waveCleared', ({ wave, bonus }) => this.toast(`Wave ${wave} survived! +${bonus} gold`, 'good'));
     ev.on('buildingDestroyed', ({ building }) => {
-      if (building.def.attack && building.type !== 'townHall') this.toast(`${building.def.name} destroyed!`, 'warn');
+      if ((building.def.attack || building.def.trains) && building.type !== 'townHall') this.toast(`${building.def.name} destroyed!`, 'warn');
     });
     ev.on('gameOver', (stats) => this.showGameOver(stats));
     ev.on('buildingUpgraded', ({ building }) => {
@@ -326,7 +326,8 @@ export class HUD {
     const up = b && w.upgradeCheck(b);
     const fix = b && w.repairCheck(b);
     const line = b?.type === 'wall' && up.next ? w.wallLine(b.id) : [];
-    const key = b ? [b.id, Math.ceil(b.hp), b.stage, up.ok, up.reason, fix.ok, fix.cost, line.length, w.canSell(b) && w.sellValue(b)].join(':') : '';
+    const garrison = b?.def.trains ? this._garrison(b) : '';
+    const key = b ? [b.id, Math.ceil(b.hp), b.stage, up.ok, up.reason, fix.ok, fix.cost, line.length, w.canSell(b) && w.sellValue(b), garrison].join(':') : '';
     if (this._last.info === key) return;
     this._last.info = key;
     document.body.classList.toggle('has-selection', Boolean(b));
@@ -370,6 +371,7 @@ export class HUD {
             stat('Fire rate', 1 / a.cooldown, STAT_MAX.rate, rate(a.cooldown), after(a.cooldown, n?.attack.cooldown, rate))
           : ''
       }
+      ${garrison ? `<p class="garrison">${garrison}</p>` : ''}
       <div class="codex-actions">
         ${
           n
@@ -393,6 +395,15 @@ export class HUD {
         this.game.build.select(null);
       });
     }
+  }
+
+  /** A Barracks' men: how many stand, and when the next is ready (or why none can be trained). */
+  _garrison(b) {
+    const { garrison, every } = b.def.trains;
+    const alive = b.squad?.filter((t) => t?.alive).length ?? 0;
+    if (!b.door) return `${alive}/${garrison} men · walled in: leave it a way out to train more`;
+    if (alive >= garrison) return `${alive}/${garrison} men · full strength`;
+    return `${alive}/${garrison} men · next in ${Math.max(1, Math.ceil(every - (b.trainTimer ?? 0)))}s`;
   }
 
   // ---------------------------------------------------------------- notifications

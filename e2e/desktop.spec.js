@@ -1044,3 +1044,42 @@ test('settings: Arrows (ink streak, volley, classic) and Health bars (on hit, wh
   expect(await page.evaluate(() => [window.game.graphics.arrows, window.game.graphics.healthBars])).toEqual(['classic', 'off']);
   expect(errors).toEqual([]);
 });
+
+test('barracks: hotkey 6 builds one, it trains men in red who go out to fight enemies near it (screenshot attached)', async ({ page }, testInfo) => {
+  const errors = await openGame(page);
+  await page.evaluate(() => window.game.world.economy.earn(500));
+  await page.keyboard.press('6');
+  const p = await tileToScreen(page, 18, 10);
+  await page.mouse.click(p.x, p.y);
+  await expect.poll(() => buildingAt(page, 18, 10)).toBe('barracks');
+  // Its card says how many men it has and when the next is ready.
+  await page.mouse.click(p.x, p.y, { button: 'right' }); // out of build mode
+  await page.mouse.click(p.x, p.y);
+  await expect(page.locator('#info .garrison')).toContainText('0/3 men · next in');
+  // Train the garrison at once, then bring an enemy up to the post.
+  await page.evaluate(() => {
+    const w = window.game.world;
+    for (let i = 0; i < 3; i++) {
+      for (const b of w.buildings.values()) if (b.def.trains) b.trainTimer = 99;
+      w.update(1 / 30);
+    }
+  });
+  await expect(page.locator('#info .garrison')).toContainText('3/3 men · full strength');
+  expect(await page.evaluate(() => window.game.world.troops.map((t) => `${t.team} ${t.type}`))).toEqual(['red swordsman', 'red swordsman', 'red archer']);
+  await page.evaluate(() => window.game.togglePause());
+  await page.evaluate(() => {
+    const w = window.game.world;
+    const b = w.buildingAt(18, 10);
+    w.phase = 'wave';
+    w._spawnEnemy({ type: 'swordsman', side: 'north', hpMult: 1, elite: false });
+    Object.assign(w.enemies[0], { x: b.post.x + 3.5, z: b.post.z + 0.5, tx: b.post.x + 3, tz: b.post.z, target: null });
+    w.enemies[0].def = { ...w.enemies[0].def, speed: 0 };
+  });
+  await expect.poll(() => page.evaluate(() => window.game.world.troops.some((t) => t.fighting)), { timeout: 20_000 }).toBe(true);
+  // Drawn: each soldier has a view, and the red sprites are in the atlas.
+  expect(await page.evaluate(() => window.game.renderer.views.troops.size)).toBe(3);
+  expect(await page.evaluate(() => Boolean(window.game.renderer.atlas.frame('e:red:swordsman:0:attack:0')))).toBe(true);
+  await testInfo.attach('barracks', { body: await page.screenshot(), contentType: 'image/png' });
+  await expect.poll(() => page.evaluate(() => window.game.world.enemies.length), { timeout: 30_000 }).toBe(0);
+  expect(errors).toEqual([]);
+});

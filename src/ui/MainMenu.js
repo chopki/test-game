@@ -105,6 +105,7 @@ export class MainMenu {
         const a = d.attack;
         const lines = [['Cost', `${d.cost}g`], ['Health', d.maxHp]];
         if (a) lines.push(['Damage', a.kind === 'pulse' ? `${a.damage}, all in reach` : a.splash ? `${a.damage}, area` : a.damage], ['Range', a.range], ['Shots', `${(1 / a.cooldown).toFixed(1)}/s`]);
+        if (d.trains) lines.push(['Garrison', `${d.trains.garrison} men`], ['Trains', `1 every ${d.trains.every}s`]);
         return card(portrait(spriteKeys.icon(type)), d.name, lines, d.description);
       });
     const foes = Object.entries(ENEMIES).map(([type, d]) => {

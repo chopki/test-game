@@ -38,6 +38,8 @@ to a fixed-timestep server, replays or AI opponents later.
 | ---------------- | -------------- |
 | `config.js`      | **All balance data**: grid (and the map sizes), economy, timings, building and enemy tables, wave tuning |
 | `World.js`       | Game state and rules: phases, placement, combat, enemy AI, projectiles, events |
+| `troops.js`      | The player's troops: Barracks posts (`findPost`), training (`updateBarracks`), troop AI and movement (`updateTroop`) |
+| `pathfind.js`    | A* over the grid (`findPath`) for units that go somewhere of their own (troops) |
 | `upgrades.js`    | Building stages: `stageDef(type, stage)` lays UPGRADES' stage changes over BUILDINGS (World swaps `b.def` on `upgrade`) |
 | `Grid.js`        | Tile occupancy (building id per cell), terrain per cell (`isBlocked`, `isBuildable`), footprints, spawn zone |
 | `terrain.js`     | Terrain types (incl. `sea`, `sand`, `cliff`, `ramp`) and the seeded map generator (`generateMap` → `{ types, levels }`, with an optional `coast` side and `hillsRng`; `generateTerrain` returns just the types); height helpers `tileCorners` / `groundHeight`: features, then repair passes; `analyzeTerrain` checks the map rules |
@@ -57,14 +59,17 @@ Entities are plain objects (no classes) so they're easy to inspect and, later, s
 - **Enemy**: `{ id, type, def, elite, squad, x, z, tx, tz, target, hp, maxHp, attackTargetId, attackTimer, retarget, heading, moving, alive }`
   (`tx, tz` is the tile the enemy is committed to, `target` the tile it's walking into; `attackTargetId` the
   building it's hitting or, for ranged enemies, shooting)
-- **Projectile**: towers' shots, plus enemy shots (`hostile: true`, aimed at `building`; they only damage it)
+- **Troop**: `{ id, type, def, team, barracksId, slot, x, z, tx, tz, hp, maxHp, heading, moving, fighting, attackTimer, target, path, post, alive }`
+  (`def` is from `TROOPS.types`; `target` the enemy it's going for). Enemies fighting one hold it in `troopTarget`.
+- **Projectile**: towers' and troops' shots, plus enemy shots (`hostile: true`, aimed at `building` or `troop`; they only damage it)
 - **Projectile**: `{ id, kind, x, y, z, target?, damage, splash, t, flightTime, alive }`
 
 `def` points at the entry in `config.js`, so behaviour is data-driven: anything with `def.attack` acts as a tower,
 including the Town Hall.
 
 **World events:** `goldChanged`, `buildingPlaced`, `buildingSold`, `buildingDestroyed`, `enemySpawned`,
-`enemyKilled`, `projectileFired`, `projectileImpact`, `waveStarted`, `waveCleared`, `gameOver`.
+`enemyKilled`, `projectileFired`, `projectileImpact`, `waveStarted`, `waveCleared`, `gameOver`, `troopTrained`,
+`troopKilled` (`dismissed: true` when its Barracks went).
 
 ### `src/render/`, presentation
 
@@ -262,10 +267,11 @@ Extend `_fire` / `_updateProjectile` in `World.js`, plus `createProjectileModel`
 
 ## Planned extensions and where they plug in
 
-- **Troops** (player units) will need a second entity list in `World`, a target-selection pass that can pick enemies,
-  and enemies that can target troops. Plan: generalise "enemy attacks the building blocking its path" into a
-  `faction`-aware combat module (`sim/combat.js`), and move movement into `sim/movement.js` so troops and enemies share it.
-  Troops will use per-target A* (or a second flow field towards a rally point) rather than the shared Town Hall field.
+- **Troops** are in (`sim/troops.js`, `world.troops`, A* in `sim/pathfind.js`); units carry a `team` ('red' the
+  player, 'blue' the enemy), drawn as the same models in that team's livery (`createEnemyModel(type, elite, team)`;
+  sprite keys `e:red:…`). For Conquest (see ROADMAP), the next step is to generalise enemies and troops into one
+  unit list with a `team`, a `faction`-aware combat module (`sim/combat.js`) and shared movement (`sim/movement.js`),
+  with per-lane waypoint flow fields per team.
 - **Heroes** are troops with a level, XP and abilities. Abilities should be data in `config.js` with handlers in
   `sim/abilities.js`, triggered by World commands (`world.castAbility(heroId, abilityId, target)`).
 - **Economy**: `Economy` grows into multiple resources (`{ gold, wood, stone, food }`) with `cost` objects in place of

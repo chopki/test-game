@@ -1,4 +1,4 @@
-import { BUILDINGS, ECONOMY, ENEMIES, GRID, PATHING, START_FORT, TERRAIN, TIMING, UPGRADES } from './config.js';
+import { BUILDINGS, ECONOMY, ENEMIES, GRID, PATHING, START_FORT, TERRAIN, TIMING, TROOPS, UPGRADES } from './config.js';
 import { nextUpgradeCost, stageDef } from './upgrades.js';
 import { createRng } from './rng.js';
 import { EventBus } from './EventBus.js';
@@ -9,6 +9,7 @@ import { WaveManager } from './WaveManager.js';
 import { planWall } from './wallPlanner.js';
 import { generateMap, groundHeight, spawnTilesBySide, T } from './terrain.js';
 import { SIDES } from './WaveManager.js';
+import { refreshPosts, updateBarracks, updateTroop } from './troops.js';
 
 /**
  * The whole game state and rules, with no rendering or DOM dependencies.
@@ -30,9 +31,12 @@ import { SIDES } from './WaveManager.js';
  * blocks their way (walls, towers, the gatehouse); ranged enemies (archers, siege catapults) stop and shoot a
  * building in range instead; rams and catapults hit buildings far harder than men.
  *
+ * The player's troops (`troops`, see troops.js) come from Barracks and fight enemies near its post; enemy men stop
+ * to fight a soldier who comes up to them, and enemy archers with nothing else to shoot shoot soldiers.
+ *
  * Events emitted: goldChanged, buildingPlaced, buildingSold, buildingDestroyed,
  * enemySpawned, enemyKilled, projectileFired, projectileImpact, towerPulse, buildingHit, waveStarted,
- * waveCleared, gameOver. Enemy shots are projectiles too (`hostile: true`, fired by `enemy`).
+ * waveCleared, gameOver, troopTrained, troopKilled. Enemy shots are projectiles too (`hostile: true`, fired by `enemy`).
  */
 export class World {
   constructor({ seed = Date.now(), terrain = 'open', fort = false, river = false, sea = false, size = null, hills = false } = {}) {
@@ -46,6 +50,7 @@ export class World {
     this.buildings = new Map();
     this.enemies = [];
     this.projectiles = [];
+    this.troops = [];
 
     this.phase = 'build';
     this.phaseTimer = TIMING.firstBuildPhase;
@@ -56,6 +61,7 @@ export class World {
     this._squads = new Map(); // squad number → where its men line up on the edge (this wave)
     this._flowDirty = true;
     this._flowTimer = 0;
+    this._postsDirty = true; // Barracks posts need finding again (buildings came or went)
 
     const s = BUILDINGS.townHall.size;
     const { width: W, height: H } = this.grid;
@@ -350,12 +356,22 @@ export class World {
     this._flowTimer -= dt;
     if (this._flowDirty || this._flowTimer <= 0) this._refreshFlow();
 
+    if (this._postsDirty) {
+      this._postsDirty = false;
+      refreshPosts(this);
+    }
+
     for (const e of this.enemies) if (e.alive) this._updateEnemy(e, dt);
     if (this.phase === 'gameover') return;
-    for (const b of this.buildings.values()) if (b.def.attack) this._updateTower(b, dt);
+    for (const b of this.buildings.values()) {
+      if (b.def.attack) this._updateTower(b, dt);
+      else if (b.def.trains) updateBarracks(this, b, dt);
+    }
+    for (const t of this.troops) if (t.alive) updateTroop(this, t, dt);
     for (const p of this.projectiles) this._updateProjectile(p, dt);
 
     this.enemies = this.enemies.filter((e) => e.alive);
+    this.troops = this.troops.filter((t) => t.alive);
     this.projectiles = this.projectiles.filter((p) => p.alive);
 
     if (this.phase === 'wave' && this.waves.isSpawningDone() && this.enemies.length === 0) this._endWave();
@@ -384,6 +400,7 @@ export class World {
     this.buildings.set(b.id, b);
     this.grid.fill(x, z, def.size, b.id);
     this._flowDirty = true;
+    this._postsDirty = true;
     return b;
   }
 
@@ -421,7 +438,10 @@ export class World {
     this.buildings.delete(b.id);
     this.grid.fill(b.x, b.z, b.size, null);
     for (const e of this.enemies) if (e.attackTargetId === b.id) e.attackTargetId = null;
+    // A Barracks' men go with it.
+    for (const t of this.troops) if (t.barracksId === b.id && t.alive) this._removeTroop(t, 'dismissed');
     this._flowDirty = true;
+    this._postsDirty = true;
   }
 
   /** `from`: where the blow came from ({ x, z }, e.g. the attacker), for the renderer's hit effects. */
@@ -554,11 +574,11 @@ export class World {
     this.events.emit('projectileFired', { projectile: p, building: b });
   }
 
-  /** An enemy's shot at building `b`: an arrow or a boulder at the nearest point of its footprint. */
-  _fireAtBuilding(e, b) {
+  /** An enemy's shot at building `b` (an arrow or a boulder at the nearest point of its footprint), or at soldier `troop`. */
+  _fireAtBuilding(e, b, troop = null) {
     const r = e.def.ranged;
     const scale = e.elite ? 1.3 : 1;
-    const [tx, tz] = this._nearestPoint(b, e.x, e.z);
+    const [tx, tz] = troop ? [troop.x, troop.z] : this._nearestPoint(b, e.x, e.z);
     const p = {
       id: this._nextId++,
       kind: r.projectile,
@@ -570,10 +590,11 @@ export class World {
       y: e.def.height * 0.7 * scale,
       z: e.z,
       tx,
-      ty: Math.min(1, b.def.height * 0.5),
+      ty: troop ? troop.def.height * 0.6 : Math.min(1, b.def.height * 0.5),
       tz,
       target: null,
       building: b,
+      troop,
       damage: e.def.damage * (e.elite ? 1.5 : 1),
       splash: r.projectile === 'boulder' ? 0.8 : 0,
       slow: null,
@@ -601,8 +622,10 @@ export class World {
 
     p.alive = false;
     if (p.hostile) {
-      // Enemy shots only hurt the building they were aimed at (if it still stands).
-      if (this.buildings.get(p.building.id) === p.building) this._damageBuilding(p.building, p.damage, { x: p.sx, z: p.sz });
+      // Enemy shots only hurt the building or soldier they were aimed at (if it still stands).
+      if (p.troop) {
+        if (p.troop.alive) this._damageTroop(p.troop, p.damage);
+      } else if (this.buildings.get(p.building.id) === p.building) this._damageBuilding(p.building, p.damage, { x: p.sx, z: p.sz });
     } else if (p.splash > 0) {
       const r2 = p.splash * p.splash;
       for (const e of this.enemies) {
@@ -670,6 +693,8 @@ export class World {
       hp: maxHp,
       maxHp,
       attackTargetId: null, // the building it's hacking at, battering or shooting
+      troopTarget: null, // the soldier it's fighting (or shooting)
+      troopScan: 0, // seconds until it looks for soldiers nearby again
       attackTimer: 0,
       retarget: 0, // ranged enemies: seconds until they look for something to shoot again
       // Small per-enemy offset so groups don't walk in a single-file line.
@@ -688,6 +713,18 @@ export class World {
   _updateEnemy(e, dt) {
     e.moving = false;
     const ranged = e.def.ranged;
+
+    if (e.troopTarget && this._fightTroop(e, dt)) return;
+    if (!e.def.siege && this.troops.length && (e.troopScan -= dt) <= 0) {
+      e.troopScan = 0.25;
+      // Men fight a soldier who comes up to them; archers shoot one in range if they've no building to shoot.
+      const reach = ranged ? (e.attackTargetId === null && !this._rangedTarget(e) ? ranged.range : 0) : TROOPS.engage;
+      const t = reach > 0 ? this._troopNear(e, reach) : null;
+      if (t) {
+        this._engageTroop(e, t);
+        return;
+      }
+    }
 
     if (e.attackTargetId !== null) {
       const b = this.buildings.get(e.attackTargetId);
@@ -802,6 +839,60 @@ export class World {
       [tx, tz] = [next.x, next.z];
     }
     return prefer === 'towers' ? (tower ?? blocker) : (blocker ?? tower);
+  }
+
+  // ---------------------------------------------------------------- troops (see troops.js)
+
+  /** The nearest living soldier within `reach` of enemy `e`, or null. */
+  _troopNear(e, reach) {
+    let best = null;
+    let bestDist = reach;
+    for (const t of this.troops) {
+      if (!t.alive) continue;
+      const d = Math.hypot(t.x - e.x, t.z - e.z);
+      if (d <= bestDist) {
+        best = t;
+        bestDist = d;
+      }
+    }
+    return best;
+  }
+
+  _engageTroop(e, t) {
+    e.troopTarget = t;
+    e.attackTargetId = null;
+    e.attackTimer = e.def.attackCooldown * 0.5;
+  }
+
+  /** Enemy `e` fights its soldier: false (and lets go) once he's dead or out of reach, so it carries on its way. */
+  _fightTroop(e, dt) {
+    const t = e.troopTarget;
+    const ranged = e.def.ranged;
+    const reach = ranged ? ranged.range : TROOPS.engage * 1.5;
+    if (!t.alive || Math.hypot(t.x - e.x, t.z - e.z) > reach) {
+      e.troopTarget = null;
+      return false;
+    }
+    e.heading = Math.atan2(t.x - e.x, t.z - e.z);
+    e.attackTimer -= dt;
+    if (e.attackTimer <= 0) {
+      e.attackTimer += e.def.attackCooldown;
+      if (ranged) this._fireAtBuilding(e, null, t);
+      else this._damageTroop(t, e.def.damage * (e.elite ? 1.5 : 1));
+    }
+    return true;
+  }
+
+  _damageTroop(t, amount) {
+    if (!t.alive) return;
+    t.hp -= amount;
+    if (t.hp <= 0) this._removeTroop(t, 'killed');
+  }
+
+  _removeTroop(t, how) {
+    t.alive = false;
+    t.hp = Math.max(0, t.hp);
+    this.events.emit('troopKilled', { troop: t, dismissed: how === 'dismissed' });
   }
 
   _damageEnemy(e, amount) {

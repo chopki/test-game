@@ -210,6 +210,18 @@ export const BUILDINGS = {
       arc: 4,
     },
   },
+  barracks: {
+    name: 'Barracks',
+    description: 'Trains soldiers in red who march out to meet the enemy near it and hold them up while your towers work.',
+    size: 2,
+    maxHp: 450,
+    cost: 120,
+    buildable: true,
+    hotkey: '6',
+    height: 1.4,
+    // Trains one man every `every` seconds, in `roster` order, until `garrison` of its men are alive (see TROOPS).
+    trains: { roster: ['swordsman', 'swordsman', 'archer'], garrison: 3, every: 8 },
+  },
   gatehouse: {
     name: 'Gatehouse',
     description: "The fort's log gatehouse. While it stands, enemies can't get through: they must smash it or find another way in.",
@@ -380,6 +392,46 @@ export const ENEMIES = {
     height: 1.2,
     squad: [1, 1],
     escort: { type: 'pikeman', count: 2 },
+  },
+};
+
+/**
+ * The player's troops, trained at a Barracks (see `trains` there). They wear red; the enemy army wears blue. Each
+ * Barracks has a post (its rally point, out from its door): its men go out to fight any enemy that comes within
+ * `guardRadius` of the post, chase it no further than `leash` from it, and walk back when none are left, healing
+ * `regen` health a second while they stand at the post. Enemy men stop to fight a soldier who comes within
+ * `engage` of them (siege engines don't). Types use the enemy models of the same name, in red livery.
+ *  reach     how close a man must be to strike (tiles)
+ *  ranged    optional: { range, projectile, projectileSpeed, arc }: stops and shoots from up to `range`
+ */
+export const TROOPS = {
+  guardRadius: 5,
+  leash: 7,
+  regen: 4,
+  engage: 0.9,
+  postDistance: 2, // tiles out from the Barracks' edge
+  types: {
+    swordsman: {
+      name: 'Man-at-arms',
+      plural: 'Men-at-arms',
+      maxHp: 110,
+      speed: 1.3,
+      damage: 9,
+      attackCooldown: 1.0,
+      reach: 0.7,
+      height: 0.95,
+    },
+    archer: {
+      name: 'Bowman',
+      plural: 'Bowmen',
+      maxHp: 60,
+      speed: 1.25,
+      damage: 8,
+      attackCooldown: 1.3,
+      reach: 0.7,
+      height: 0.9,
+      ranged: { range: 4.5, projectile: 'arrow', projectileSpeed: 15, arc: 0.6 },
+    },
   },
 };
 

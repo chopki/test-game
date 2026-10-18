@@ -1672,6 +1672,14 @@ body.menu-open #app canvas {
   text-align: center;
 }
 
+.garrison {
+  margin: 6px 0 0;
+  font-family: var(--fell);
+  font-size: 0.85em;
+  color: var(--ink-muted);
+  text-align: center;
+}
+
 .codex-why {
   margin: 6px 0 0;
   font-size: 0.8em;

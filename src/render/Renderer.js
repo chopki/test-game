@@ -142,7 +142,7 @@ export class Renderer {
     this.sprites = new SpriteLayer(this.atlas, this.entityLayer, 'object');
     this.turretHeights = {};
 
-    this.views = { buildings: new Map(), enemies: new Map(), projectiles: new Map() };
+    this.views = { buildings: new Map(), enemies: new Map(), troops: new Map(), projectiles: new Map() };
     this.healthBars = new HealthBarBatch(this.overlayLayer);
     this._streakDir = new THREE.Vector3();
     this.blobShadows = new BlobShadowBatch(this.groundLayer);
@@ -722,6 +722,11 @@ export class Renderer {
         }
         this.corpses.push({ type: enemy.type, elite: enemy.elite, heading: enemy.heading, x: enemy.x, z: enemy.z, age: 0 });
       }),
+      ev.on('troopKilled', ({ troop, dismissed }) => {
+        if (dismissed) return;
+        this._fxDust(troop.x, 0.25, troop.z, 3, 0.35);
+        this.corpses.push({ type: troop.type, elite: false, team: troop.team, heading: troop.heading, x: troop.x, z: troop.z, age: 0 });
+      }),
       ev.on('buildingHit', (hit) => this._fxHit(hit)),
       ev.on('waveStarted', ({ wave }) => this.setWeather(this.weather.season, this._weatherFor(wave, this.weather.season))),
       ev.on('buildingDestroyed', ({ building }) => this._fxCollapse(building)),
@@ -818,6 +823,7 @@ export class Renderer {
     if (world) {
       this._sync(this.views.buildings, world.buildings.values(), (b) => this._createBuildingView(b), (v, b) => this._updateBuildingView(v, b));
       this._sync(this.views.enemies, world.enemies, () => ({ walk: Math.random() }), (v, e) => this._updateEnemyView(v, e));
+      this._sync(this.views.troops, world.troops, () => ({ walk: Math.random() }), (v, t) => this._updateEnemyView(v, t));
       this._drawCorpses(dt);
       this._sync(this.views.projectiles, world.projectiles, (p) => this._createProjectileView(p), (v, p) => this._updateProjectileView(v, p));
     }
@@ -1118,23 +1124,25 @@ export class Renderer {
     }
   }
 
+  /** An enemy, or one of the player's troops (`e.team` 'red'; they're the same men in another livery). */
   _updateEnemyView(view, e) {
     // Animation frame: attacks follow the sim's attack timer (the blow lands on the last frame, as the hit
     // does); walking advances with the distance actually covered.
     let anim = 'walk';
     let frame = 0;
-    if (e.attackTargetId !== null) {
+    const team = e.team ?? 'blue';
+    if (team === 'blue' ? e.attackTargetId !== null || e.troopTarget : e.fighting) {
       anim = 'attack';
       const t = 1 - e.attackTimer / e.def.attackCooldown;
       frame = Math.min(ENEMY_ANIMS.attack - 1, Math.max(0, Math.floor(t * ENEMY_ANIMS.attack)));
     } else {
-      if (e.moving) view.walk = (view.walk + (e.def.speed * e.slowFactor * this._dt) / (WALK_STRIDE[e.type] ?? 0.8)) % 1;
+      if (e.moving) view.walk = (view.walk + (e.def.speed * (e.slowFactor ?? 1) * this._dt) / (WALK_STRIDE[e.type] ?? 0.8)) % 1;
       frame = Math.floor(view.walk * ENEMY_ANIMS.walk) % ENEMY_ANIMS.walk;
     }
     view.anim = anim;
     view.frame = frame;
     const scale = e.elite ? 1.3 : 1;
-    this._addEnemySprite(e.type, e.elite, e.heading, anim, frame, this.toScene(e.x, 0, e.z, this._v));
+    this._addEnemySprite(e.type, e.elite, e.heading, anim, frame, this.toScene(e.x, 0, e.z, this._v), team);
     this.blobShadows.add(this.toScene(e.x, 0.02, e.z, this._v), (ENEMY_BLOB_RADIUS[e.type] ?? 0.3) * scale);
     const bar = this._barFade(view, e);
     if (bar) this.healthBars.add(this.toScene(e.x, e.def.height * scale + 0.25, e.z, this._v), ENEMY_BAR_WIDTH[e.type] ?? 0.6, e.hp / e.maxHp, bar);
@@ -1156,8 +1164,8 @@ export class Renderer {
     return Math.max(0, Math.min(1, (BAR_SHOW - since) / BAR_FADE));
   }
 
-  _addEnemySprite(type, elite, heading, anim, frame, ground) {
-    let key = spriteKeys.enemy(type, heading, elite, anim, frame);
+  _addEnemySprite(type, elite, heading, anim, frame, ground, team = 'blue') {
+    let key = spriteKeys.enemy(type, heading, elite, anim, frame, team);
     let spriteScale = 1;
     if (elite && !this.atlas.frame(key)) {
       // No baked elite sprite for this type: scale the normal one.
@@ -1173,7 +1181,7 @@ export class Renderer {
       c.age += dt;
       if (c.age > ENEMY_ANIMS.death * DEATH_FRAME_TIME + CORPSE_TIME) return false;
       const frame = Math.min(ENEMY_ANIMS.death - 1, Math.floor(c.age / DEATH_FRAME_TIME));
-      this._addEnemySprite(c.type, c.elite, c.heading, 'death', frame, this.toScene(c.x, 0, c.z, this._v));
+      this._addEnemySprite(c.type, c.elite, c.heading, 'death', frame, this.toScene(c.x, 0, c.z, this._v), c.team);
       return true;
     });
   }

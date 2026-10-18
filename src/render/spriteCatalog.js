@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { BUILDINGS, ENEMIES, UPGRADES, WAVES } from '../sim/config.js';
+import { BUILDINGS, ENEMIES, TROOPS, UPGRADES, WAVES } from '../sim/config.js';
 import { wavingPennant, withoutPennantCloth } from './modelKit.js';
 import { ANIMAL_KINDS, ANIMAL_POSES, createAnimal } from './animals.js';
 import { createWallDecor, WALL_DECOR_KINDS } from './wallDecor.js';
@@ -52,9 +52,9 @@ export const spriteKeys = {
   wallJoint: (dir, stage = 1) => `join:${dir}${st(stage)}`,
   turret: (type, aim, frame = 0) => `t:${type}:${angleIndex(aim, TURRET_DIRECTIONS)}:${frame}`,
   crystal: () => 'crystal',
-  /** An enemy frame: `anim` is 'walk', 'attack' or 'death' (see ENEMY_ANIMS). */
-  enemy: (type, heading, elite = false, anim = 'walk', frame = 0) =>
-    `e:${type}:${elite ? 'elite:' : ''}${angleIndex(heading, ENEMY_DIRECTIONS)}:${anim}:${frame}`,
+  /** A man's (or engine's) frame: `anim` is 'walk', 'attack' or 'death' (see ENEMY_ANIMS); `team` 'red' for the player's troops. */
+  enemy: (type, heading, elite = false, anim = 'walk', frame = 0, team = 'blue') =>
+    `e:${team === 'blue' ? '' : `${team}:`}${type}:${elite ? 'elite:' : ''}${angleIndex(heading, ENEMY_DIRECTIONS)}:${anim}:${frame}`,
   scenery: (kind, variant) => `s:${kind}:${variant}`,
   /** A tile's length of cliff face (see createCliffPiece), facing 's' (+z) or 'e' (+x). */
   cliff: (face, profile, variant) => `cliff:${face}:${profile}:${variant}`,
@@ -88,7 +88,7 @@ export const SPRITE_SETS = {
   standard: { dir: 'sprites/', options: BAKE_OPTIONS },
   hd: { dir: 'sprites-hd/', options: { pxPerUnit: 144, supersample: 1.5 } },
 };
-/** Enemies are small and always moving, so they're baked at a lower resolution (there are ~780 frames). */
+/** Men and engines are small and always moving, so they're baked at a lower resolution (there are ~1000 frames). */
 const ENEMY_PX_PER_UNIT = 56;
 
 /** Pose the catapult arm for a reload frame. */
@@ -203,20 +203,22 @@ export function spriteSpecs() {
     }
   }
 
-  for (const type of Object.keys(ENEMIES)) {
-    const variants = type === WAVES.bossType ? [false, true] : [false];
+  // The enemy army in blue, and the player's troops (the same men) in red.
+  const units = [...Object.keys(ENEMIES).map((type) => ({ type, team: 'blue' })), ...Object.keys(TROOPS.types).map((type) => ({ type, team: 'red' }))];
+  for (const { type, team } of units) {
+    const variants = type === WAVES.bossType && team === 'blue' ? [false, true] : [false];
     for (const elite of variants) {
       for (let d = 0; d < ENEMY_DIRECTIONS; d++) {
         const heading = (d / ENEMY_DIRECTIONS) * Math.PI * 2;
         for (const [anim, frames] of Object.entries(ENEMY_ANIMS)) {
           for (let f = 0; f < frames; f++) {
             specs.push({
-              key: spriteKeys.enemy(type, heading, elite, anim, f),
+              key: spriteKeys.enemy(type, heading, elite, anim, f, team),
               shadow: false,
               // Elites are drawn 1.3× bigger; this keeps their frames the same size in pixels.
               pxPerUnit: elite ? ENEMY_PX_PER_UNIT / 1.3 : ENEMY_PX_PER_UNIT,
               make: () => {
-                const m = poseEnemy(createEnemyModel(type, elite), anim, f);
+                const m = poseEnemy(createEnemyModel(type, elite, team), anim, f);
                 m.rotation.y = heading;
                 return m;
               },
