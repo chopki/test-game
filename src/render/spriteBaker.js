@@ -71,8 +71,12 @@ export class SpriteAtlas {
 /**
  * Bake `specs` = [{ key, make: () => Object3D, shadow = true, ink = true, pxPerUnit? }] into a SpriteAtlas.
  * `pxPerUnit` is the sprite resolution at zoom 1 (rendered at `supersample`× and scaled down for smooth edges).
+ *
+ * `cached` (scripts/bake-sprites.mjs's incremental bake): a Map of key → a sprite rendered before
+ * ({ image, shadowImage?, w, h, anchorX, anchorY }, see spriteFingerprint), used as it is; `onRendered(key, item)`
+ * hears of each sprite rendered afresh, so it can be cached.
  */
-export function bakeSprites(specs, { pxPerUnit = 64, supersample = 2, ink = true } = {}) {
+export function bakeSprites(specs, { pxPerUnit = 64, supersample = 2, ink = true, cached = null, onRendered = null } = {}) {
   const started = performance.now();
   const atlas = new SpriteAtlas();
   const canvas = document.createElement('canvas');
@@ -143,6 +147,11 @@ export function bakeSprites(specs, { pxPerUnit = 64, supersample = 2, ink = true
 
     for (const spec of specs) {
       const { key, make, shadow = true } = spec;
+      const hit = cached?.get(key);
+      if (hit) {
+        rendered.push({ key, ...hit });
+        continue;
+      }
       const object = make();
       scene.add(object);
       object.updateMatrixWorld(true);
@@ -273,6 +282,7 @@ export function bakeSprites(specs, { pxPerUnit = 64, supersample = 2, ink = true
         item.shadowImage = canvasOf(Math.ceil(outW / 2), Math.ceil(outH / 2));
         item.shadowImage.getContext('2d').drawImage(canvas, 0, 0, canvas.width, canvas.height, 0, 0, item.shadowImage.width, item.shadowImage.height);
       }
+      onRendered?.(key, item);
       scene.remove(object);
     }
   } finally {
@@ -285,7 +295,6 @@ export function bakeSprites(specs, { pxPerUnit = 64, supersample = 2, ink = true
   return atlas;
 }
 
-/** Pack rendered sprites (and their shadows) onto pages, tallest first; trim the last page's height. */
 /**
  * Part of a model that's there only to hide what's behind it (flag a group with userData.occluder): e.g. a tower
  * baked invisibly round its turning lookouts, so their frames hold only what shows past its roof and boards.
@@ -295,6 +304,7 @@ function isOccluder(o) {
   return false;
 }
 
+/** Pack rendered sprites (and their shadows) onto pages, tallest first; trim the last page's height. */
 function packAtlas(atlas, rendered) {
   const rects = [];
   for (const item of rendered) {
@@ -393,4 +403,106 @@ export function frameToDataURL(atlas, key) {
   c.height = f.pixels.h;
   c.getContext('2d').drawImage(atlas.pages[f.page].source, f.pixels.x, f.pixels.y, f.pixels.w, f.pixels.h, 0, 0, f.pixels.w, f.pixels.h);
   return c.toDataURL('image/png');
+}
+
+// ---------------------------------------------------------------- fingerprints (the incremental bake)
+
+/**
+ * A fingerprint of what `spec`'s sprite will look like: everything about its built model `object` that rendering
+ * reads (each visible mesh's geometry, material, textures' pixels and place), its own bake options, and `salt`
+ * (the set's options and the baker's own sources, from scripts/bake-sprites.mjs). Two sprites with the same
+ * fingerprint render the same, so a sprite whose fingerprint is unchanged needn't be rendered again.
+ */
+export function spriteFingerprint(object, spec, salt, memo = new Map()) {
+  const h = new Hasher();
+  h.str(salt);
+  h.str(JSON.stringify([spec.shadow ?? true, spec.ink ?? true, spec.pxPerUnit ?? null]));
+  object.updateMatrixWorld(true);
+  object.traverseVisible((o) => {
+    if (!o.isMesh) return;
+    h.str(o.type);
+    h.str(isOccluder(o) ? 'occluder' : 'solid');
+    h.numbers(o.matrixWorld.elements);
+    h.str(memoized(memo, o.geometry, geometryPrint));
+    for (const m of Array.isArray(o.material) ? o.material : [o.material]) h.str(memoized(memo, m, (m) => materialPrint(m, memo)));
+  });
+  return h.digest();
+}
+
+const memoized = (memo, thing, print) => {
+  if (!memo.has(thing.uuid)) memo.set(thing.uuid, print(thing));
+  return memo.get(thing.uuid);
+};
+
+function geometryPrint(g) {
+  const h = new Hasher();
+  for (const name of Object.keys(g.attributes).sort()) {
+    const a = g.attributes[name];
+    h.str(`${name}:${a.itemSize}:${a.normalized}`);
+    h.array(a.array);
+  }
+  if (g.index) h.array(g.index.array);
+  h.str(JSON.stringify([g.groups, g.drawRange]));
+  return h.digest();
+}
+
+const SKIP = new Set(['uuid', 'name', 'id', 'version', 'userData', 'needsUpdate']);
+
+function materialPrint(m, memo) {
+  const parts = [];
+  for (const k of Object.keys(m).sort()) {
+    const v = m[k];
+    if (SKIP.has(k) || k.startsWith('_') || typeof v === 'function' || v === null || v === undefined) continue;
+    if (v.isColor) parts.push(`${k}=${v.getHexString()}`);
+    else if (v.isTexture) parts.push(`${k}=${memoized(memo, v, texturePrint)}`);
+    else if (v.isVector2 || v.isVector3) parts.push(`${k}=${v.toArray().join(',')}`);
+    else if (typeof v === 'object') parts.push(`${k}=${JSON.stringify(v)}`);
+    else parts.push(`${k}=${v}`);
+  }
+  return parts.join(';');
+}
+
+function texturePrint(t) {
+  const h = new Hasher();
+  h.str(JSON.stringify([t.wrapS, t.wrapT, t.repeat.toArray(), t.offset.toArray(), t.rotation, t.center.toArray(), t.colorSpace, t.flipY, t.minFilter, t.magFilter, t.anisotropy, t.generateMipmaps]));
+  const img = t.image;
+  if (img?.getContext) h.array(img.getContext('2d').getImageData(0, 0, img.width, img.height).data);
+  else h.str(String(img?.src ?? img?.width));
+  return h.digest();
+}
+
+/** Two 32-bit FNV-style hashes side by side (64 bits: plenty for a few thousand sprites). */
+class Hasher {
+  constructor() {
+    this.a = 0x811c9dc5;
+    this.b = 0x01000193 ^ 0x9e3779b9;
+  }
+
+  word(w) {
+    this.a = Math.imul(this.a ^ w, 0x01000193);
+    this.b = Math.imul(this.b ^ w, 0x5bd1e995) ^ (this.b >>> 15);
+  }
+
+  str(s) {
+    for (let i = 0; i < s.length; i++) this.word(s.charCodeAt(i));
+    this.word(0xff);
+  }
+
+  /** A typed array's bytes (as 32-bit words, plus the odd bytes left over). */
+  array(arr) {
+    const bytes = new Uint8Array(arr.buffer, arr.byteOffset, arr.byteLength);
+    const words = arr.byteOffset % 4 ? new Uint32Array(0) : new Uint32Array(arr.buffer, arr.byteOffset, bytes.length >> 2);
+    for (let i = 0; i < words.length; i++) this.word(words[i]);
+    for (let i = words.length * 4; i < bytes.length; i++) this.word(bytes[i]);
+    this.word(bytes.length);
+  }
+
+  numbers(list) {
+    // Rounded, so float noise in the last place doesn't count as a change.
+    for (const v of list) this.word(Math.round(v * 1e5) | 0);
+  }
+
+  digest() {
+    return (this.a >>> 0).toString(16).padStart(8, '0') + (this.b >>> 0).toString(16).padStart(8, '0');
+  }
 }

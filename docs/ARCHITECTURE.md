@@ -89,6 +89,12 @@ so the whole battlefield is ~15 draw calls and a few hundred triangles however d
   The dev server bakes live, so model edits show immediately. `test/sprites.test.js` fails when the atlas is
   stale (hash of the model/texture sources), so a deploy can't ship out-of-date sprites. A missing sprite at
   runtime falls back to a live bake.
+- **The bake is incremental**: each sprite's fingerprint (`spriteFingerprint` in spriteBaker.js: its model's
+  geometry, materials, texture pixels and placement, its bake options, the set's options and a hash of the baker's
+  own sources) is looked up in a local cache (`node_modules/.cache/sprite-bake/`); only sprites with a new
+  fingerprint are rendered, so a model change re-renders only that model's sprites. `npm run bake -- --fresh`
+  starts from an empty cache (about 8 minutes for both sets, almost all of it the sprites with ground shadows).
+  Each sprite's shadow map is drawn once, sized to the sprite.
 - Sprite depth: each quad faces the camera, so it shares the depth of its ground anchor, which gives correct
   back-to-front occlusion without sorting. The ground doesn't write depth (so sprite bases aren't clipped);
   baked shadows, blob shadows, the grid and selection marks are drawn as underlays (`underlay()` in

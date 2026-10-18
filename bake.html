@@ -5,12 +5,51 @@
     <title>Sprite bake (dev tool)</title>
   </head>
   <body>
-    <!-- Used by scripts/bake-sprites.mjs: bakes every sprite in the browser and hands the result back. -->
+    <!--
+      Used by scripts/bake-sprites.mjs: bakes every sprite in the browser and hands the result back. Incremental:
+      each sprite's fingerprint (spriteFingerprint) is looked up in the script's cache (window.bakeCacheGet), only
+      the sprites not found are rendered, and those are handed back for the cache (window.bakeCachePut).
+    -->
     <script type="module">
-      import { bakeSprites, serializeAtlas } from '/src/render/spriteBaker.js';
+      import { bakeSprites, serializeAtlas, spriteFingerprint } from '/src/render/spriteBaker.js';
       import { SPRITE_SETS, spriteSpecs } from '/src/render/spriteCatalog.js';
-      const set = SPRITE_SETS[new URLSearchParams(location.search).get('set') ?? 'standard'];
-      window.__bake = serializeAtlas(bakeSprites(spriteSpecs(), set.options));
+      const params = new URLSearchParams(location.search);
+      const set = SPRITE_SETS[params.get('set') ?? 'standard'];
+      const salt = `${params.get('salt') ?? ''}:${JSON.stringify(set.options)}`;
+      const specs = spriteSpecs();
+
+      const prints = new Map();
+      const memo = new Map();
+      for (const spec of specs) prints.set(spec.key, spriteFingerprint(spec.make(), spec, salt, memo));
+      const found = window.bakeCacheGet ? await window.bakeCacheGet([...new Set(prints.values())]) : {};
+      // ImageBitmaps (Image.decode() fails now and then in headless Chromium when there are thousands).
+      const load = async (src) => createImageBitmap(await (await fetch(src)).blob());
+      // One at a time (decoding thousands at once fails), and a cached sprite that won't decode is just rendered.
+      const images = new Map();
+      let undecodable = 0;
+      let firstError = null;
+      for (const [print, entry] of Object.entries(found)) {
+        try {
+          images.set(print, { ...entry.meta, image: await load(entry.image), shadowImage: entry.shadow ? await load(entry.shadow) : undefined });
+        } catch (e) {
+          undecodable++; // (rendered afresh below)
+          firstError ??= `${e.message} (${entry.image.length} chars)`;
+        }
+      }
+      const cached = new Map();
+      for (const [key, print] of prints) if (images.has(print)) cached.set(key, images.get(print));
+
+      const fresh = [];
+      const atlas = bakeSprites(specs, {
+        ...set.options,
+        cached,
+        onRendered: (key, item) => fresh.push({ print: prints.get(key), item }),
+      });
+      for (const { print, item } of fresh) {
+        const { w, h, anchorX, anchorY } = item;
+        await window.bakeCachePut?.(print, { w, h, anchorX, anchorY }, item.image.toDataURL('image/png'), item.shadowImage?.toDataURL('image/png') ?? null);
+      }
+      window.__bake = { ...serializeAtlas(atlas), reused: cached.size, rendered: fresh.length, found: Object.keys(found).length, undecodable, firstError, prints: [...new Set(prints.values())] };
     </script>
   </body>
 </html>
