@@ -1,6 +1,6 @@
 # Design synthesis: how it all fits together, and a proposal for our game
 
-This pulls files 01–05 together: how Majesty's systems interlock, what sets each related game apart, and a concrete
+This pulls files 01–05 together (07–09 hold the detailed building, unit and enemy catalogues and proposals): how Majesty's systems interlock, what sets each related game apart, and a concrete
 starting design for our own. Nothing here is in the [roadmap](../ROADMAP.md) yet.
 
 **Decided so far**: either a mode of Hold the Hall or a new game is fine; medieval, fantasy or a crossover is fine;

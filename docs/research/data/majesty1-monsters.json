@@ -1,0 +1,506 @@
+{
+ "source": "Majesty wiki (majesty.fandom.com) monster pages, Oct 2026. hp/resist/dodge/defence are level-1 values; tags are wiki categories (Spawn in town = comes from sewers, graveyards or growth triggers).",
+ "monsters": [
+  {
+   "name": "Abomination",
+   "tags": [
+    "Boss"
+   ]
+  },
+  {
+   "name": "Angry Wizard",
+   "hp": 50,
+   "note": "Has a pet Varg.",
+   "tags": [
+    "Boss"
+   ]
+  },
+  {
+   "name": "Avatar of Krolm",
+   "hp": 4000,
+   "resist": 65,
+   "dodge": 45,
+   "defence": 55,
+   "note": "He appears whenever an Altar to Krolm is destroyed. When he is summoned in this manner, he will cause additional beast enemies to appear and imbue them with the Wrath of Krolm ability.",
+   "tags": [
+    "Boss"
+   ]
+  },
+  {
+   "name": "Black Phantom",
+   "hp": 175,
+   "resist": 65,
+   "dodge": 50,
+   "defence": 46,
+   "damage": "6–20",
+   "gold": 800,
+   "xp": 3500,
+   "behaviour": "Item Hunter",
+   "speed": 3,
+   "spells": "Electrical Fury, Exploding Aura",
+   "special_abilities": "Spell Casting—Range 200—Damage +2, Immunity to Poison, Resist Critical Hit, Relentless",
+   "traits": [
+    "Casts powerful spells of mass destruction."
+   ],
+   "tags": [
+    "Boss"
+   ]
+  },
+  {
+   "name": "Daemonwood",
+   "hp": 110,
+   "note": "Like trolls, Daemonwood slowly regenerate health. These deadly creatures are often seen guarding treasure or creature lairs. They wont attack buildings unless they are attacked by them.",
+   "tags": [
+    "Can be Charmed",
+    "Invisibility",
+    "Very strong"
+   ]
+  },
+  {
+   "name": "Dirgo the Cyclops",
+   "tags": [
+    "Boss"
+   ]
+  },
+  {
+   "name": "Dragon",
+   "tags": [
+    "Very strong"
+   ]
+  },
+  {
+   "name": "Dryad",
+   "hp": 35,
+   "resist": 30,
+   "dodge": 35,
+   "defence": 85,
+   "tags": [
+    "Magic Resistant"
+   ]
+  },
+  {
+   "name": "Evil Oculus",
+   "hp": 90,
+   "resist": 95,
+   "dodge": 25,
+   "defence": 30,
+   "note": "The Oculuss first attack will paralyze/stun its victim.",
+   "traits": [
+    "Casts spells of Paralyzation and Destruction."
+   ],
+   "tags": [
+    "Magic Resistant",
+    "Very strong"
+   ]
+  },
+  {
+   "name": "Flowering Strangleweed"
+  },
+  {
+   "name": "Giant Rat",
+   "hp": 19,
+   "resist": 0,
+   "dodge": 35,
+   "defence": 25,
+   "tags": [
+    "Can be Charmed",
+    "Rats",
+    "Spawn in town",
+    "Melee"
+   ]
+  },
+  {
+   "name": "Giant Spider",
+   "hp": 35,
+   "resist": 0,
+   "dodge": 30,
+   "defence": 30,
+   "traits": [
+    "Quickly surround their opponents in melee combat."
+   ],
+   "tags": [
+    "Can be Charmed"
+   ]
+  },
+  {
+   "name": "Goblin",
+   "hp": 20,
+   "resist": 3,
+   "dodge": 35,
+   "defence": 25
+  },
+  {
+   "name": "Goblin Archer",
+   "hp": 20,
+   "resist": 3,
+   "dodge": 40,
+   "defence": 25,
+   "traits": [
+    "Lends missile attacks to their warband."
+   ],
+   "tags": [
+    "Ranged",
+    "Goblins"
+   ]
+  },
+  {
+   "name": "Goblin Champion",
+   "hp": 35,
+   "resist": 4,
+   "dodge": 40,
+   "defence": 30
+  },
+  {
+   "name": "Goblin Overlord",
+   "hp": 60,
+   "resist": 20,
+   "dodge": 50,
+   "defence": 60
+  },
+  {
+   "name": "Goblin Priest",
+   "hp": 20,
+   "resist": 7,
+   "dodge": 30,
+   "defence": 25
+  },
+  {
+   "name": "Harpy",
+   "hp": 45,
+   "resist": 5,
+   "dodge": 45,
+   "defence": 25
+  },
+  {
+   "name": "Hellbear",
+   "hp": 45,
+   "resist": 0,
+   "dodge": 25,
+   "defence": 35,
+   "note": "Cultists can shape-shift into the form of a Hellbear but will still continue to throw their dagger as an attack.",
+   "traits": [
+    "Very strong melee combatant.",
+    "Avoids kingdom settlements where possible."
+   ],
+   "tags": [
+    "Can be Charmed",
+    "Minions",
+    "Spawn in town",
+    "Melee"
+   ]
+  },
+  {
+   "name": "Liche Queen",
+   "hp": 275,
+   "resist": 95,
+   "dodge": 40,
+   "defence": 35,
+   "traits": [
+    "Possesses many powerful spells."
+   ],
+   "tags": [
+    "Magic Resistant",
+    "Boss"
+   ]
+  },
+  {
+   "name": "Medusa",
+   "hp": 60,
+   "resist": 90,
+   "dodge": 35,
+   "defence": 35,
+   "tags": [
+    "Can be Charmed",
+    "Magic Resistant",
+    "Strong"
+   ]
+  },
+  {
+   "name": "Minotaur",
+   "hp": 75,
+   "resist": 0,
+   "dodge": 25,
+   "defence": 45,
+   "damage": "6-19",
+   "gold": 85,
+   "xp": 300,
+   "behaviour": "Raider",
+   "speed": 1,
+   "special_abilities": "None",
+   "note": "For every 25 visits to a blacksmith, a Minotaur will spawn in at a random edge of the map. These minotaurs are raiders and will seek out the nearest building to destroy, attacking any heroes that stand in their way.",
+   "traits": [
+    "Strong melee combatants.",
+    "Constantly seek battle against kingdom settlements and heroes."
+   ],
+   "tags": [
+    "Strong"
+   ]
+  },
+  {
+   "name": "Rat",
+   "tags": [
+    "Rats"
+   ]
+  },
+  {
+   "name": "Ratapult",
+   "hp": 150,
+   "resist": 5,
+   "dodge": 15,
+   "defence": 10
+  },
+  {
+   "name": "Ratman",
+   "hp": 45,
+   "resist": 2,
+   "dodge": 30,
+   "defence": 40,
+   "note": "Ratmen tend to steal gold from your buildings (especially Marketplaces and Inns). However, if they are killed, nearby heroes will get back most of the gold the Ratman had stolen. They are also one of the most common creatures to directly attack your Palace.",
+   "traits": [
+    "Average skill in melee combat"
+   ],
+   "tags": [
+    "Rats",
+    "Spawn in town",
+    "Melee"
+   ]
+  },
+  {
+   "name": "Ratman Champion",
+   "hp": 60,
+   "resist": 35,
+   "dodge": 45,
+   "defence": 60
+  },
+  {
+   "name": "Ratman Shaman",
+   "hp": 40,
+   "resist": 35,
+   "dodge": 30,
+   "defence": 35
+  },
+  {
+   "name": "Rhoden the Rat King",
+   "hp": 200,
+   "resist": 50,
+   "dodge": 60,
+   "defence": 75,
+   "note": "Rhoden does not appear right away in the quest. He appears around the 25-day mark.",
+   "traits": [
+    "Employs spells Summon Rats."
+   ],
+   "tags": [
+    "Boss",
+    "Rats"
+   ]
+  },
+  {
+   "name": "Roc",
+   "hp": 25,
+   "resist": 0,
+   "dodge": 50,
+   "defence": 25,
+   "note": "Rocs can also be spawned from a level 1 Temple to Fervus for your Cultists to charm.",
+   "traits": [
+    "Weak combatant."
+   ],
+   "tags": [
+    "Can be Charmed",
+    "Minions",
+    "Spawn in town",
+    "Melee"
+   ]
+  },
+  {
+   "name": "Rock Golem",
+   "hp": 290,
+   "resist": 25,
+   "dodge": 5,
+   "defence": 5,
+   "tags": [
+    "Very strong"
+   ]
+  },
+  {
+   "name": "Rrongol the Hunter",
+   "hp": 240,
+   "resist": 85,
+   "dodge": 40,
+   "defence": 65,
+   "note": "Rrongols blade is poisoned.",
+   "traits": [
+    "Extremely skilled in melee combat.",
+    "Relentlessly hunts the heroes he encounters."
+   ],
+   "tags": [
+    "Magic Resistant",
+    "Boss"
+   ]
+  },
+  {
+   "name": "Rust Spitter",
+   "hp": 30,
+   "resist": 0,
+   "dodge": 25,
+   "defence": 20,
+   "note": "Poisonous acidic projectiles",
+   "traits": [
+    "Attacks by spewing acid at their opponents from a range.",
+    "Often summoned to guard evil lairs in the wilderness."
+   ],
+   "tags": [
+    "Can be Charmed"
+   ]
+  },
+  {
+   "name": "Skeleton",
+   "hp": 32,
+   "resist": 0,
+   "dodge": 88,
+   "defence": 25,
+   "note": "Friendly Skeleton units may also spawn, when either Your Majesty uses Animate Bones (Spells) or a Priestess uses their Animate Skeleton spell.",
+   "traits": [
+    "Weak melee combatant.",
+    "Resistant to attacks by missile weapons."
+   ],
+   "tags": [
+    "Ranged Resistant",
+    "Undead",
+    "Minions",
+    "Can be Charmed",
+    "Spawn in town",
+    "Melee"
+   ]
+  },
+  {
+   "name": "Stones",
+   "hp": 250,
+   "resist": 65,
+   "dodge": 30,
+   "defence": 70,
+   "note": "Recall: If either Styx or Stones is not in combat and the other is, then they transport to the others side. Reincarnation: If either Styx or Stones dies, they leave a gravestone like any other creature. However, if one of the two is still alive when the gravestone times out, then the dead member will reincarnate on the spot it died with full hitpoints.",
+   "traits": [
+    "Can cast Strengthen Shadow Beasts.",
+    "Will resurrect unless Styx is also killed.",
+    "His resurrection will release Chain Lightning that damages any foes nearby.",
+    "Can cast Recall for aid from Styx."
+   ],
+   "tags": [
+    "Boss"
+   ]
+  },
+  {
+   "name": "Styx",
+   "hp": 250,
+   "resist": 65,
+   "dodge": 30,
+   "defence": 70,
+   "note": "Recall: If either Styx or Stones is not in combat and the other is, then they transport to the others side. Reincarnation: If either Styx or Stones dies, they leave a gravestone like any other creature. However, if one of the two is still alive when the gravestone times out, then the dead member will reincarnate on the spot it died with full hitpoints.",
+   "traits": [
+    "Can cast Strengthen Shadow Beasts.",
+    "Will resurrect unless Stones is also killed.",
+    "Her resurrection will release Chain Lightning that damages any foes nearby.",
+    "Can cast Recall for aid from Stones."
+   ],
+   "tags": [
+    "Boss"
+   ]
+  },
+  {
+   "name": "Troll",
+   "hp": 68,
+   "resist": 5,
+   "dodge": 30,
+   "defence": 40,
+   "note": "Trolls spawn at the entrance of any one of your kingdoms buildings, randomly after 1000 gold has been vaporized by heroes. They then gravitate toward the nearest Trading Post or Marketplace to attack it. Usually when heroes spend gold at buildings, 60% of the items cost is added to the buildings",
+   "traits": [
+    "Attracted to active Marketplaces and Trading Posts.",
+    "Will regenerate any damage they have sustained."
+   ],
+   "tags": [
+    "Spawn in town",
+    "Melee"
+   ]
+  },
+  {
+   "name": "Url Shekk",
+   "hp": 255,
+   "resist": 35,
+   "dodge": 65,
+   "defence": 65,
+   "tags": [
+    "Boss"
+   ]
+  },
+  {
+   "name": "Vampire",
+   "hp": 50,
+   "resist": 15,
+   "dodge": 60,
+   "defence": 40,
+   "note": "Vampires can put up an Anti-magic Shield (Spells), which will repel magical attacks for a duration of time. Their Life Drain ability is just like the kind Priestesses use.",
+   "traits": [
+    "May attack in melee combat or cast life draining spells.",
+    "Life draining attack heals wounds they have sustained."
+   ],
+   "tags": [
+    "Undead",
+    "Magic Resistant",
+    "Can be Charmed",
+    "Magic",
+    "Heal",
+    "Strong"
+   ]
+  },
+  {
+   "name": "Vendral",
+   "hp": 500,
+   "resist": 100,
+   "dodge": 65,
+   "defence": 45,
+   "note": "Vendral is unkillable until your heroes recover the magic sword from Magic Sword Site and then make duplicates after finding the Dwarven Settlement.",
+   "traits": [
+    "Breathes a destructive gout of flame at opponents.",
+    "Invulnerable to many weapons and attacks."
+   ],
+   "tags": [
+    "Boss",
+    "Magic Resistant"
+   ]
+  },
+  {
+   "name": "Werewolf",
+   "hp": 60,
+   "resist": 5,
+   "dodge": 40,
+   "defence": 55,
+   "tags": [
+    "Can be Charmed",
+    "Strong"
+   ]
+  },
+  {
+   "name": "Witch King",
+   "tags": [
+    "Boss"
+   ]
+  },
+  {
+   "name": "Zombie",
+   "hp": 45,
+   "resist": 0,
+   "dodge": 35,
+   "defence": 30,
+   "note": "Zombies rarely attack the Palace. They are more likely to attack your heroes and peasants.",
+   "traits": [
+    "Weak combatant."
+   ],
+   "tags": [
+    "Undead",
+    "Can be Charmed",
+    "Spawn in town",
+    "Melee"
+   ]
+  }
+ ]
+}

@@ -11,9 +11,12 @@ Sim*), either as a mode of Hold the Hall or as a game of its own. Gathered in Oc
 | [04-control-models.md](04-control-models.md) | **The control question**: the spectrum from incentives to direct control, every lever catalogued, failure modes and fixes, five candidate models with tests, a recommendation, a phone input map |
 | [05-economy-and-progression.md](05-economy-and-progression.md) | Cross-game patterns: currencies, circular hero economies, physical gold, income and sinks, self-balancing threats, time structures, upgrade-path and meta patterns, Majesty's numbers and a ÷10 conversion to our scale |
 | [06-design-synthesis.md](06-design-synthesis.md) | How Majesty's systems interlock, what sets each game apart, and a concrete "Realm" mode proposal (pillars, day/night, heroes, AI, economy, upgrades, threats), mapped onto this codebase, with phases and open questions |
-| [data/](data/) | Majesty 1 data as JSON: [heroes](data/majesty1-heroes.json) (stats and ordered decision lists), [buildings](data/majesty1-buildings.json), [spells](data/majesty1-spells.json) |
+| [07-buildings.md](07-buildings.md) | Buildings across the games by role (Crown of Greed, Kingdom, Dungeon Keeper rooms, Thronefall, Kingdom Rush, Stronghold, Dungeon Village) with costs and stats; patterns; a proposed Realm building list |
+| [08-units.md](08-units.md) | Heroes, troops and workers: production models, rosters (Majesty 2 promotion, Kingdom subjects, Dungeon Keeper creatures with wages and attraction rules, Thronefall units…), patterns, a proposed Realm roster |
+| [09-enemies.md](09-enemies.md) | Enemies, monsters and lairs: where they come from, **what they go for**, damage systems, bestiaries for each game with stats, a proposed Realm bestiary |
+| [data/](data/) | JSON: Majesty 1 [heroes](data/majesty1-heroes.json) (stats and decision lists), [buildings](data/majesty1-buildings.json), [spells](data/majesty1-spells.json), [monsters](data/majesty1-monsters.json); [Dungeon Keeper creatures and heroes](data/dungeon-keeper-creatures.json); [Thronefall buildings, units and enemies](data/thronefall.json) |
 
-## Ten things to remember
+## Things to remember
 
 1. **Indirect control works when every refusal is explained.** Show intent, who accepted a bounty, and why others
    didn't. Majesty hid this, and most of its frustration came from that.
@@ -32,10 +35,13 @@ Sim*), either as a mode of Hold the Hall or as a game of its own. Gathered in Oc
 10. **Every indirect game needs one strong, costly direct lever** for crises: Call to Arms, drafting, a steered
     king, or decrees. Which one is the main thing to playtest.
 
+11. **Give every enemy a target preference** (the seat, gold, economy, defences, units, the ruler, people). Today
+    all our raiders go for the Hall; a few looters and flyers would give walls more jobs (see [09](09-enemies.md)).
+
 ## Sources and reliability
 
 - **Fan wikis** read through their MediaWiki APIs: Majesty, Majesty 2, Kingdom, Dungeon Keeper, Black & White,
-  Kairosoft (Dungeon Village) and RimWorld. They are detailed but community-maintained; conflicts are noted where
+  Kairosoft (Dungeon Village), RimWorld, Kingdom Rush and Stronghold, plus the official community wiki for Thronefall. They are detailed but community-maintained; conflicts are noted where
   they occur.
 - **Reviews and store pages** for Crown of Greed, Thronefall, Majesty 2, Kingdom, Stronghold and Kingdom Rush; one
   strategy guide for Against the Storm.
