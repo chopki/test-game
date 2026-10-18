@@ -1359,10 +1359,12 @@ const ENEMY_MODELS = { swordsman, pikeman, archer: bowman, knight, ram, mangonel
  * Each side's colours, worn as hints rather than head to toe: the coat or cape, the shield's face, a stripe, a
  * plume, an engine's flag. The enemy army wears blue and cream; the player's troops (see TROOPS) red and straw gold.
  */
-export const TEAMS = ['blue', 'red'];
+export const TEAMS = ['blue', 'red', 'neutral'];
 const LIVERIES = {
   blue: { livery: MATERIALS.livery, liveryTrim: MATERIALS.liveryTrim },
   red: { livery: std({ color: 0x9a382a }), liveryTrim: std({ color: 0xe0c58a }) },
+  // Conquest's bandits: dun and bone, no one's colours.
+  neutral: { livery: std({ color: 0x5c5346 }), liveryTrim: std({ color: 0xcdbf9c }) },
 };
 
 /** A man or siege engine of `type`, in `team`'s livery (the models read MATERIALS.livery while they're built). */

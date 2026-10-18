@@ -17,7 +17,7 @@ const GROUND = {
   [T.cliff]: '#7d6c56',
   [T.ramp]: '#c9b07c',
 };
-const TEAM = { red: '#b3352a', blue: '#2f4f93' };
+const TEAM = { red: '#b3352a', blue: '#2f4f93', neutral: '#6e6656' };
 const REDRAW_EVERY = 5; // frames
 
 export class Minimap {

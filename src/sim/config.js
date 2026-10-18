@@ -486,8 +486,8 @@ export const TROOPS = {
  *  repairDelay  repairs can be made at any time, but not within this many seconds of a hit
  */
 export const CONQUEST = {
-  width: 48,
-  height: 104,
+  width: 72,
+  height: 112,
   startingGold: 250,
   income: 1.5,
   buildingBounty: 40,
@@ -517,21 +517,64 @@ export const CONQUEST = {
 };
 
 /**
- * Conquest heroes (sim/heroes.js): a champion for each side, an elite knight in its colours. Yours goes where you
- * send it (tap the ground) and fights whatever comes within `aggro` on the way and wherever it stands (chasing up
- * to `leash` from there), or attacks what you point it at. Blue's is the AI's: it follows its strongest squad and
- * falls back to its hall when hurt (below `retreatAt` of its health).
+ * Conquest heroes (sim/heroes.js): a champion each side, picked from `roster` (yours on the main menu, the AI's at
+ * random), drawn as the crowned elite of its kind of soldier in its side's colours. Yours goes where you send it
+ * (tap the ground) and fights whatever comes within `aggro` on the way and wherever it stands (chasing up to `leash`
+ * from there), or attacks what you point it at. Blue's is the AI's: it follows its strongest squad and falls back to
+ * its hall when hurt (below `retreatAt` of its health). Each hero has two `abilities` (see below), on Q and E.
  *  levels      XP needed for each level (level 1 at 0); each level adds `perLevel` of its base health and damage
- *  xpRange     a hero earns XP (the foe's gold reward) when a foe falls within this, and the full bounty for kills
+ *  xpRange     a hero earns XP (the foe's gold reward) when a foe falls within this
  *  atHall      healing a second (fraction of its health) within `radius` of its own Town Hall
  *  respawn     seconds after it falls before it's back at its hall: `base` + `perLevel` × its level
  *  bounty      gold (and XP) to the other side when a hero falls
- *  warCry      its ability: every ally within `radius` (the hero too) heals `heal` of their health and moves and
- *              strikes `haste`× as fast for `duration` seconds; then it rests for `cooldown`
  */
 export const HEROES = {
-  names: { red: 'Sir Aldric', blue: 'Lord Vane' },
-  stats: { maxHp: 650, speed: 1.45, damage: 26, attackCooldown: 1.0, reach: 0.8, height: 1.4 },
+  roster: {
+    knight: {
+      title: 'Knight',
+      type: 'knight',
+      names: { red: 'Sir Aldric', blue: 'Lord Vane' },
+      blurb: 'Heavy armour and a long sword: leads the charge and rallies the men round him.',
+      stats: { maxHp: 650, speed: 1.45, damage: 26, attackCooldown: 1.0, reach: 0.8, height: 1.4 },
+      abilities: ['warCry', 'charge'],
+    },
+    ranger: {
+      title: 'Ranger',
+      type: 'archer',
+      names: { red: 'Mira', blue: 'Sable' },
+      blurb: 'A longbow and light feet: strikes from afar and is gone before the enemy closes.',
+      stats: { maxHp: 430, speed: 1.6, damage: 22, attackCooldown: 1.1, reach: 0.8, height: 1.3, ranged: { range: 6, projectile: 'arrow', projectileSpeed: 18, arc: 0.5 } },
+      abilities: ['volley', 'fleetFoot'],
+    },
+    warden: {
+      title: 'Warden',
+      type: 'pikeman',
+      names: { red: 'Captain Bram', blue: 'Captain Hask' },
+      blurb: 'A great pike and a stout heart: holds the line and keeps the men about him alive.',
+      stats: { maxHp: 820, speed: 1.3, damage: 20, attackCooldown: 1.1, reach: 1.1, height: 1.4 },
+      abilities: ['shieldWall', 'rally'],
+    },
+  },
+  default: 'knight',
+  /**
+   * What each ability does (and its `cooldown`, seconds):
+   *  warCry      the hero and every ally within `radius` heal `heal` of their health and move and strike `haste`×
+   *              as fast for `duration` s
+   *  charge      at a foe within `range`: rushes it `haste`× as fast and strikes it for `damage`× (its next blow)
+   *  volley      arrows on the foe it's fighting (or the nearest within `range`): `damage` to every foe within
+   *              `radius` of it (bandits too)
+   *  fleetFoot   the hero alone moves `haste`× as fast for `duration` s
+   *  shieldWall  the hero and every ally within `radius` take `guard` less damage for `duration` s
+   *  rally       the hero heals `heal` of its health
+   */
+  abilities: {
+    warCry: { name: 'War Cry', radius: 4.5, heal: 0.25, haste: 1.35, duration: 6, cooldown: 30 },
+    charge: { name: 'Charge', range: 6, haste: 3, duration: 1.5, damage: 3, cooldown: 18 },
+    volley: { name: 'Volley', range: 7, radius: 2.2, damage: 70, cooldown: 16 },
+    fleetFoot: { name: 'Fleet Foot', haste: 1.8, duration: 4, cooldown: 20 },
+    shieldWall: { name: 'Shield Wall', radius: 4.5, guard: 0.5, duration: 6, cooldown: 28 },
+    rally: { name: 'Rally', heal: 0.4, cooldown: 35 },
+  },
   aggro: 5,
   leash: 6,
   levels: [0, 60, 150, 280, 450, 670, 950, 1300, 1720, 2200],
@@ -541,7 +584,23 @@ export const HEROES = {
   respawn: { base: 20, perLevel: 4 },
   bounty: 120,
   retreatAt: 0.3,
-  warCry: { radius: 4.5, heal: 0.25, haste: 1.35, duration: 6, cooldown: 30 },
+};
+
+/**
+ * Conquest's neutral camps (sim/camps.js): bandits in grey in clearings in the woods, off the lanes. They keep to
+ * their camp (chasing no further than `leash` from it, healing `regen` a second there) and fight anyone who comes
+ * within `aggro` of it or strikes them; lane squads march past them, so it's heroes who clear them. Each is worth
+ * `bounty` × his gold reward (and that in hero XP) to whichever side fells him. A cleared camp fills again after
+ * `respawn` seconds, `growth` stronger for each minute of the battle.
+ */
+export const CAMPS = {
+  guards: ['swordsman', 'swordsman', 'archer'],
+  aggro: 3,
+  leash: 6,
+  regen: 12,
+  bounty: 2.5,
+  respawn: 90,
+  growth: 0.05,
 };
 
 export const WAVES = {

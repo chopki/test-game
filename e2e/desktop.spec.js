@@ -1096,7 +1096,7 @@ test('conquest: castle against castle on the lane map, squads march both ways, b
     for (const b of w.buildings.values()) teams[b.team] = (teams[b.team] ?? 0) + 1;
     return { mode: w.mode, lanes: w.lanes.length, teams, width: w.grid.width, height: w.grid.height };
   });
-  expect(info).toEqual({ mode: 'conquest', lanes: 3, teams: { red: 10, blue: 10 }, width: 48, height: 104 });
+  expect(info).toEqual({ mode: 'conquest', lanes: 3, teams: { red: 10, blue: 10 }, width: 72, height: 112 });
   // The camera starts on the player's (south) end.
   const hall = await page.evaluate(() => window.game.world.townHall);
   const p = await tileToScreen(page, hall.x + 1, hall.z + 1);
@@ -1145,13 +1145,13 @@ test('conquest: castle against castle on the lane map, squads march both ways, b
   await page.waitForTimeout(1500);
   await testInfo.attach('conquest', { body: await page.screenshot(), contentType: 'image/png' });
 
-  // Heroes: one each side, drawn as crowned knights in their colours. Press E (or the hero cog), then a tile: yours
-  // is sent there. The war cry button (or Q) heals and hastes the men round them, then rests.
+  // Heroes: one each side, drawn as crowned elites in their colours. Press G (or the hero cog), then a tile: yours
+  // is sent there. Their first ability (button, or Q) then rests.
   await expect(page.locator('#hero-btn')).toBeVisible();
-  expect(await page.evaluate(() => ['e:red:knight:0:walk:0', 'e:red:knight:elite:0:walk:0', 'e:red:ram:0:walk:0', 'e:red:mangonel:0:walk:0', 'b:townHall:s2:blue', 'b:archerTower:s3:blue'].filter((k) => !window.game.renderer.atlas.frame(k)))).toEqual([]);
+  expect(await page.evaluate(() => ['e:red:knight:0:walk:0', 'e:red:knight:elite:0:walk:0', 'e:red:ram:0:walk:0', 'e:red:mangonel:0:walk:0', 'b:townHall:s2:blue', 'b:archerTower:s3:blue', 'e:red:archer:elite:0:walk:0', 'e:red:pikeman:elite:0:walk:0', 'e:archer:elite:0:walk:0', 'e:neutral:swordsman:0:walk:0', 'e:neutral:archer:0:walk:0'].filter((k) => !window.game.renderer.atlas.frame(k)))).toEqual([]);
   const heroView = await page.evaluate(() => ['red', 'blue'].map((t) => window.game.renderer.views.troops.has(window.game.world.heroes[t].id)));
   expect(heroView).toEqual([true, true]);
-  await page.keyboard.press('e');
+  await page.keyboard.press('g');
   expect(await page.evaluate(() => window.game.build.mode)).toBe('hero');
   const spot = await page.evaluate(() => {
     const h = window.game.world.townHall;
@@ -1160,9 +1160,9 @@ test('conquest: castle against castle on the lane map, squads march both ways, b
   const sp = await tileToScreen(page, spot.x, spot.z);
   await page.mouse.click(sp.x, sp.y);
   expect(await page.evaluate(() => window.game.world.heroes.red.order)).toEqual({ x: spot.x + 0.5, z: spot.z + 0.5 });
-  await page.locator('#warcry-btn').click();
-  await expect(page.locator('#warcry-btn')).toBeDisabled();
-  await page.keyboard.press('e'); // done giving orders
+  await page.locator('#ability-0').click(); // the Knight's war cry
+  await expect(page.locator('#ability-0')).toBeDisabled();
+  await page.keyboard.press('g'); // done giving orders
   // Hills: the lane map's plateaus have cliffs round them.
   expect(await page.evaluate(() => window.game.world.hills)).toBe(true);
 
@@ -1183,5 +1183,22 @@ test('conquest: castle against castle on the lane map, squads march both ways, b
   });
   await expect(page.locator('#gameover')).toBeVisible();
   await expect(page.locator('#gameover-title')).toHaveText('Victory! The enemy Town Hall has fallen');
+  expect(errors).toEqual([]);
+});
+
+test('conquest: the main menu asks for a champion, and the battle begins with them', async ({ page }) => {
+  const errors = await openGame(page, { query: 'mode=conquest&menu=1' });
+  await page.getByRole('button', { name: /^Conquest/ }).click();
+  const pick = page.locator('#hero-pick');
+  await expect(pick).toBeVisible();
+  await expect(pick.locator('.hero-card')).toHaveCount(3);
+  await expect(pick).toContainText('Mira, the Ranger');
+  await pick.locator('.hero-card[data-hero="ranger"]').click();
+  await expect(page.locator('#menu')).toBeHidden();
+  expect(await page.evaluate(() => [window.game.world.mode, window.game.world.heroKinds.red, window.game.world.heroes.red.type])).toEqual(['conquest', 'ranger', 'archer']);
+  // Her abilities on the buttons.
+  // (The HUD catches up within a few frames; software rendering makes those slow.)
+  await expect(page.locator('#ability-0-label')).toHaveText('Volley', { timeout: 20_000 });
+  await expect(page.locator('#ability-1-label')).toHaveText('Fleet Foot');
   expect(errors).toEqual([]);
 });

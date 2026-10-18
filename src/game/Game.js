@@ -169,11 +169,12 @@ export class Game {
       case 'x':
         this.build.setMode(this.build.mode === 'sell' ? null : 'sell');
         break;
-      case 'e':
+      case 'g':
         if (this.world.mode === 'conquest') this.hud.toggleHeroMode();
         break;
       case 'q':
-        if (this.world.mode === 'conquest') this.world.warCry();
+      case 'e':
+        if (this.world.mode === 'conquest') this.hud.useAbility(key === 'q' ? 0 : 1);
         break;
       case 'u':
         if (this.build.selected) this.world.upgrade(this.build.selected.id);
@@ -261,7 +262,8 @@ export class Game {
  * Options for new maps (Settings → Map size, Rivers, Coast, Hills), from the URL: `size` is a key of GRID.sizes
  * (`?size=` takes a size name or its tiles across); `river` makes every new map have a stream; `sea` and `hills` are
  * false (never), 'sometimes' (the default) or true (always a coast / plateaus). They last for the session. `mode`:
- * 'survival' (Endless Mode, the default) or 'conquest' (`?mode=conquest`, or the main menu's Conquest).
+ * 'survival' (Endless Mode, the default) or 'conquest' (`?mode=conquest`, or the main menu's Conquest); `hero`: the
+ * player's Conquest hero (`?hero=knight|ranger|warden`, or chosen on the menu).
  */
 export function readMapOptions() {
   const params = new URLSearchParams(location.search);
@@ -270,7 +272,7 @@ export function readMapOptions() {
   const asked = params.get('size');
   const size = Object.keys(GRID.sizes).find((k) => k === asked || String(GRID.sizes[k]) === asked) ?? GRID.defaultSize;
   const mode = params.get('mode') === 'conquest' ? 'conquest' : 'survival';
-  return { size, river: params.get('river') === '1', sea, hills, mode };
+  return { size, river: params.get('river') === '1', sea, hills, mode, hero: params.get('hero') };
 }
 
 /**
@@ -282,7 +284,7 @@ export function createWorld(mapOptions, { seed } = {}) {
   const params = new URLSearchParams(location.search);
   seed ??= params.has('seed') ? Number(params.get('seed')) : Math.floor(Math.random() * 1e6);
   const fort = params.get('fort') !== '0';
-  const { river, sea, hills, size, mode } = mapOptions;
-  if (mode === 'conquest') return new World({ seed, mode });
+  const { river, sea, hills, size, mode, hero } = mapOptions;
+  if (mode === 'conquest') return new World({ seed, mode, hero });
   return new World({ seed, terrain: params.get('map') === 'open' ? 'open' : 'generate', fort, river, sea, hills, size: GRID.sizes[size] });
 }

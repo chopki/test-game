@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { BUILDINGS, CONQUEST, HEROES, TROOPS } from '../src/sim/config.js';
+import { BUILDINGS, CAMPS, CONQUEST, HEROES, TROOPS } from '../src/sim/config.js';
+import { LAYOUTS } from '../src/sim/lanes.js';
 import { heroXp } from '../src/sim/heroes.js';
 import { aiThink, squadFor } from '../src/sim/conquest.js';
 import { blocksMovement, T } from '../src/sim/terrain.js';
@@ -36,8 +37,10 @@ describe('conquest map', () => {
         }
       }
       expect(findPath(g, walk, red, { x: world.enemyHall.x + 1, z: world.enemyHall.z - 1 }, { maxNodes: 6000 })).not.toBeNull();
-      // The stream is crossed at fords.
+      // The stream is crossed at fords, and only there.
       expect([...g.terrain].filter((t) => t === T.ford).length).toBeGreaterThan(6);
+      const dry = (x, z) => walk(x, z) && g.terrainAt(x, z) !== T.ford;
+      expect(findPath(g, dry, red, { x: world.enemyHall.x + 1, z: world.enemyHall.z - 1 }, { maxNodes: 20000 })).toBeNull();
       // Hills: plateaus (mirrored too) that the lanes climb by ramps; ground only changes level at a ramp.
       expect(world.hills).toBe(true);
       for (let z = 0; z < g.height; z++) for (let x = 0; x < g.width; x++) expect(g.levelAt(x, z)).toBe(g.levelAt(g.width - 1 - x, g.height - 1 - z));
@@ -261,7 +264,7 @@ describe('heroes', () => {
       const h = world.heroes[team];
       expect(h.alive).toBe(true);
       expect(world.troops).toContain(h);
-      expect(h.def.name).toBe(HEROES.names[team]);
+      expect(h.def.name).toBe(HEROES.roster[world.heroKinds[team]].names[team]);
       const hall = team === 'red' ? world.townHall : world.enemyHall;
       expect(Math.hypot(h.x - hall.cx, h.z - hall.cz)).toBeLessThan(5);
     }
@@ -315,16 +318,48 @@ describe('heroes', () => {
 
   it('war cry: allies near the hero heal and speed up, then it rests', () => {
     const world = conquest(1);
+    expect(world.heroKinds.red).toBe('knight'); // the default
     world.startWave();
     const h = world.heroes.red;
     const friend = world.troops.find((t) => t.team === 'red' && !t.hero);
     Object.assign(friend, { x: h.x + 1, z: h.z, hp: 10 });
-    expect(world.warCry()).toBe(true);
+    expect(world.useAbility(0).ok).toBe(true);
     expect(friend.hp).toBeGreaterThan(10);
-    expect(friend.slowFactor).toBe(HEROES.warCry.haste);
-    expect(world.warCry()).toBe(false); // resting
-    world.time += HEROES.warCry.cooldown;
-    expect(world.warCry()).toBe(true);
+    expect(friend.slowFactor).toBe(HEROES.abilities.warCry.haste);
+    expect(world.useAbility(0).reason).toMatch(/ready in/); // resting
+    world.time += HEROES.abilities.warCry.cooldown;
+    expect(world.useAbility(0).ok).toBe(true);
+    // Charge needs a foe in reach.
+    expect(world.useAbility(1).reason).toBe('No foe in reach');
+  });
+
+  for (const kind of ['knight', 'ranger', 'warden']) {
+    it(`${kind}: chosen for the player; both abilities work on a foe in reach`, () => {
+      const world = new World({ seed: 1, mode: 'conquest', hero: kind });
+      expect(world.heroKinds.red).toBe(kind);
+      const h = world.heroes.red;
+      expect(h.type).toBe(HEROES.roster[kind].type);
+      world.startWave();
+      const foe = world.troops.find((t) => t.team === 'blue' && !t.hero);
+      Object.assign(foe, { x: h.x + 2, z: h.z, delay: 0 });
+      h.hp = h.maxHp / 2;
+      const hp = foe.hp;
+      for (const slot of [0, 1]) expect(world.useAbility(slot).ok, `${kind} ${slot}`).toBe(true);
+      if (kind === 'ranger') expect(foe.hp).toBeLessThan(hp); // the volley
+      if (kind === 'warden') {
+        expect(h.hp).toBeGreaterThan(h.maxHp / 2); // rally
+        expect(h.guardUntil).toBeGreaterThan(world.time); // shield wall
+        const before = h.hp;
+        world._damageTroop(h, 100, 'blue');
+        expect(before - h.hp).toBe(100 * (1 - HEROES.abilities.shieldWall.guard));
+      }
+    });
+  }
+
+  it("the AI's hero is picked from the roster, the same for the same map", () => {
+    const kinds = [1, 2, 3, 4, 5, 6].map((seed) => conquest(seed).heroKinds.blue);
+    for (const k of kinds) expect(Object.keys(HEROES.roster)).toContain(k);
+    expect(conquest(3).heroKinds.blue).toBe(kinds[2]);
   });
 
   it('the blue hero follows its squads, and goes home when hurt', () => {
@@ -336,5 +371,49 @@ describe('heroes', () => {
     h.hp = h.maxHp * 0.2;
     run(world, 2);
     expect(h.order).toBeNull();
+  });
+});
+
+describe('layouts and neutral camps', () => {
+  it('maps come in three layouts, each with camps in the woods joined to a lane by a trail', () => {
+    const seen = new Set();
+    for (const seed of [1, 2, 3, 4, 5, 6]) {
+      const world = conquest(seed);
+      seen.add(world.layout);
+      const g = world.grid;
+      const walk = (x, z) => !blocksMovement(g.terrainAt(x, z));
+      expect(world.camps.length).toBe(4);
+      for (const c of world.camps) {
+        expect(walk(c.x, c.z)).toBe(true);
+        expect(findPath(g, walk, c, world.lanes[1].points[0], { maxNodes: 8000 }), `${seed} ${c.x},${c.z}`).not.toBeNull();
+      }
+    }
+    expect([...seen].sort()).toEqual(Object.values(LAYOUTS).map((l) => l.name).sort());
+  });
+
+  it('bandits guard their camp: squads march past, a hero clears it for gold and XP, and it fills again', () => {
+    const world = conquest(1);
+    const guards = (i) => world.troops.filter((t) => t.alive && t.camp === i);
+    expect(guards(0).length).toBe(CAMPS.guards.length);
+    expect(guards(0).every((t) => t.team === 'neutral')).toBe(true);
+    // A red soldier walking by a camp doesn't go for its guards.
+    world.startWave();
+    const man = world.troops.find((t) => t.team === 'red' && !t.hero && t.lane !== undefined);
+    const camp = world.camps[0];
+    Object.assign(man, { x: camp.x + 4.5, z: camp.z + 0.5, tx: camp.x + 4, tz: camp.z, delay: 0 });
+    world.update(DT);
+    expect(man.target?.team === 'neutral').toBe(false);
+    // The hero is sent in: the camp falls to it.
+    const h = world.heroes.red;
+    h.hp = h.maxHp = 1e5;
+    Object.assign(h, { x: camp.x + 0.5, z: camp.z + 2.5, tx: camp.x, tz: camp.z + 2, path: null });
+    world.orderHero({ x: camp.x + 0.5, z: camp.z + 0.5 });
+    const gold = world.economy.gold;
+    for (let t = 0; t < 60 && guards(0).length; t += DT) world.update(DT);
+    expect(guards(0).length).toBe(0);
+    expect(world.economy.gold).toBeGreaterThan(gold + CAMPS.guards.length * 5);
+    expect(h.xp).toBeGreaterThan(0);
+    run(world, CAMPS.respawn + 1);
+    expect(guards(0).length).toBe(CAMPS.guards.length);
   });
 });

@@ -13,11 +13,15 @@ const GROUPS = [
   ['wall', 'join', 'arm', 'decor'],
   ['b', 'bw', 't', 'crystal', 'flag'],
   ['e'],
-  ['e:red'], // the player's troops (red), after the enemy army, as there are fewer of them about
+  ['e:red', 'e:neutral', 'e:hero'], // the player's troops (red), Conquest's bandits and heroes, after the enemy army
   ['icon'],
 ];
 const GROUP_OF = new Map(GROUPS.flatMap((prefixes, i) => prefixes.map((p) => [p, i])));
-const groupOf = (key) => GROUP_OF.get(key.startsWith('e:red:') ? 'e:red' : key.split(':')[0]) ?? GROUPS.length;
+const groupOf = (key) => {
+  if (/^e:(red|neutral):/.test(key)) return GROUP_OF.get(key.split(':').slice(0, 2).join(':'));
+  if (/^e:(archer|pikeman):elite:/.test(key)) return GROUP_OF.get('e:hero'); // blue's heroes (Conquest only)
+  return GROUP_OF.get(key.split(':')[0]) ?? GROUPS.length;
+};
 
 const PAGE_SIZE = 2048;
 const PADDING = 3;

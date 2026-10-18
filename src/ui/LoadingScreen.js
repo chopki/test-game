@@ -55,7 +55,7 @@ export class LoadingScreen {
     const next = world.waves.next;
     const approach = next.sides.map((s) => APPROACH[s]).join(' & ');
     $('loading-wave').textContent =
-      world.mode === 'conquest' ? 'Conquest — Red against Blue, by three lanes' : `Wave ${next.wave} — The ${approach} Approach${next.sides.length > 1 ? 'es' : ''}`;
+ world.mode === 'conquest' ? `Conquest — ${world.layout}` : `Wave ${next.wave} — The ${approach} Approach${next.sides.length > 1 ? 'es' : ''}`;
     $('loading-ground').textContent = `Battleground outline: ${battlegroundName(world)}`;
     this.map.classList.add('drawn');
     drawMapSketch(this.map, world, world.mode === 'conquest' ? [] : next.sides);

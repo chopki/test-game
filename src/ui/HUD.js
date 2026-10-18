@@ -1,4 +1,4 @@
-import { BUILDINGS, TIMING, TROOPS, UPGRADES } from '../sim/config.js';
+import { BUILDINGS, HEROES, TIMING, TROOPS, UPGRADES } from '../sim/config.js';
 import { onPress } from './press.js';
 import { summarizeWave } from '../sim/WaveManager.js';
 import { squadFor } from '../sim/conquest.js';
@@ -117,7 +117,7 @@ export class HUD {
     onPress(this.el.waveDial, () => this.requestEarlyWave());
     onPress(this.el.speed, () => game.cycleSpeed());
     onPress($('hero-btn'), () => this.toggleHeroMode());
-    onPress($('warcry-btn'), () => this.game.world.warCry());
+    for (const slot of [0, 1]) onPress($(`ability-${slot}`), () => this.useAbility(slot));
     onPress(this.el.pause, () => game.togglePause());
     onPress($('help-btn'), () => this.toggleHelp());
     onPress($('help-close'), () => this.toggleHelp(false));
@@ -223,6 +223,7 @@ export class HUD {
       else this.toast(`${hero.def.name}, the enemy's champion, has fallen!`, 'good');
     });
     ev.on('heroLevelUp', ({ hero, level }) => hero.team === 'red' && this.toast(`${hero.def.name} reaches level ${level}`, 'good'));
+    ev.on('campCleared', ({ by }) => by === 'red' && this.toast('Bandit camp cleared! It will fill again in a while', 'good'));
     ev.on('buildingUpgraded', ({ building }) => {
       if (building.type === 'wall') return;
       if (building.team === 'blue') this.toast(`The enemy upgraded a ${building.def.name}: ${building.def.stageName}`, 'warn');
@@ -447,22 +448,32 @@ export class HUD {
     }
   }
 
-  /** Conquest: the hero cog (portrait, level, health, or when they're back) and the war cry's rest. */
+  /** Conquest: your hero's ability in `slot` (Q or E); says why not if it can't be used now. */
+  useAbility(slot) {
+    const r = this.world.useAbility(slot);
+    if (!r.ok) this.toast(r.reason, 'warn');
+  }
+
+  /** Conquest: the hero cog (portrait, level, health, or when they're back) and their two abilities' rest. */
   _updateHero() {
     const w = this.world;
     const heroBtn = $('hero-btn');
-    const cryBtn = $('warcry-btn');
     const show = w.mode === 'conquest';
-    heroBtn.hidden = cryBtn.hidden = !show;
+    heroBtn.hidden = $('ability-0').hidden = $('ability-1').hidden = !show;
     if (!show) return;
     const h = w.heroes.red;
-    if (!this._heroPortrait) {
-      this._heroPortrait = frameToDataURL(this.game.renderer.atlas, spriteKeys.enemy('knight', Math.PI / 4, true, 'walk', 0, 'red'));
-      $('hero-portrait').src = this._heroPortrait;
+    const kind = w.heroKinds.red;
+    if (this._heroKind !== kind) {
+      this._heroKind = kind;
+      $('hero-portrait').src = frameToDataURL(this.game.renderer.atlas, spriteKeys.enemy(HEROES.roster[kind].type, Math.PI / 4, true, 'walk', 0, 'red'));
+      HEROES.roster[kind].abilities.forEach((name, slot) => {
+        const a = HEROES.abilities[name];
+        $(`ability-${slot}`).title = `${a.name} (${slot ? 'E' : 'Q'})`;
+      });
     }
     const label = h.alive ? h.def.name.split(' ').at(-1) : `Back in ${Math.max(1, Math.ceil(h.respawnAt - w.time))}s`;
-    const rest = Math.ceil(h.warCryReady - w.time);
-    const key = [h.alive, h.level, Math.ceil((h.hp / h.maxHp) * 20), label, rest > 0 ? rest : 0, this.game.build.mode === 'hero'].join(':');
+    const rests = h.ready.map((t) => Math.max(0, Math.ceil(t - w.time)));
+    const key = [kind, h.alive, h.level, Math.ceil((h.hp / h.maxHp) * 20), label, ...rests, this.game.build.mode === 'hero'].join(':');
     if (this._last.hero === key) return;
     this._last.hero = key;
     $('hero-level').textContent = h.level;
@@ -470,8 +481,10 @@ export class HUD {
     heroBtn.style.setProperty('--hp', h.alive ? (h.hp / h.maxHp).toFixed(2) : 0);
     heroBtn.classList.toggle('down', !h.alive);
     heroBtn.classList.toggle('active', this.game.build.mode === 'hero');
-    cryBtn.disabled = !h.alive || rest > 0;
-    $('warcry-label').textContent = rest > 0 ? `${rest}s` : 'War cry';
+    HEROES.roster[kind].abilities.forEach((name, slot) => {
+      $(`ability-${slot}`).disabled = !h.alive || rests[slot] > 0;
+      $(`ability-${slot}-label`).textContent = rests[slot] > 0 ? `${rests[slot]}s` : HEROES.abilities[name].name;
+    });
   }
 
   /** A Barracks' men: how many stand, and when the next is ready (or why none can be trained). */

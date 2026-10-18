@@ -1,22 +1,24 @@
 import { HEROES } from './config.js';
-import { dist, findPost, troopPassable, walkTo } from './troops.js';
+import { dist, findPost, reachOf, troopPassable, walkTo } from './troops.js';
 import { lanePoints } from './conquest.js';
 
 /**
  * Conquest heroes (see HEROES in config.js). Pure: no DOM, no three.js. A hero is one of `world.troops` (so towers,
  * soldiers and arrows treat it like any soldier) with `hero: true`, and `world.heroes[team]` always holds the
- * side's hero, alive or waiting to come back (`respawnAt`).
+ * side's hero, alive or waiting to come back (`respawnAt`). `world.heroKinds[team]` is which of HEROES.roster each
+ * side fields.
  */
 
 const isBuilding = (thing) => thing.size !== undefined;
 const alive = (world, thing) => (isBuilding(thing) ? world.buildings.get(thing.id) === thing : thing.alive);
 const hallOf = (world, team) => (team === 'blue' ? world.enemyHall : world.townHall);
 
-/** A hero's stats at `level`: its base stats, plus HEROES.perLevel of its health and damage a level. */
-export function heroDef(team, level) {
+/** A `kind` of hero's stats at `level`: its base stats, plus HEROES.perLevel of its health and damage a level. */
+export function heroDef(kind, team, level) {
+  const r = HEROES.roster[kind];
   const k = 1 + HEROES.perLevel * (level - 1);
-  const s = HEROES.stats;
-  return { ...s, name: HEROES.names[team], maxHp: Math.round(s.maxHp * k), damage: Math.round(s.damage * k), reward: HEROES.bounty };
+  const s = r.stats;
+  return { ...s, name: r.names[team], title: r.title, maxHp: Math.round(s.maxHp * k), damage: Math.round(s.damage * k), reward: HEROES.bounty };
 }
 
 /** Put `team`'s hero (back) at its Town Hall's door, keeping its level and XP. */
@@ -26,12 +28,14 @@ export function spawnHero(world, team) {
   const hall = hallOf(world, team);
   const { door } = findPost(world, hall);
   const at = door ?? { x: hall.x + 1, z: hall.z + hall.size };
-  const def = heroDef(team, level);
+  const kind = world.heroKinds[team];
+  const def = heroDef(kind, team, level);
   const h = {
     id: world._nextId++,
     hero: true,
-    type: 'knight',
-    elite: true, // drawn as a warlord: the crowned knight, half as big again
+    kind,
+    type: HEROES.roster[kind].type,
+    elite: true, // drawn as its kind of soldier's crowned elite, half as big again
     def,
     team,
     level,
@@ -54,7 +58,10 @@ export function spawnHero(world, team) {
     repath: 0,
     slowFactor: 1,
     slowUntil: 0,
-    warCryReady: old?.warCryReady ?? 0,
+    ready: old?.ready ?? [0, 0], // when each ability can be used again
+    guard: 0,
+    guardUntil: 0,
+    charged: 0,
     respawnAt: null,
     homeAt: { x: at.x + 0.5, z: at.z + 0.5 }, // where it waits, by its hall's door, with no orders
     alive: true,
@@ -104,20 +111,77 @@ function nearestOpen(world, x, z) {
   return { x, z };
 }
 
-/** The war cry: allies near `team`'s hero heal and speed up (HEROES.warCry). False if it's down or resting. */
-export function warCry(world, team) {
-  const h = world.heroes[team];
-  const w = HEROES.warCry;
-  if (!h?.alive || world.time < h.warCryReady) return false;
-  h.warCryReady = world.time + w.cooldown;
-  const allies = world.troops.filter((t) => t.alive && t.team === team && dist(t, h) <= w.radius);
-  for (const t of allies) {
-    t.hp = Math.min(t.maxHp, t.hp + t.maxHp * w.heal);
-    t.slowFactor = w.haste;
-    t.slowUntil = world.time + w.duration;
+/** The abilities `team`'s hero has (names in HEROES.abilities), in slot order. */
+export const abilitiesOf = (world, team) => HEROES.roster[world.heroKinds[team]].abilities;
+
+const foesOf = (world, team) => world.troops.filter((t) => t.alive && t.team !== team && !(t.delay > 0));
+
+/** The foe (soldier) the hero is fighting, if it's within `range`, else the nearest one within it. */
+function foeInReach(world, h, range) {
+  if (h.target && !isBuilding(h.target) && h.target.alive && dist(h, h.target) <= range) return h.target;
+  let best = null;
+  for (const v of foesOf(world, h.team)) if (dist(v, h) <= range && (!best || dist(v, h) < dist(best, h))) best = v;
+  return best;
+}
+
+/**
+ * Use the ability in `slot` (0 or 1) of `team`'s hero (see HEROES.abilities): { ok, reason }. Each rests for its
+ * cooldown after use.
+ */
+export function useAbility(world, team, slot) {
+  const h = world.heroes?.[team];
+  if (!h?.alive) return { ok: false, reason: 'Your hero is down' };
+  const name = abilitiesOf(world, team)[slot];
+  const a = HEROES.abilities[name];
+  if (!a) return { ok: false, reason: 'No such ability' };
+  if (world.time < h.ready[slot]) return { ok: false, reason: `${a.name} is ready in ${Math.ceil(h.ready[slot] - world.time)}s` };
+  const allies = (r) => world.troops.filter((t) => t.alive && t.team === team && dist(t, h) <= r);
+  const haste = (t, k, s) => {
+    t.slowFactor = k;
+    t.slowUntil = world.time + s;
+  };
+  let at = { x: h.x, z: h.z };
+  switch (name) {
+    case 'warCry':
+      for (const t of allies(a.radius)) {
+        t.hp = Math.min(t.maxHp, t.hp + t.maxHp * a.heal);
+        haste(t, a.haste, a.duration);
+      }
+      break;
+    case 'charge': {
+      const foe = foeInReach(world, h, a.range);
+      if (!foe) return { ok: false, reason: 'No foe in reach' };
+      h.target = foe;
+      haste(h, a.haste, a.duration);
+      h.charged = a.damage;
+      at = { x: foe.x, z: foe.z };
+      break;
+    }
+    case 'volley': {
+      const foe = foeInReach(world, h, a.range);
+      if (!foe) return { ok: false, reason: 'No foe in reach' };
+      at = { x: foe.x, z: foe.z };
+      for (const v of foesOf(world, team)) if (dist(v, at) <= a.radius) world._damageTroop(v, a.damage, team);
+      break;
+    }
+    case 'fleetFoot':
+      haste(h, a.haste, a.duration);
+      break;
+    case 'shieldWall':
+      for (const t of allies(a.radius)) {
+        t.guard = a.guard;
+        t.guardUntil = world.time + a.duration;
+      }
+      break;
+    case 'rally':
+      h.hp = Math.min(h.maxHp, h.hp + h.maxHp * a.heal);
+      break;
+    default:
+      return { ok: false, reason: 'No such ability' };
   }
-  world.events.emit('warCry', { hero: h, x: h.x, z: h.z, radius: w.radius, allies: allies.length });
-  return true;
+  h.ready[slot] = world.time + a.cooldown;
+  world.events.emit('heroAbility', { hero: h, ability: name, x: at.x, z: at.z, radius: a.radius ?? 1 });
+  return { ok: true, reason: null };
 }
 
 /** XP for `team`'s hero when a foe worth `amount` falls at (x, z) near it; levels it up when it's earned enough. */
@@ -127,7 +191,7 @@ export function heroXp(world, team, x, z, amount) {
   h.xp += amount;
   while (h.level < HEROES.levels.length && h.xp >= HEROES.levels[h.level]) {
     h.level++;
-    const def = heroDef(team, h.level);
+    const def = heroDef(h.kind, team, h.level);
     h.hp += def.maxHp - h.maxHp;
     h.maxHp = def.maxHp;
     h.def = def;
@@ -169,9 +233,22 @@ function blueHeroThink(world) {
   for (const t of world.troops) if (t.alive && t.team === 'blue' && t.lane === lane && (!lead || t.wp > lead.wp)) lead = t;
   const at = lead ?? lanePoints(world, lane, 'blue')[Math.floor(lanePoints(world, lane, 'blue').length * 0.3)];
   if (!h.target) orderHero(world, 'blue', { x: at.x, z: at.z });
-  // A war cry when it's in a fight among friends, or hurt.
-  const friends = world.troops.filter((t) => t.alive && t.team === 'blue' && dist(t, h) <= HEROES.warCry.radius).length;
-  if (h.fighting && (friends >= 4 || h.hp < h.maxHp * 0.5)) warCry(world, 'blue');
+  // Its abilities, when they'd do some good.
+  const friends = world.troops.filter((t) => t.alive && t.team === 'blue' && dist(t, h) <= 4.5).length;
+  const foesNear = (r, x = h.x, z = h.z) => world.troops.filter((t) => t.alive && t.team !== 'blue' && Math.hypot(t.x - x, t.z - z) <= r).length;
+  abilitiesOf(world, 'blue').forEach((name, slot) => {
+    const a = HEROES.abilities[name];
+    const t = h.target && !isBuilding(h.target) ? h.target : null;
+    const want = {
+      warCry: h.fighting && (friends >= 4 || h.hp < h.maxHp * 0.5),
+      charge: t && dist(h, t) > 1.5 && dist(h, t) <= a.range,
+      volley: t && dist(h, t) <= a.range && foesNear(a.radius, t.x, t.z) >= 3,
+      fleetFoot: h.order === null && h.hp < h.maxHp * HEROES.retreatAt,
+      shieldWall: h.fighting && friends >= 3,
+      rally: h.hp < h.maxHp * 0.45,
+    }[name];
+    if (want) useAbility(world, 'blue', slot);
+  });
 }
 
 /** The nearest foe (soldier first, then building, not walls) within HEROES.aggro of the hero. */
@@ -207,7 +284,7 @@ export function updateHero(world, h, dt) {
   const t = h.target;
   if (t) {
     const d = isBuilding(t) ? world._distanceTo(t, h.x, h.z) : dist(h, t);
-    if (d <= h.def.reach + (isBuilding(t) ? 0.25 : 0)) {
+    if (d <= reachOf(h.def) + (isBuilding(t) ? 0.25 : 0)) {
       const [px, pz] = isBuilding(t) ? world._nearestPoint(t, h.x, h.z) : [t.x, t.z];
       h.heading = Math.atan2(px - h.x, pz - h.z);
       if (!h.fighting) h.attackTimer = h.def.attackCooldown * 0.5;
@@ -226,7 +303,7 @@ export function updateHero(world, h, dt) {
       gx = Math.min(Math.floor(px), t.x + t.size - 1) + 0.5;
       gz = Math.min(Math.floor(pz), t.z + t.size - 1) + 0.5;
     }
-    if (!walkTo(world, h, gx, gz, dt, 1)) h.target = null;
+    if (!walkTo(world, h, gx, gz, dt, h.def.ranged ? Math.floor(reachOf(h.def)) : 1)) h.target = null;
     return;
   }
   h.fighting = false;

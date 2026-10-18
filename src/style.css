@@ -1845,6 +1845,26 @@ button.wave-dial {
   filter: grayscale(1) brightness(0.7);
 }
 
-#warcry-btn:disabled {
+.cog.ability:disabled {
   opacity: 0.55;
+}
+
+/* Conquest's hero picker: the codex cards, as buttons. */
+.hero-card {
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.hero-card:hover,
+.hero-card:focus-visible {
+  background: rgba(255, 238, 196, 0.85);
+  border-color: #6b4a2b;
+}
+
+.hero-abilities {
+  margin: 4px 0 0;
+  font-family: var(--fell);
 }

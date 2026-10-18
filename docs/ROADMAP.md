@@ -196,8 +196,11 @@ shown by livery hints (the same army on both sides, not two factions).
 - [x] The AI upgrades its Town Hall and towers (blue stage sprites) and walls a pressed lane, leaving a gap
 - [x] Siege squads (knights, rams, siege catapults) in later waves, for both sides
 - [x] Heroes, one each side: orders, XP and levels, war cry, respawn; the AI steers its own
-- [ ] More lane variety (lane layouts, neutral camps in the woods)
-- [ ] Hero abilities beyond the war cry, more than one hero to choose from
+- [x] More lane variety: three layouts (The Three Roads, The Crossing, The Winding Way), square-cut plateaus
+- [x] Neutral bandit camps in the woods (gold and hero XP; they fill again)
+- [x] Three heroes to choose from (Knight, Ranger, Warden), two abilities each
+- [ ] Hero items or talents; a hero shop at the Town Hall
+- [ ] Neutral camp variety (wolves, a boss camp)
 
 ## v0.5: Heroes
 

@@ -1,4 +1,4 @@
-import { BUILDINGS, ENEMIES } from '../sim/config.js';
+import { BUILDINGS, ENEMIES, HEROES } from '../sim/config.js';
 import { frameToDataURL } from '../render/spriteBaker.js';
 import { spriteKeys } from '../render/spriteCatalog.js';
 import { onPress } from './press.js';
@@ -27,6 +27,8 @@ export class MainMenu {
     onPress($('menu-continue'), () => this.close());
     onPress($('menu-endless'), () => this._start('survival'));
     onPress($('menu-conquest'), () => this._start('conquest'));
+    onPress($('hero-pick-close'), () => ($('hero-pick').hidden = true));
+    this._buildHeroCards(portrait);
     onPress($('menu-codex'), () => this.openCodex());
     onPress($('menu-options'), () => game.settingsMenu.open());
     onPress($('menu-help'), () => game.hud.toggleHelp(true));
@@ -51,6 +53,7 @@ export class MainMenu {
   close() {
     this.el.hidden = true;
     this.codex.hidden = this.credits.hidden = true;
+    $('hero-pick').hidden = true;
     document.body.classList.remove('menu-open');
     this.game.setHeld(false);
     this.started = true;
@@ -76,7 +79,7 @@ export class MainMenu {
    */
   async _start(mode) {
     const world = this.game.world;
-    if (!this.started && world.mode === mode) {
+    if (!this.started && world.mode === mode && mode !== 'conquest') {
       this.close();
       return;
     }
@@ -89,8 +92,49 @@ export class MainMenu {
       return;
     }
     this._confirmUntil = 0;
+    if (mode === 'conquest') {
+      $('hero-pick').hidden = false; // the battle begins once a hero is chosen (_pickHero)
+      return;
+    }
     await this.game.newMap(mode);
     this.close();
+  }
+
+  /** Conquest: the hero chosen; a new Conquest with them (or the one laid out behind the menu, if it's theirs). */
+  async _pickHero(kind) {
+    $('hero-pick').hidden = true;
+    this.game.mapOptions.hero = kind;
+    const world = this.game.world;
+    if (!this.started && world.mode === 'conquest' && world.heroKinds.red === kind) {
+      this.close();
+      return;
+    }
+    await this.game.newMap('conquest');
+    this.close();
+  }
+
+  /** A card per hero in HEROES.roster: portrait, stats and abilities. */
+  _buildHeroCards(portrait) {
+    const el = $('hero-cards');
+    el.replaceChildren();
+    for (const [kind, h] of Object.entries(HEROES.roster)) {
+      const card = document.createElement('button');
+      card.type = 'button';
+      card.className = 'codex-card hero-card';
+      card.dataset.hero = kind;
+      const s = h.stats;
+      const abilities = h.abilities.map((a, i) => `<b>${i ? 'E' : 'Q'}</b> ${HEROES.abilities[a].name}`).join(' · ');
+      card.innerHTML = `
+        <img src="${portrait(spriteKeys.enemy(h.type, Math.PI / 4, true, 'walk', 0, 'red'))}" alt="" draggable="false" />
+        <div>
+          <h4>${h.names.red}, the ${h.title}</h4>
+          <dl><dt>Health</dt><dd>${s.maxHp}</dd><dt>Damage</dt><dd>${s.damage}</dd><dt>Reach</dt><dd>${s.ranged ? s.ranged.range : 'melee'}</dd><dt>Speed</dt><dd>${s.speed}</dd></dl>
+          <p>${h.blurb}</p>
+          <p class="hero-abilities">${abilities}</p>
+        </div>`;
+      onPress(card, () => this._pickHero(kind));
+      el.append(card);
+    }
   }
 
   openCodex() {

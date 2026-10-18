@@ -72,6 +72,8 @@ const BAR_SHOW = 2.5;
 const BAR_FADE = 0.4;
 const WALK_STRIDE = { swordsman: 0.7, pikeman: 0.7, archer: 0.7, knight: 0.75, ram: 0.6, mangonel: 0.6 };
 const DEATH_FRAME_TIME = 0.11; // seconds per death frame
+/** Ring colours for hero abilities (see HEROES.abilities). */
+const ABILITY_RINGS = { warCry: 0xe8c25a, charge: 0xd9562e, volley: 0xc23a2a, fleetFoot: 0x9fd1a8, shieldWall: 0x7fa6d9, rally: 0xf2e2a0 };
 const CORPSE_TIME = 0.9; // how long a fallen enemy stays before vanishing
 // Visible world height at zoom 1 is at least this; portrait screens show at least VIEW_WIDTH across.
 const VIEW_HEIGHT = 30;
@@ -729,7 +731,8 @@ export class Renderer {
         this.corpses.push({ type: troop.type, elite: troop.elite ?? false, team: troop.team, heading: troop.heading, x: troop.x, z: troop.z, age: 0 });
       }),
       // Heroes: a gold ring for a war cry, a small one where yours is sent.
-      ev.on('warCry', ({ x, z, radius }) => this._spawnRing(x, z, radius, 0xe8c25a, 0.7)),
+      // Hero abilities: a ring in the ability's colour where it lands.
+      ev.on('heroAbility', ({ ability, x, z, radius }) => this._spawnRing(x, z, radius, ABILITY_RINGS[ability] ?? 0xe8c25a, 0.7)),
       ev.on('heroOrdered', ({ hero, x, z }) => hero.team === 'red' && this._spawnRing(x, z, 0.8, 0xc23a2a, 0.5)),
       ev.on('buildingHit', (hit) => this._fxHit(hit)),
       ev.on('waveStarted', ({ wave }) => this.setWeather(this.weather.season, this._weatherFor(wave, this.weather.season))),

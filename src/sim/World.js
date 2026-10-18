@@ -1,4 +1,4 @@
-import { BUILDINGS, CONQUEST, ECONOMY, ENEMIES, GRID, PATHING, START_FORT, TERRAIN, TIMING, TROOPS, UPGRADES } from './config.js';
+import { BUILDINGS, CONQUEST, ECONOMY, ENEMIES, GRID, HEROES, PATHING, START_FORT, TERRAIN, TIMING, TROOPS, UPGRADES } from './config.js';
 import { nextUpgradeCost, stageDef } from './upgrades.js';
 import { createRng } from './rng.js';
 import { EventBus } from './EventBus.js';
@@ -12,7 +12,8 @@ import { SIDES } from './WaveManager.js';
 import { refreshPosts, updateBarracks, updateTroop } from './troops.js';
 import { generateLaneMap, nearestLane } from './lanes.js';
 import { aiThink, buildForts, otherTeam, sendSquads, updateLaneSoldier } from './conquest.js';
-import { heroFell, heroXp, orderHero, spawnHero, updateHero, updateHeroes, warCry } from './heroes.js';
+import { heroFell, heroXp, orderHero, spawnHero, updateHero, updateHeroes, useAbility } from './heroes.js';
+import { campAlarm, campGuardFell, setupCamps, updateCampGuard, updateCamps } from './camps.js';
 
 /**
  * The whole game state and rules, with no rendering or DOM dependencies.
@@ -47,9 +48,10 @@ import { heroFell, heroXp, orderHero, spawnHero, updateHero, updateHeroes, warCr
  * waveCleared, gameOver, troopTrained, troopKilled. Enemy shots are projectiles too (`hostile: true`, fired by `enemy`).
  */
 export class World {
-  constructor({ seed = Date.now(), terrain = 'open', fort = false, river = false, sea = false, size = null, hills = false, mode = 'survival' } = {}) {
+  constructor({ seed = Date.now(), terrain = 'open', fort = false, river = false, sea = false, size = null, hills = false, mode = 'survival', hero = null } = {}) {
     this.seed = seed >>> 0;
     this.mode = mode;
+    this._heroChoice = hero; // Conquest: the player's hero (a key of HEROES.roster)
     this.rng = createRng(seed);
     this.troopRng = createRng(this.seed ^ 0x7a00b5); // soldiers' small choices, so they don't change the waves
     this.events = new EventBus();
@@ -116,6 +118,8 @@ export class World {
     this.grid.terrain = map.types;
     this.grid.levels = map.levels;
     this.lanes = map.lanes;
+    this.layout = map.layout; // its name (see LAYOUTS in lanes.js)
+    this.camps = map.camps;
     this.coast = null;
     this.hills = map.levels.some((l) => l > 0);
     this.spawnTiles = { north: [], south: [], west: [], east: [] };
@@ -124,8 +128,12 @@ export class World {
     this.townHall = this._addBuilding('townHall', map.halls.red.x, map.halls.red.z, 'red');
     this.enemyHall = this._addBuilding('townHall', map.halls.blue.x, map.halls.blue.z, 'blue');
     buildForts(this);
+    // The player's hero as chosen (else the default); the AI's at random (on a stream of its own).
+    const kinds = Object.keys(HEROES.roster);
+    this.heroKinds = { red: HEROES.roster[this._heroChoice] ? this._heroChoice : HEROES.default, blue: createRng(this.seed ^ 0x4e40).pick(kinds) };
     this.heroes = {};
     for (const team of ['red', 'blue']) spawnHero(this, team);
+    setupCamps(this);
     this._aiTimer = CONQUEST.ai.think;
     this._refreshFlow();
   }
@@ -135,9 +143,9 @@ export class World {
     return orderHero(this, team, order);
   }
 
-  /** Conquest: the hero's war cry (allies near it heal and speed up). */
-  warCry(team = 'red') {
-    return warCry(this, team);
+  /** Conquest: the hero's ability in `slot` (0: Q, 1: W; see HEROES.abilities). { ok, reason }. */
+  useAbility(slot = 0, team = 'red') {
+    return useAbility(this, team, slot);
   }
 
   /** A side's gold: the player's (red), or in Conquest the AI's (blue). */
@@ -448,6 +456,7 @@ export class World {
         aiThink(this);
       }
       updateHeroes(this, dt);
+      updateCamps(this);
     }
     if (this.phase === 'wave') {
       for (const entry of this.waves.update(dt)) this._spawnEnemy(entry);
@@ -470,6 +479,7 @@ export class World {
     for (const t of this.troops) {
       if (!t.alive) continue;
       if (t.hero) updateHero(this, t, dt);
+      else if (t.camp !== undefined) updateCampGuard(this, t, dt);
       else if (t.lane !== undefined) updateLaneSoldier(this, t, dt);
       else updateTroop(this, t, dt);
       if (this.phase === 'gameover') return;
@@ -626,7 +636,7 @@ export class World {
     for (const e of this.foesOf(b.team)) {
       if (!e.alive || (e.x - b.cx) ** 2 + (e.z - b.cz) ** 2 > r2) continue;
       if (a.slow) this._slowEnemy(e, a.slow);
-      this._hurt(e, a.damage);
+      this._hurt(e, a.damage, b.team);
     }
     this.events.emit('towerPulse', { building: b, x: b.cx, z: b.cz, radius: range });
   }
@@ -646,8 +656,8 @@ export class World {
   }
 
   /** Damage an enemy or a soldier. */
-  _hurt(u, amount) {
-    if (u.team) this._damageTroop(u, amount);
+  _hurt(u, amount, by = null) {
+    if (u.team) this._damageTroop(u, amount, by);
     else this._damageEnemy(u, amount);
   }
 
@@ -758,11 +768,12 @@ export class World {
     } else if (p.splash > 0) {
       const r2 = p.splash * p.splash;
       for (const e of this.foesOf(p.team)) {
-        if (e.alive && (e.x - p.x) ** 2 + (e.z - p.z) ** 2 <= r2) this._hurt(e, p.damage);
+        if (e.alive && (e.x - p.x) ** 2 + (e.z - p.z) ** 2 <= r2) this._hurt(e, p.damage, p.team);
       }
     } else if (p.target?.alive) {
       if (p.slow) this._slowEnemy(p.target, p.slow);
-      this._hurt(p.target, p.damage);
+      this._hurt(p.target, p.damage, p.team);
+      if (p.from && p.target.alive && p.target.camp !== undefined) campAlarm(this, p.target.camp, p.from);
     }
     this.events.emit('projectileImpact', { x: p.x, y: p.y, z: p.z, kind: p.kind, splash: p.splash, hostile: Boolean(p.hostile) });
   }
@@ -1012,14 +1023,21 @@ export class World {
     return true;
   }
 
-  _damageTroop(t, amount) {
+  /** `by`: the side that struck (who earns the bounty; for a neutral camp's guards it could be either). */
+  _damageTroop(t, amount, by = null) {
     if (!t.alive) return;
+    if (t.guardUntil > this.time) amount *= 1 - t.guard; // a Warden's shield wall
     t.hp -= amount;
+    if (by) t.lastHitBy = by;
     if (t.hp > 0) return;
     this._removeTroop(t, 'killed');
     if (this.mode === 'conquest') {
-      this.economyOf(otherTeam(t.team)).earn(t.def.reward, 'kill');
-      heroXp(this, otherTeam(t.team), t.x, t.z, t.def.reward);
+      const killer = t.team === 'neutral' ? t.lastHitBy : otherTeam(t.team);
+      if (killer === 'red' || killer === 'blue') {
+        this.economyOf(killer).earn(t.def.reward, 'kill');
+        heroXp(this, killer, t.x, t.z, t.def.reward);
+      }
+      if (t.camp !== undefined) campGuardFell(this, t);
       if (t.hero) heroFell(this, t);
       if (t.team === 'blue') this.stats.kills++;
     }
@@ -1035,7 +1053,9 @@ export class World {
     if (!r) {
       if (building) this._damageBuilding(target, u.def.damage, u);
       else {
-        this._damageTroop(target, u.def.damage);
+        this._damageTroop(target, u.def.damage * (u.charged ? u.charged : 1), u.team);
+        u.charged = 0;
+        if (target.alive && target.camp !== undefined) campAlarm(this, target.camp, u);
         if (target.alive && !target.def.siege && (!target.target || target.target.size !== undefined)) target.target = u;
       }
       return;
@@ -1058,6 +1078,7 @@ export class World {
       target: building ? null : target,
       building: building ? target : null,
       team: u.team,
+      from: u,
       damage: u.def.damage,
       splash: 0,
       slow: null,

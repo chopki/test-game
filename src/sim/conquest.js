@@ -224,7 +224,8 @@ function pickLaneTarget(world, u) {
   let bestD = CONQUEST.aggro;
   // Siege engines go for buildings only.
   for (const v of u.def.siege ? [] : world.troops) {
-    if (!v.alive || v.team === u.team || v.delay > 0) continue;
+    // (Squads march past the neutral camps: they fight bandits only when set upon.)
+    if (!v.alive || v.team === u.team || v.team === 'neutral' || v.delay > 0) continue;
     const d = dist(u, v);
     if (d <= bestD) [best, bestD] = [v, d];
   }

@@ -64,11 +64,14 @@
       <!-- Bottom left: time. -->
       <div class="corner corner-bl cogs">
         <!-- Conquest: your hero (tap, then tap the map to send them) and their war cry. -->
-        <button id="hero-btn" class="cog hero-cog" type="button" hidden title="Your hero: tap, then tap the map to send them there, or an enemy to attack it (E)" aria-label="Hero">
+        <button id="hero-btn" class="cog hero-cog" type="button" hidden title="Your hero: tap, then tap the map to send them there, or an enemy to attack it (G)" aria-label="Hero">
           <span class="cog-icon hero-face"><img id="hero-portrait" alt="" draggable="false" /></span><span class="hero-level" id="hero-level">1</span><span class="cog-label" id="hero-label">Hero</span>
         </button>
-        <button id="warcry-btn" class="cog" type="button" hidden title="War cry: your hero and the soldiers near them heal and speed up (Q)" aria-label="War cry">
-          <span class="cog-icon">⚔</span><span class="cog-label" id="warcry-label">War cry</span>
+        <button id="ability-0" class="cog ability" type="button" hidden aria-label="Hero ability (Q)">
+          <span class="cog-icon">Q</span><span class="cog-label" id="ability-0-label"></span>
+        </button>
+        <button id="ability-1" class="cog ability" type="button" hidden aria-label="Hero ability (E)">
+          <span class="cog-icon">E</span><span class="cog-label" id="ability-1-label"></span>
         </button>
         <button id="start-wave" class="cog cog-primary" title="Send the next wave early: tap twice (Space sends it at once)" aria-label="Start wave">
           <svg class="cog-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19 19 5M14 5h5v5M5 5l14 14M5 14v5h5" /></svg><span class="cog-label">Send wave</span>
@@ -139,6 +142,15 @@
           <h3>The Enemy</h3>
           <div id="codex-foes" class="codex-cards"></div>
           <button id="codex-close" class="primary" type="button">Close</button>
+        </div>
+      </div>
+
+      <!-- Conquest: choose your hero (the AI picks its own). -->
+      <div id="hero-pick" class="overlay" hidden>
+        <div class="panel dialog codex-book">
+          <h2>Choose your champion</h2>
+          <div id="hero-cards" class="codex-cards"></div>
+          <button id="hero-pick-close" type="button">Back</button>
         </div>
       </div>
 
