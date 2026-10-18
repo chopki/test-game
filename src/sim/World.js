@@ -1,4 +1,4 @@
-import { BUILDINGS, CONQUEST, ECONOMY, ENEMIES, GRID, HEROES, PATHING, START_FORT, TERRAIN, TIMING, TROOPS, UPGRADES } from './config.js';
+import { BUILDINGS, CONQUEST, ECONOMY, ENEMIES, GRID, HEROES, PATHING, REALM, START_FORT, TERRAIN, TIMING, TROOPS, UPGRADES } from './config.js';
 import { nextUpgradeCost, stageDef } from './upgrades.js';
 import { createRng } from './rng.js';
 import { EventBus } from './EventBus.js';
@@ -15,6 +15,7 @@ import { aiThink, buildForts, otherTeam, placeFlags, sendSquads, updateLaneSoldi
 import { barracksCap, flagForFort, inTerritory, updateFlags } from './flags.js';
 import { heroFell, heroXp, orderHero, spawnHero, updateHero, updateHeroes, useAbility } from './heroes.js';
 import { campAlarm, campGuardFell, setupCamps, updateCampGuard, updateCamps } from './camps.js';
+import { cancelBounty, canPlaceInRealm, forge, fundBounty, placeBounty, realmHit, realmKill, recruit, setupRealm, updateRealm, updateRealmUnit } from './realm/index.js';
 
 /**
  * The whole game state and rules, with no rendering or DOM dependencies.
@@ -29,8 +30,9 @@ import { campAlarm, campGuardFell, setupCamps, updateCampGuard, updateCamps } fr
  * tiles (default GRID.width × GRID.height); the Town Hall sits in the middle. `hills`: false (flat, the default),
  * 'sometimes' (TERRAIN.hills.chance of maps) or true: plateaus with cliffs and ramps (`grid.levels`).
  *
- * `mode`: 'survival' (the default: hold the Town Hall against waves) or 'conquest' (castle against castle on the
- * lane map; see conquest.js). In Conquest every building and soldier has a `team` ('red', the player, or 'blue',
+ * `mode`: 'survival' (the default: hold the Town Hall against waves), 'conquest' (castle against castle on the
+ * lane map; see conquest.js) or 'realm' (Survival's map and waves, plus heroes who act on their own, lairs, bounty
+ * flags and the fog of war; see realm/index.js, which keeps its state in `world.realm`). In Conquest every building and soldier has a `team` ('red', the player, or 'blue',
  * the AI), `enemyHall` is blue's Town Hall, each side has its own gold (`economyOf(team)`), and the phase stays
  * 'build' (counting down to the next wave of squads) until a Town Hall falls; `won` says whose.
  *
@@ -59,7 +61,7 @@ export class World {
     const conquest = mode === 'conquest';
     this.grid = conquest ? new Grid(CONQUEST.width, CONQUEST.height, GRID.spawnMargin) : new Grid(size ?? GRID.width, size ?? GRID.height, GRID.spawnMargin);
     this.flow = new FlowField(this.grid);
-    this.economy = new Economy(conquest ? CONQUEST.startingGold : ECONOMY.startingGold, this.events);
+    this.economy = new Economy(conquest ? CONQUEST.startingGold : mode === 'realm' ? REALM.startingGold : ECONOMY.startingGold, this.events);
     // Conquest: the AI's purse (its own events, so the player's HUD doesn't hear of it).
     this.blueEconomy = conquest ? new Economy(CONQUEST.startingGold, new EventBus()) : null;
 
@@ -69,7 +71,7 @@ export class World {
     this.troops = [];
 
     this.phase = 'build';
-    this.phaseTimer = TIMING.firstBuildPhase;
+    this.phaseTimer = mode === 'realm' ? REALM.firstDay : TIMING.firstBuildPhase;
     this.time = 0;
     this.stats = { kills: 0, wavesSurvived: 0 };
     this.won = null; // Conquest: true if the player took the enemy's Town Hall, false if they lost their own
@@ -111,6 +113,7 @@ export class World {
     this.townHall = this._addBuilding('townHall', hall.x, hall.z);
     if (fort) this._buildStartingFort();
     this._refreshFlow();
+    if (mode === 'realm') setupRealm(this);
   }
 
   /** The lane map, both Town Halls and both forts (Conquest). */
@@ -149,6 +152,39 @@ export class World {
   /** Conquest: the hero's ability in `slot` (0: Q, 1: W; see HEROES.abilities). { ok, reason }. */
   useAbility(slot = 0, team = 'red') {
     return useAbility(this, team, slot);
+  }
+
+  /** Whether `type` can be built in this mode at all (the build wheel shows only these). */
+  offers(type) {
+    const def = BUILDINGS[type];
+    return Boolean(def?.buildable) && (!def.conquest || this.mode === 'conquest') && (!def.realm || this.mode === 'realm');
+  }
+
+  // ---------------------------------------------------------------- Realm commands (see realm/)
+
+  /** Realm: take on a hero at guild `guildId` (a guild building's id). { ok, reason, hero }. */
+  recruit(guildId) {
+    return recruit(this, guildId);
+  }
+
+  /** Realm: place a bounty flag (see placeBounty in realm/bounties.js). { ok, reason, flag }. */
+  placeBounty(spec, gold) {
+    return placeBounty(this, spec, gold);
+  }
+
+  /** Realm: add gold to bounty flag `id`. */
+  fundBounty(id, gold) {
+    return fundBounty(this, id, gold);
+  }
+
+  /** Realm: take bounty flag `id` down (its gold isn't given back). */
+  cancelBounty(id) {
+    return cancelBounty(this, id);
+  }
+
+  /** Realm: forge the smithies' next tier of gear. */
+  forge() {
+    return forge(this);
   }
 
   /** A side's gold: the player's (red), or in Conquest the AI's (blue). */
@@ -221,6 +257,7 @@ export class World {
     if (!def || !def.buildable) return { ok: false, reason: 'Cannot build that' };
     if (this.phase === 'gameover') return { ok: false, reason: 'Game over' };
     if (def.conquest && this.mode !== 'conquest') return { ok: false, reason: 'Conquest only' };
+    if (def.realm && this.mode !== 'realm') return { ok: false, reason: 'Realm only' };
     if (this.mode === 'conquest' && !anywhere) {
       // A Flag Fort goes on a flag you hold (wherever it is); everything else inside your territory.
       if (type === 'flagFort') {
@@ -244,6 +281,10 @@ export class World {
     const replaces = this.wallsUnder(type, x, z);
     if (!replaces) return { ok: false, reason: 'Space is occupied' };
     if (this._enemyInArea(x, z, def.size)) return { ok: false, reason: 'Enemies in the way' };
+    if (this.realm) {
+      const no = canPlaceInRealm(this, type, x, z);
+      if (no) return no;
+    }
     // Walls a tower replaces are sold, and that refund counts towards the tower.
     const refund = replaces.reduce((sum, w) => sum + this.sellValue(w), 0);
     if (replaces.some((w) => w.team !== team)) return { ok: false, reason: 'Space is occupied' };
@@ -477,6 +518,7 @@ export class World {
       updateFlags(this, dt);
       updateCamps(this);
     }
+    if (this.realm) updateRealm(this, dt);
     if (this.phase === 'wave') {
       for (const entry of this.waves.update(dt)) this._spawnEnemy(entry);
     }
@@ -497,7 +539,8 @@ export class World {
     }
     for (const t of this.troops) {
       if (!t.alive) continue;
-      if (t.hero) updateHero(this, t, dt);
+      if (t.realm) updateRealmUnit(this, t, dt);
+      else if (t.hero) updateHero(this, t, dt);
       else if (t.camp !== undefined) updateCampGuard(this, t, dt);
       else if (t.lane !== undefined) updateLaneSoldier(this, t, dt);
       else updateTroop(this, t, dt);
@@ -674,10 +717,10 @@ export class World {
     return team === 'red' ? (soldiers.length ? [...this.enemies, ...soldiers] : this.enemies) : soldiers;
   }
 
-  /** Damage an enemy or a soldier. */
-  _hurt(u, amount, by = null) {
-    if (u.team) this._damageTroop(u, amount, by);
-    else this._damageEnemy(u, amount);
+  /** Damage an enemy or a soldier; `by`: the side that struck, `source`: who (a hero, a soldier), if known. */
+  _hurt(u, amount, by = null, source = null) {
+    if (u.team) this._damageTroop(u, amount, by, source);
+    else this._damageEnemy(u, amount, source);
   }
 
   // Towers shoot the enemy in range that is closest to reaching the Town Hall (soldiers: the nearest).
@@ -791,7 +834,7 @@ export class World {
       }
     } else if (p.target?.alive) {
       if (p.slow) this._slowEnemy(p.target, p.slow);
-      this._hurt(p.target, p.damage, p.team);
+      this._hurt(p.target, p.damage, p.team, p.from ?? null);
       if (p.from && p.target.alive && p.target.camp !== undefined) campAlarm(this, p.target.camp, p.from);
     }
     this.events.emit('projectileImpact', { x: p.x, y: p.y, z: p.z, kind: p.kind, splash: p.splash, hostile: Boolean(p.hostile) });
@@ -1007,7 +1050,7 @@ export class World {
     let best = null;
     let bestDist = reach;
     for (const t of this.troops) {
-      if (!t.alive) continue;
+      if (!t.alive || t.team === 'neutral' || t.inside > 0) continue;
       const d = Math.hypot(t.x - e.x, t.z - e.z);
       if (d <= bestDist) {
         best = t;
@@ -1042,14 +1085,19 @@ export class World {
     return true;
   }
 
-  /** `by`: the side that struck (who earns the bounty; for a neutral camp's guards it could be either). */
-  _damageTroop(t, amount, by = null) {
+  /**
+   * `by`: the side that struck (who earns the bounty; for a neutral camp's guards it could be either); `source`: who
+   * struck, if known (Realm: heroes earn what they fell).
+   */
+  _damageTroop(t, amount, by = null, source = null) {
     if (!t.alive) return;
     if (t.guardUntil > this.time) amount *= 1 - t.guard; // a Warden's shield wall
     t.hp -= amount;
     if (by) t.lastHitBy = by;
+    if (this.realm) realmHit(this, t, amount, source);
     if (t.hp > 0) return;
     this._removeTroop(t, 'killed');
+    if (this.realm) realmKill(this, t, source);
     if (this.mode === 'conquest') {
       const killer = t.team === 'neutral' ? t.lastHitBy : otherTeam(t.team);
       if (killer === 'red' || killer === 'blue') {
@@ -1116,14 +1164,16 @@ export class World {
     this.events.emit('troopKilled', { troop: t, dismissed: how === 'dismissed' });
   }
 
-  _damageEnemy(e, amount) {
+  /** `source`: who struck, if known (Realm: a hero keeps the gold for what it fells). */
+  _damageEnemy(e, amount, source = null) {
     if (!e.alive) return;
     e.hp -= amount;
+    if (this.realm) realmHit(this, e, amount, source);
     if (e.hp > 0) return;
     e.alive = false;
     this.stats.kills++;
     const reward = e.def.reward * (e.elite ? 3 : 1);
-    this.economy.earn(reward, 'kill');
+    if (!(this.realm && realmKill(this, e, source))) this.economy.earn(reward, 'kill');
     this.events.emit('enemyKilled', { enemy: e, reward });
   }
 
@@ -1138,7 +1188,7 @@ export class World {
     const bonus = ECONOMY.waveBonusBase + ECONOMY.waveBonusPerWave * wave;
     this.economy.earn(bonus, 'wave');
     this.phase = 'build';
-    this.phaseTimer = TIMING.buildPhase;
+    this.phaseTimer = this.realm ? REALM.day : TIMING.buildPhase;
     this.events.emit('waveCleared', { wave, bonus });
   }
 }

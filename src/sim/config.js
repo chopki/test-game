@@ -244,6 +244,68 @@ export const BUILDINGS = {
       arc: 0.4,
     },
   },
+  // Realm only (`realm: true`; see REALM and sim/realm/): guilds, whose heroes act on their own, and the smithy where
+  // they buy their gear. A guild houses `heroes` heroes of its class (REALM.classes), recruited for their cost.
+  warriorsHall: {
+    name: "Warriors' Hall",
+    description: 'Realm: a guild of Men-at-arms. They defend the town, hunt raiders and raid lairs when they feel strong enough.',
+    size: 2,
+    maxHp: 600,
+    cost: 80,
+    buildable: true,
+    realm: true,
+    guild: 'manAtArms',
+    hotkey: '7',
+    height: 1.5,
+  },
+  rangersLodge: {
+    name: "Rangers' Lodge",
+    description: 'Realm: a lodge of Rangers. They explore the wilds, find the lairs and shoot beasts and outlaws from afar.',
+    size: 2,
+    maxHp: 320,
+    cost: 70,
+    buildable: true,
+    realm: true,
+    guild: 'ranger',
+    hotkey: '8',
+    height: 1.3,
+  },
+  roguesDen: {
+    name: "Rogues' Den",
+    description: 'Realm: a den of Rogues. Cheap, quick and greedy: first to any bounty, last to stand and fight, and they pay less tax.',
+    size: 2,
+    maxHp: 300,
+    cost: 60,
+    buildable: true,
+    realm: true,
+    guild: 'rogue',
+    hotkey: '9',
+    height: 1.2,
+  },
+  smithy: {
+    name: 'Smithy',
+    description: 'Realm: heroes buy better weapons and armour here with their own gold, and you take a tax on each sale. Forge a new tier to sell better gear.',
+    size: 2,
+    maxHp: 350,
+    cost: 50,
+    buildable: true,
+    realm: true,
+    shop: true,
+    hotkey: '0',
+    height: 1.3,
+  },
+  // Realm's lairs (see REALM.lairs): an outlaw camp in the wilds. Not built by anyone, and not on the grid.
+  outlawCamp: {
+    name: 'Outlaw Camp',
+    description: 'A camp of outlaws in the wilds. Its men raid the town now and then, more often as it grows. Clear its guards and burn it down.',
+    size: 2,
+    maxHp: 420,
+    cost: 0,
+    buildable: false,
+    realm: true,
+    lair: true,
+    height: 1.2,
+  },
   gatehouse: {
     name: 'Gatehouse',
     description: "The fort's log gatehouse. While it stands, enemies can't get through: they must smash it or find another way in.",
@@ -653,6 +715,151 @@ export const CAMPS = {
   bounty: 2.5,
   respawn: 90,
   growth: 0.05,
+};
+
+/**
+ * Realm (sim/realm/): a kingdom in the wilds, after Majesty (see docs/research/). You don't command heroes: they act
+ * on their own, by their class and traits, and you steer them with gold. Days (the build phase, `day` seconds;
+ * `firstDay` before the first night) are for heroes and lairs; nights are Survival's waves against the walls.
+ *  startingGold  the player's gold at the start (instead of ECONOMY.startingGold)
+ *  guildCap      heroes each guild houses
+ *  think         seconds between a hero's decisions (staggered)
+ *  sight         how far a hero sees foes and lairs (tiles); also how far it explores the fog round it
+ *  chunk         the fog of war is kept in chunks of this many tiles square; `startClear` tiles round the Town
+ *                Hall start explored. Nothing can be built in a chunk no one has seen
+ *  carryHome     a hero with this much gold heads home to pay tax and rest; `restBelow` of its health too
+ *  heal          health a second (fraction of its most) while resting at home; `rest` seconds at least
+ *  killGold      a foe's gold reward (ENEMIES / TROOPS `reward`) × this goes into the purse of the hero who fells it
+ *  xp            XP a foe is worth: its reward × this. `levels`: XP needed for each level; each level adds
+ *                `perLevel` of the class's base health and damage
+ *  salesTax      share of each purchase that goes to the treasury (the rest is spent and gone)
+ *  gear          the smithy's tiers: `cost` to forge (the player pays), `price` a hero pays, and the extra
+ *                damage and health it gives (fractions of the class's base)
+ *  bounty        flags: `base` gold when placed, `step` when topped up; an explore flag is claimed by the first
+ *                hero within `reach` tiles of it; an attack bounty is shared by everyone who hurt the target
+ *                (by damage), with at least `floor` of an equal share each. `seeAll`: heroes weigh flags this far
+ *                away (tiles); a flag worth less than `tempt` to a hero (see bountyValue in realm/heroes.js) is ignored
+ *  courage       a hero fights when its side's strength × its self-estimate beats the foes' × its enemy-estimate
+ *                (strength = health × damage per second); allies within `group` tiles count with it
+ *  traits        rolled at recruitment (`perHero` each): a name, words for the hero card, and what they change
+ *  names         heroes' names, drawn in turn from a shuffled list
+ *  classes       each class's guild building (BUILDINGS[…].guild), sprite `type` (TROOPS / ENEMIES models, in red),
+ *                `cost`, `stats`, `greed` (1–26: how much a bounty's gold tempts it), `selfEst` / `enemyEst`
+ *                (courage), `fleeAt` (share of health), `tax` (share of earnings paid at home), `likes` (bounty
+ *                kinds it takes more readily) and `plan`: its ordered list of [activity, chance] (see heroes.js)
+ *  lairs         `count` lairs per map, by its size; `minHall` / `minApart` tiles from the Town Hall / each
+ *                other. Each has `guards` (refilled `refill` seconds after they all fall, until it's burnt), grows a
+ *                level every `growEvery` seconds (up to `maxLevel`: `growth` more health a level), and every
+ *                `raidEvery` seconds (less `raidFaster` a level) sends a raiding party of `raid` (+1 man per
+ *                `raidPer` levels) at the nearest building. Burning it pays `loot` gold to the heroes there.
+ */
+export const REALM = {
+  startingGold: 400,
+  firstDay: 150,
+  day: 110,
+  guildCap: 4,
+  think: 0.5,
+  sight: 6.5,
+  chunk: 4,
+  startClear: 10,
+  carryHome: 45,
+  restBelow: 0.55,
+  heal: 0.08,
+  rest: 4,
+  killGold: 1.5,
+  xp: 2,
+  levels: [0, 30, 80, 150, 240, 350, 480, 640, 830, 1050],
+  perLevel: 0.15,
+  salesTax: 0.6,
+  gear: [
+    { name: 'Iron', cost: 0, price: 0, damage: 0, hp: 0 },
+    { name: 'Steel', cost: 40, price: 20, damage: 0.25, hp: 0.15 },
+    { name: 'Fine steel', cost: 90, price: 45, damage: 0.5, hp: 0.3 },
+    { name: 'Masterwork', cost: 160, price: 80, damage: 0.8, hp: 0.5 },
+  ],
+  bounty: { base: 25, step: 25, reach: 2, floor: 0.2, seeAll: 40, tempt: 8 },
+  courage: { group: 3.5 },
+  traits: {
+    perHero: 1,
+    list: {
+      brave: { name: 'Brave', text: 'Stands against worse odds', selfEst: 1.25, fleeAt: -0.1 },
+      craven: { name: 'Craven', text: 'Runs early from a fight', selfEst: 0.75, fleeAt: 0.15 },
+      greedy: { name: 'Greedy', text: 'Bounties tempt them more', greed: 8 },
+      frugal: { name: 'Frugal', text: 'Saves their gold; slow to buy gear', carry: 1.6 },
+      tough: { name: 'Tough', text: 'More health', hp: 0.2 },
+      quick: { name: 'Quick', text: 'Moves faster', speed: 0.15 },
+      curious: { name: 'Curious', text: 'Loves to explore', explore: 1.5 },
+      homebody: { name: 'Homebody', text: 'Never strays far from home', range: 0.6 },
+    },
+  },
+  names: [
+    'Aldric', 'Brenna', 'Cedric', 'Dunstan', 'Edith', 'Fenwick', 'Gwen', 'Hob', 'Isolde', 'Jory', 'Kester', 'Linnet',
+    'Merrick', 'Nell', 'Osric', 'Piers', 'Rowan', 'Sabine', 'Tamsin', 'Ulric', 'Wynn', 'Yvaine', 'Godric', 'Maud',
+  ],
+  classes: {
+    manAtArms: {
+      name: 'Man-at-arms',
+      guild: 'warriorsHall',
+      type: 'swordsman',
+      cost: 45,
+      stats: { maxHp: 150, speed: 0.95, damage: 10, attackCooldown: 1.0, reach: 0.7, height: 0.95 },
+      greed: 12,
+      selfEst: 1.0,
+      enemyEst: 1.0,
+      fleeAt: 0.3,
+      tax: 0.4,
+      likes: { attack: 1.4, explore: 0.7 },
+      plan: [['defend', 0.95], ['hunt', 0.9], ['raid', 0.6], ['patrol', 0.6], ['explore', 0.25], ['home', 0.5]],
+    },
+    ranger: {
+      name: 'Ranger',
+      guild: 'rangersLodge',
+      type: 'archer',
+      cost: 35,
+      stats: { maxHp: 90, speed: 1.15, damage: 9, attackCooldown: 1.2, reach: 0.7, height: 0.9, ranged: { range: 5, projectile: 'arrow', projectileSpeed: 15, arc: 0.6 } },
+      greed: 6,
+      selfEst: 1.0,
+      enemyEst: 1.1,
+      fleeAt: 0.35,
+      tax: 0.4,
+      likes: { explore: 2, attack: 0.9 },
+      plan: [['explore', 0.95], ['hunt', 0.75], ['defend', 0.6], ['raid', 0.2], ['home', 0.15]],
+    },
+    rogue: {
+      name: 'Rogue',
+      guild: 'roguesDen',
+      type: 'rogue',
+      cost: 28,
+      stats: { maxHp: 75, speed: 1.25, damage: 8, attackCooldown: 0.8, reach: 0.65, height: 0.9 },
+      greed: 26,
+      selfEst: 0.8,
+      enemyEst: 1.25,
+      fleeAt: 0.45,
+      tax: 0.3,
+      likes: { attack: 1, explore: 1.2 },
+      plan: [['hunt', 0.55], ['explore', 0.3], ['defend', 0.3], ['raid', 0.15], ['home', 0.9]],
+    },
+  },
+  lairs: {
+    type: 'outlawCamp',
+    count: { 40: 3, 52: 4, 64: 5 },
+    minHall: 13,
+    minApart: 10,
+    guards: ['swordsman', 'swordsman', 'archer'],
+    aggro: 3.5,
+    leash: 6,
+    refill: 70,
+    growEvery: 200,
+    maxLevel: 6,
+    growth: 0.18,
+    raidEvery: 130,
+    raidFaster: 10,
+    raid: ['swordsman', 'swordsman'],
+    raidPer: 2,
+    respawn: 240,
+    loot: 60,
+    lootPerLevel: 15,
+  },
 };
 
 export const WAVES = {
