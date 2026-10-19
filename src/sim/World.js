@@ -157,6 +157,7 @@ export class World {
   /** Whether `type` can be built in this mode at all (the build wheel shows only these). */
   offers(type) {
     const def = BUILDINGS[type];
+    if (this.realm) return Boolean(def?.buildable) && this.realm.buildable.has(type);
     return Boolean(def?.buildable) && (!def.conquest || this.mode === 'conquest') && (!def.realm || this.mode === 'realm');
   }
 
@@ -258,6 +259,7 @@ export class World {
     if (this.phase === 'gameover') return { ok: false, reason: 'Game over' };
     if (def.conquest && this.mode !== 'conquest') return { ok: false, reason: 'Conquest only' };
     if (def.realm && this.mode !== 'realm') return { ok: false, reason: 'Realm only' };
+    if (this.realm && !this.realm.buildable.has(type)) return { ok: false, reason: "Your realm can't build that" };
     if (this.mode === 'conquest' && !anywhere) {
       // A Flag Fort goes on a flag you hold (wherever it is); everything else inside your territory.
       if (type === 'flagFort') {

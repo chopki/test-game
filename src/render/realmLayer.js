@@ -5,6 +5,8 @@ import { flagSpot } from '../sim/realm/bounties.js';
 import { FLAGPOLE } from './models.js';
 import { MARKS } from './groundMarks.js';
 import { PAINT_BORDER } from './terrainPainter.js';
+import { parchmentTexture } from './parchment.js';
+import { underlay } from './Renderer.js';
 import { spriteKeys } from './spriteCatalog.js';
 
 // Realm mode's battlefield (see src/sim/realm/): the fog of war over land no one has seen, the outlaws' camps (and
@@ -21,11 +23,16 @@ const FOG_VERTEX = /* glsl */ `
   }
 `;
 
-// Unseen land is blank vellum, as on a chart not yet drawn: warm, mottled paper with a faint grain, and where it
-// gives way to the known land a dark ink-bleed rim, as if that edge had just been drawn (the chunk texture is sampled
-// smoothly, and noise breaks up the line). See docs/research/10-ui-and-art-direction.md.
+// Unseen land is a sheet of old paper, as on a chart not yet drawn (the sheet itself is parchment.js, one copy every
+// PAPER_TILES tiles; it mipmaps, so it stays crisp close up and calm far out), with a faint graticule of chart lines.
+// Towards the known land the paper is aged and browned, a cartographer's hatching shades it, and where it gives way
+// there's a dark ink-bleed line, as if that edge had just been drawn (the chunk texture is sampled smoothly, and noise
+// breaks up the line). See docs/research/10-ui-and-art-direction.md.
+const PAPER_TILES = 14;
+const MAX_RINGS = 64;
 const FOG_FRAGMENT = /* glsl */ `
   uniform sampler2D seen;
+  uniform sampler2D paper;
   uniform vec2 size;
   varying vec2 vMap;
   float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
@@ -35,17 +42,32 @@ const FOG_FRAGMENT = /* glsl */ `
     vec2 u = f * f * (3.0 - 2.0 * f);
     return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y);
   }
+  // A line of width w (in tiles) once every so many tiles along v, with soft edges.
+  float lines(float v, float every, float w) {
+    float d = abs(fract(v / every + 0.5) - 0.5) * every;
+    return 1.0 - smoothstep(w * 0.5, w * 0.5 + 0.04, d);
+  }
   void main() {
     float s = texture2D(seen, clamp(vMap / size, 0.0, 1.0)).r;
-    float n = noise(vMap * 0.35) * 0.6 + noise(vMap * 1.1) * 0.4; // the edge's wobble and the paper's mottling
+    float n = noise(vMap * 0.35) * 0.6 + noise(vMap * 1.1) * 0.4; // the edge's wobble
     float fog = 1.0 - smoothstep(0.3 + n * 0.14, 0.58 + n * 0.14, s);
     if (fog < 0.01) discard;
-    float grain = noise(vMap * 6.0) * 0.5 + noise(vMap * 13.0) * 0.5;
-    vec3 paper = mix(vec3(0.78, 0.7, 0.54), vec3(0.9, 0.84, 0.68), n) * (0.93 + grain * 0.1);
-    // The rim: strongest part-way into the fog, fading both ways.
-    float rim = smoothstep(0.08, 0.45, fog) * (1.0 - smoothstep(0.5, 0.9, fog));
-    vec3 colour = mix(paper, vec3(0.3, 0.2, 0.12), rim * 0.8);
-    gl_FragColor = vec4(colour, max(fog * 0.95, rim * 0.9));
+    vec3 sheet = texture2D(paper, vMap / ${PAPER_TILES.toFixed(1)}).rgb;
+    // Broad variation across the sheet (so its repeats don't show), and the chart's graticule: thin sepia lines every
+    // eight tiles, broken into dashes.
+    float broad = noise(vMap * 0.06) * 0.6 + noise(vMap * 0.17) * 0.4;
+    vec3 colour = sheet * mix(0.9, 1.05, broad);
+    float dash = step(0.35, fract((vMap.x + vMap.y) * 0.5));
+    float grid = max(lines(vMap.x, 8.0, 0.05), lines(vMap.y, 8.0, 0.05)) * dash;
+    colour = mix(colour, vec3(0.45, 0.3, 0.18), grid * 0.35);
+    // Towards the known land: aged and browned, then hatched (diagonal strokes, broken up), then the inked edge.
+    float near = 1.0 - smoothstep(0.35, 0.95, fog); // 0 deep in the fog, 1 at its edge
+    colour = mix(colour, colour * vec3(0.78, 0.64, 0.48), near * 0.65);
+    float hatch = lines((vMap.x - vMap.y) * 0.7071, 0.33, 0.06) * step(0.4, noise(vMap * 2.3));
+    colour = mix(colour, vec3(0.32, 0.22, 0.14), hatch * smoothstep(0.15, 0.6, near) * (1.0 - smoothstep(0.8, 1.0, near)) * 0.6);
+    float rim = smoothstep(0.08, 0.42, fog) * (1.0 - smoothstep(0.48, 0.85, fog));
+    colour = mix(colour, vec3(0.26, 0.17, 0.1), rim * 0.85);
+    gl_FragColor = vec4(colour, max(smoothstep(0.0, 0.5, fog) * 0.97, rim * 0.92));
   }
 `;
 
@@ -53,6 +75,18 @@ export class RealmLayer {
   constructor(renderer) {
     this.r = renderer;
     this.fog = null;
+    // A ring on the ground under each hero, in its guild's colour (REALM.classes), so heroes stand out from the
+    // soldiers and the outlaws, and tell you whose they are.
+    const material = new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false });
+    underlay(material, 0.85);
+    this.rings = new THREE.InstancedMesh(new THREE.RingGeometry(0.3, 0.42, 28).rotateX(-Math.PI / 2), material, MAX_RINGS);
+    this.rings.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX_RINGS * 3), 3);
+    this.rings.renderOrder = 1;
+    this.rings.frustumCulled = false;
+    this.rings.count = 0;
+    renderer.groundLayer.add(this.rings);
+    this._m = new THREE.Matrix4();
+    this._colour = new THREE.Color();
     this._flagViews = new Map(); // flag id → { phase }
     this._lairViews = new Map(); // lair index → { lastHp, hitAt }
     this._pos = new THREE.Vector3();
@@ -77,6 +111,7 @@ export class RealmLayer {
     const material = new THREE.ShaderMaterial({
       uniforms: {
         seen: { value: this._fogTexture },
+        paper: { value: parchmentTexture() },
         size: { value: new THREE.Vector2(f.cols * REALM.chunk, f.rows * REALM.chunk) },
         offset: { value: new THREE.Vector2(this.r.offsetX, this.r.offsetZ) },
       },
@@ -100,6 +135,7 @@ export class RealmLayer {
   }
 
   detach() {
+    this.rings.count = 0;
     for (const off of this._unsubscribe ?? []) off();
     this._unsubscribe = [];
     if (this.fog) {
@@ -131,6 +167,18 @@ export class RealmLayer {
       for (let i = 0; i < seen.length; i++) this._fogData[i * 4] = seen[i] ? 255 : 0;
       this._fogTexture.needsUpdate = true;
     }
+
+    let n = 0;
+    for (const h of realm.heroes) {
+      if (!h.alive || h.inside > 0 || n >= MAX_RINGS) continue;
+      r.toScene(h.x, 0.03, h.z, this._pos);
+      this.rings.setMatrixAt(n, this._m.makeTranslation(this._pos.x, this._pos.y, this._pos.z));
+      this.rings.setColorAt(n, this._colour.set(REALM.classes[h.cls].colour));
+      n++;
+    }
+    this.rings.count = n;
+    this.rings.instanceMatrix.needsUpdate = true;
+    this.rings.instanceColor.needsUpdate = true;
 
     const camp = spriteKeys.building(REALM.lairs.type);
     for (const lair of realm.lairs) {

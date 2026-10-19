@@ -283,6 +283,7 @@ export class HUD {
     for (const [type, btn] of this.buttons) btn.hidden = type === 'bounty' ? !world.realm : BUILDINGS[type] ? !world.offers(type) : false;
     this.realm.attach(world);
     document.body.classList.toggle('realm', Boolean(world.realm));
+    this._dusk = false;
     this.el.herald.hidden = true;
     this.toggleChronicle(false);
     this._layoutWheel();
@@ -362,11 +363,23 @@ export class HUD {
     const confirming = w.phase === 'build' && performance.now() < this._waveConfirmUntil;
     if (confirming) phase = `Tap again to send wave ${w.waves.wave + 1} now`;
     this._set('phase', phase);
-    if (this._last.confirming !== confirming) {
+    // In a Realm the dial is a sun by day and a moon by night, and counts days.
+    const dial = confirming ? 'Send?' : !w.realm ? 'Wave' : w.phase === 'wave' ? 'Night' : 'Day';
+    if (this._last.confirming !== confirming || this._last.dial !== dial) {
       this._last.confirming = confirming;
+      this._last.dial = dial;
       this.el.waveDial.classList.toggle('confirm', confirming);
       this.el.startWave.classList.toggle('confirm', confirming);
-      $('dial-label').textContent = confirming ? 'Send?' : 'Wave';
+      this.el.waveDial.classList.toggle('sun', dial === 'Day');
+      this.el.waveDial.classList.toggle('moon', dial === 'Night');
+      $('dial-label').textContent = dial;
+    }
+    // Realm: at dusk, the herald cries where the night's army is gathering.
+    if (w.realm && w.phase === 'build' && w.phaseTimer <= REALM.dusk && !this._dusk) {
+      this._dusk = true;
+      this.chronicle(`Dusk falls: the blue army gathers to the ${joinSides(w.waves.next.sides)}`, 'danger');
+    } else if (w.phase !== 'build') {
+      this._dusk = false;
     }
     const pct = `${Math.round(Math.max(0, Math.min(1, progress)) * 100)}%`;
     if (this._last.progress !== pct) {
@@ -399,6 +412,7 @@ export class HUD {
     this._updateInfo();
     this._updateHero();
     this.realm.update();
+    this.realm.updateRail();
     this.minimap.update();
     this._updateConfirm();
     this._updateBuildTag();

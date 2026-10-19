@@ -12,9 +12,16 @@ export function setupFog(world) {
   const c = REALM.chunk;
   const cols = Math.ceil(world.grid.width / c);
   const rows = Math.ceil(world.grid.height / c);
-  world.realm.fog = { cols, rows, seen: new Uint8Array(cols * rows), version: 0 };
+  // `unreachable`: chunks a hero set out to explore and found no way to (they aren't picked again).
+  world.realm.fog = { cols, rows, seen: new Uint8Array(cols * rows), unreachable: new Set(), version: 0 };
   const hall = world.townHall;
   reveal(world, hall.cx, hall.cz, REALM.startClear);
+}
+
+/** No one can get to the chunk holding (x, z): explorers stop picking it (see nearestUnseen). */
+export function markUnreachable(world, x, z) {
+  const f = world.realm.fog;
+  f.unreachable.add(Math.floor(z / REALM.chunk) * f.cols + Math.floor(x / REALM.chunk));
 }
 
 /** Whether the chunk holding tile (x, z) has been seen. */
@@ -78,7 +85,7 @@ export function nearestUnseen(world, x, z, maxDist) {
   let best = null;
   for (let cz = 0; cz < f.rows; cz++) {
     for (let cx = 0; cx < f.cols; cx++) {
-      if (f.seen[cz * f.cols + cx]) continue;
+      if (f.seen[cz * f.cols + cx] || f.unreachable.has(cz * f.cols + cx)) continue;
       const mx = cx * c + c / 2;
       const mz = cz * c + c / 2;
       const d = Math.hypot(mx - x, mz - z);

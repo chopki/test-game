@@ -52,8 +52,8 @@ const INTROS = {
       `Build guilds from the wheel (keys 7–9): a Warriors' Hall, Rangers' Lodge or Rogues' Den. Tap one to hire its heroes (up to ${REALM.guildCap} each).`,
       'Heroes act on their own: exploring, hunting, raiding outlaw camps, coming home to rest. Tap one to see what they are up to.',
       'To steer them, place bounty flags (B): on an outlaw camp or foe to have it attacked, or on open ground to have it explored. More gold draws more heroes; tap a flag to add to it.',
-      'Heroes keep the gold they earn and pay tax on it when they come home. Build a Smithy (0) and forge better gear there: heroes buy it with their own gold, and the treasury takes a cut.',
-      "You can only build where someone has been: the fog hides the rest. Walls and towers still hold the Hall at night.",
+      'Heroes keep the gold they earn and pay tax on it when they come home: that tax is how the treasury grows.',
+      "You can only build where someone has been: the blank parchment of the map is land no one has seen yet. There are no walls or towers to raise here: at night your heroes and the old fort hold the Hall.",
     ],
     hints: [
       'Rangers love to explore; Men-at-arms stand and fight; Rogues go wherever the gold is (and run when it gets hot).',

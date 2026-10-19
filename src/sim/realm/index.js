@@ -33,6 +33,7 @@ export function setupRealm(world) {
     names,
     nameIndex: 0,
     gearTier: 0, // the best gear the smithies have forged (an index into REALM.gear)
+    buildable: new Set(REALM.buildable), // what can be built (see World.offers)
     stats: { taxes: 0, sales: 0, lairsRazed: 0, heroesLost: 0 },
     fogTimer: 0,
     onLairRazed: (lair, loot) => lairRazed(world, lair, loot),

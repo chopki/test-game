@@ -1,5 +1,6 @@
 import { BUILDINGS, REALM } from '../sim/config.js';
 import { lairMen } from '../sim/realm/lairs.js';
+import { seenAt } from '../sim/realm/fog.js';
 import { heroesOf, intentOf, recruitCheck } from '../sim/realm/heroes.js';
 import { forgeCheck } from '../sim/realm/index.js';
 import { frameToDataURL } from '../render/spriteBaker.js';
@@ -11,8 +12,17 @@ const BARK_TIME = 3.5; // seconds a hero's bark stays over their head
 // the rest (see BARKS in sim/realm/heroes.js).
 const BARK_BUDGET = { compact: 3, wide: 6 };
 const BARK_RANK = { flee: 0, fight: 0, defend: 0, bounty: 1, raid: 1, shop: 2, home: 2 };
-/** Each guild's colour: the ends of its heroes' bark scrolls, their pips on a flag's seal. */
-export const GUILD_COLOURS = { manAtArms: '#a8301e', ranger: '#4f7a3a', rogue: '#4b3f63' };
+/** What a hero is up to, at a glance: a sign over its head (see intentOf for the words). */
+const GLYPHS = { fight: '⚔️', flee: '💨', bounty: '💰', raid: '🔥', explore: '🧭', roam: '🌲', patrol: '👁️', home: '🏠', rest: '💤', shop: '⚒️', defend: '🛡️' };
+/** How to change a hero's mind about a flag it turned down (see bountyValue's reasons). */
+const HINTS = {
+  'too dangerous': 'raise the bounty, or hire more heroes to go with them',
+  'too far': 'too far from them: flag somewhere nearer their guild',
+  'not worth it': 'raise the bounty',
+};
+const PINGS = 4; // edge arrows at most
+/** Each guild's colour (REALM.classes): the ends of its heroes' bark scrolls, their pips on a flag's seal. */
+const GUILD_COLOURS = Object.fromEntries(Object.entries(REALM.classes).map(([k, c]) => [k, c.colour]));
 
 const esc = (text) => String(text).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const names = (list) => (list.length > 1 ? `${list.slice(0, -1).join(', ')} and ${list.at(-1)}` : list[0] ?? '');
@@ -33,13 +43,27 @@ export class RealmPanel {
     document.getElementById('hud').prepend(this.tags);
     this._tagEls = new Map();
     this._portraits = {};
+    // The hero rail: a portrait for each hero (health ring, level), down the left; a tap looks at them and opens
+    // their card.
+    this.rail = document.createElement('nav');
+    this.rail.className = 'hero-rail';
+    this.rail.setAttribute('aria-label', 'Your heroes');
+    document.getElementById('hud').appendChild(this.rail);
+    this._railKey = '';
+    // Arrows at the edge of the screen towards trouble out of sight (raiders, a hero in flight); a tap looks there.
+    this.pings = document.createElement('div');
+    this.pings.className = 'realm-pings';
+    document.getElementById('hud').appendChild(this.pings);
   }
 
   attach(world) {
     this.world = world;
     this.tags.replaceChildren();
     this._tagEls.clear();
-    this.tags.hidden = !world.realm;
+    this.tags.hidden = this.rail.hidden = this.pings.hidden = !world.realm;
+    this.rail.replaceChildren();
+    this.pings.replaceChildren();
+    this._railKey = '';
     if (!world.realm) return;
     const ev = world.events;
     // Realm news for the chronicle, with where it happened (a tap on the entry looks there).
@@ -129,6 +153,19 @@ export class RealmPanel {
       }
       placed.push(box);
       el.style.transform = `translate(${Math.round(box.x)}px, ${Math.round(box.y)}px)`;
+    }
+    // What each hero is up to, over its head (close enough in to make them out).
+    if (r.farness < 0.5) {
+      for (const h of w.realm.heroes) {
+        const kind = h.inside > 0 ? null : h.goal?.kind;
+        if (!kind || !GLYPHS[kind]) continue;
+        show(`g${h.id}`, 'glyph', h.x, h.def.height * 1.3 + 0.35, h.z, (el) => {
+          if (el.dataset.kind === kind) return;
+          el.dataset.kind = kind;
+          el.textContent = GLYPHS[kind];
+          el.style.setProperty('--guild', GUILD_COLOURS[h.cls]);
+        });
+      }
     }
     for (const [key, el] of this._tagEls) {
       if (live.has(key)) continue;
@@ -282,8 +319,97 @@ export class RealmPanel {
     const heroes = this.world.realm.heroes;
     const named = (id) => heroes.find((h) => h.id === id)?.name;
     const on = [...f.takers].map(named).filter(Boolean);
-    const off = [...(f.refusals ?? new Map()).entries()].filter(([id]) => !f.takers.has(id) && named(id)).map(([id, why]) => `${named(id)} (${why})`);
-    return `<p class="realm-takers">${on.length ? `On it: <b>${esc(names(on))}</b>` : 'No hero has taken it on yet.'}${off.length ? `<br>Turned it down: ${esc(off.join(', '))}` : ''}</p>`;
+    const off = [...(f.refusals ?? new Map()).entries()].filter(([id]) => !f.takers.has(id) && named(id));
+    // Who turned it down, why, and what would change their minds.
+    const byWhy = new Map();
+    for (const [id, why] of off) byWhy.set(why, [...(byWhy.get(why) ?? []), named(id)]);
+    const refusals = [...byWhy].map(([why, who]) => `<li><b>${esc(names(who))}</b>: ${esc(why)}${HINTS[why] ? ` <i class="realm-hint">→ ${esc(HINTS[why])}</i>` : ''}</li>`).join('');
+    return `<p class="realm-takers">${on.length ? `On it: <b>${esc(names(on))}</b>` : 'No hero has taken it on yet.'}</p>${refusals ? `<ul class="realm-refusals">${refusals}</ul>` : ''}`;
+  }
+
+  // ---------------------------------------------------------------- the hero rail and edge pings
+
+  /** Each frame (from HUD.update): the hero rail and the edge arrows. */
+  updateRail() {
+    const w = this.world;
+    if (!w?.realm) return;
+    const heroes = w.realm.heroes.filter((h) => h.alive);
+    const key = heroes.map((h) => `${h.id}:${h.level}`).join(',');
+    if (key !== this._railKey) {
+      this._railKey = key;
+      this.rail.replaceChildren(
+        ...heroes.map((h) => {
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'rail-hero';
+          b.dataset.id = h.id;
+          b.style.setProperty('--guild', GUILD_COLOURS[h.cls]);
+          b.setAttribute('aria-label', `${h.name}, level ${h.level} ${REALM.classes[h.cls].name}`);
+          b.innerHTML = `<img src="${this._portrait(h.type)}" alt="" draggable="false" /><span class="rail-level">${h.level}</span>`;
+          onPress(b, () => {
+            this.game.renderer.focusOn(h.x, h.z);
+            this.game.build.pick({ kind: 'hero', unit: h });
+          });
+          return b;
+        }),
+      );
+    }
+    const picked = this.game.build.picked?.unit;
+    for (const b of this.rail.children) {
+      const h = heroes.find((x) => x.id === Number(b.dataset.id));
+      if (!h) continue;
+      b.style.setProperty('--hp', (h.hp / h.maxHp).toFixed(2));
+      b.classList.toggle('inside', h.inside > 0);
+      b.classList.toggle('fleeing', h.goal?.kind === 'flee');
+      b.classList.toggle('active', picked === h);
+    }
+    this._updatePings(w);
+  }
+
+  _updatePings(w) {
+    const r = this.game.renderer;
+    const rect = r.canvas.getBoundingClientRect();
+    const margin = 30;
+    const trouble = [];
+    for (const t of w.troops) {
+      if (!t.alive) continue;
+      if (t.realm === 'raider' && seenAt(w, t.x, t.z)) trouble.push({ x: t.x, z: t.z, kind: 'danger', label: 'Raiders' });
+      else if (t.realm === 'hero' && !(t.inside > 0) && t.goal?.kind === 'flee') trouble.push({ x: t.x, z: t.z, kind: 'warn', label: `${t.name} is fleeing` });
+    }
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const shown = [];
+    for (const p of trouble) {
+      const s = r.toScreen(p.x, 0, p.z);
+      if (!s || (s.x > rect.left + margin && s.x < rect.right - margin && s.y > rect.top + margin && s.y < rect.bottom - margin)) continue;
+      // Where the line from the middle of the screen to it leaves the screen (inset by the margin).
+      const dx = s.x - cx;
+      const dy = s.y - cy;
+      const k = Math.min((rect.width / 2 - margin) / Math.abs(dx || 1e-6), (rect.height / 2 - margin) / Math.abs(dy || 1e-6));
+      shown.push({ ...p, sx: cx + dx * k, sy: cy + dy * k, angle: Math.atan2(dy, dx), d: Math.hypot(dx, dy) });
+    }
+    shown.sort((a, b) => (a.kind === 'danger' ? 0 : 1) - (b.kind === 'danger' ? 0 : 1) || a.d - b.d);
+    // Close arrows merge into one.
+    const kept = [];
+    for (const p of shown) if (kept.length < PINGS && !kept.some((q) => Math.hypot(q.sx - p.sx, q.sy - p.sy) < 56)) kept.push(p);
+    while (this.pings.children.length < kept.length) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'realm-ping';
+      b.innerHTML = '<span class="ping-arrow"></span>';
+      onPress(b, () => this.game.renderer.focusOn(Number(b.dataset.x), Number(b.dataset.z)));
+      this.pings.appendChild(b);
+    }
+    [...this.pings.children].forEach((b, i) => {
+      const p = kept[i];
+      b.hidden = !p;
+      if (!p) return;
+      b.className = `realm-ping ${p.kind}`;
+      Object.assign(b.dataset, { x: p.x, z: p.z });
+      b.title = b.ariaLabel = `${p.label}: look there`;
+      b.style.transform = `translate(${Math.round(p.sx)}px, ${Math.round(p.sy)}px) translate(-50%, -50%)`;
+      b.firstChild.style.transform = `rotate(${p.angle}rad)`;
+    });
   }
 
   // ---------------------------------------------------------------- buildings

@@ -273,10 +273,16 @@ code is all in `src/sim/realm/` behind a few World hooks, so the mode can be lif
 
 - **Day and night.** The day (the build phase) lasts 150 s the first time, then 110 s; each night is a Survival wave
   from the map's edges. The treasury starts with 400 gold. Heroes go about their business day and night.
+- **Left to themselves** heroes go out: exploring is high on every class's list, an idle hero heads for the nearest
+  unseen land however far (land found to be unreachable is not tried again) or roams the wilds 12–28 tiles from the
+  Hall, and goes home only below 80% health or with half a purse to pay in (a homebody stays round its guild).
 - **Fog of war**, in 4 × 4 tile chunks: only the ground within 10 tiles of the Town Hall is known at the start.
   Heroes out of doors reveal 6.5 tiles round them; your buildings 3 round theirs. **Nothing can be built in a chunk
   no one has seen**, and outlaws in the fog aren't shown.
-- **Guilds** (keys 7–9) hire heroes of their class, up to 4 a guild; the **Smithy** (0) forges gear for them to buy.
+- **Building**: for now a Realm builds only its **guilds** (keys 7–9), which hire heroes of their class, up to 4 a
+  guild (`REALM.buildable`, kept per game in `world.realm.buildable` so more can be unlocked later). No walls, towers,
+  Barracks or Smithy: the heroes and the starting fort hold the Hall at night. (The Smithy and its gear, below, are
+  in the sim, waiting for an unlock.)
 
   | Building         | Cost | HP  | Heroes       |
   | ---------------- | ---- | --- | ------------ |
@@ -289,9 +295,9 @@ code is all in `src/sim/realm/` behind a few World hooks, so the mode can be lif
 
   | Class       | Hire | HP  | Speed | Damage | Hit every | Reach | Greed | Tax | Flees below | What they like doing (in order, with the chance they try it) |
   | ----------- | ---- | --- | ----- | ------ | --------- | ----- | ----- | --- | ----------- | ----------------------------------------------------------- |
-  | Man-at-arms | 45   | 150 | 0.95  | 10     | 1.0s      | melee | 12    | 40% | 30%         | defend 95%, hunt 90%, raid 60%, patrol 60%, explore 25%, home 50% |
-  | Ranger      | 35   | 90  | 1.15  | 9      | 1.2s      | 5     | 6     | 40% | 35%         | explore 95%, hunt 75%, defend 60%, raid 20%, home 15% |
-  | Rogue       | 28   | 75  | 1.25  | 8      | 0.8s      | melee | 26    | 30% | 45%         | hunt 55%, explore 30%, defend 30%, raid 15%, home 90% |
+  | Man-at-arms | 45   | 150 | 0.95  | 10     | 1.0s      | melee | 12    | 40% | 30%         | defend 95%, hunt 90%, raid 60%, explore 60%, patrol 30%, roam 50%, home 30% |
+  | Ranger      | 35   | 90  | 1.15  | 9      | 1.2s      | 5     | 6     | 40% | 35%         | explore 95%, hunt 75%, defend 60%, raid 30%, roam 80%, home 15% |
+  | Rogue       | 28   | 75  | 1.25  | 8      | 0.8s      | melee | 26    | 30% | 45%         | hunt 55%, explore 70%, defend 30%, raid 20%, roam 60%, home 50% |
 
   Traits (one each): Brave (×1.25 self-estimate, flees later), Craven (×0.75, flees sooner), Greedy (+8 greed),
   Frugal (carries ×1.6 more before going home), Tough (+20% health), Quick (+15% speed), Curious (×1.5 liking for

@@ -6,15 +6,16 @@ import { expect, gold, openGame, tileToScreen } from './helpers.js';
 
 const openRealm = (page, opts = {}) => openGame(page, { ...opts, query: ['mode=realm', opts.query].filter(Boolean).join('&') });
 
-test('the main menu starts a Realm, with its briefing, the guilds in the wheel and the minimap', async ({ page }) => {
+test('the main menu starts a Realm, with its briefing, only the guilds in the wheel, and the minimap', async ({ page }) => {
   test.setTimeout(120_000); // a new Realm map is laid out and painted, on software WebGL
   const errors = await openGame(page, { paused: false, query: 'menu=1' });
   await page.locator('#menu-realm').click();
   await expect.poll(() => page.evaluate(() => window.game.world.mode)).toBe('realm');
   await expect(page.locator('#intro-title')).toHaveText(/Realm/);
   await page.locator('#intro-start').click();
-  for (const name of [/Warriors' Hall/, /Rangers' Lodge/, /Rogues' Den/, /Smithy/, /Bounty/]) await expect(page.getByRole('button', { name })).toBeVisible();
-  await expect(page.getByRole('button', { name: /Flag Fort/ })).toBeHidden();
+  for (const name of [/Warriors' Hall/, /Rangers' Lodge/, /Rogues' Den/, /Bounty/]) await expect(page.getByRole('button', { name })).toBeVisible();
+  // For now a Realm builds only guilds: no walls, towers, Barracks or Smithy (nor Conquest's Flag Fort).
+  for (const name of [/Castle Wall/, /Archer Tower/, /Barracks/, /Smithy/, /Flag Fort/]) await expect(page.getByRole('button', { name })).toBeHidden();
   await expect(page.locator('#minimap')).toBeVisible();
   await expect(page.locator('#phase')).toContainText('night falls in');
   expect(errors).toEqual([]);
@@ -77,14 +78,13 @@ test('an explore bounty is placed with B and topped up from its card', async ({ 
 
 for (const query of ['', 'size=medium&hills=1&sea=1']) {
   test(`each Realm building can be placed on the generated map and selected, with no errors${query ? ` (${query})` : ''}`, async ({ page }) => {
-    test.setTimeout(120_000); // four buildings placed and opened, on software WebGL (the medium map is slower)
+    test.setTimeout(120_000); // three guilds placed and opened, on software WebGL (the medium map is slower)
     const errors = await openRealm(page, { map: 'terrain', fort: true, query });
     await page.evaluate(() => window.game.world.economy.earn(1000));
     for (const [key, type, name] of [
       ['7', 'warriorsHall', "Warriors' Hall"],
       ['8', 'rangersLodge', "Rangers' Lodge"],
       ['9', 'roguesDen', "Rogues' Den"],
-      ['0', 'smithy', 'Smithy'],
     ]) {
       // A clear, seen spot near the Town Hall for it.
       const spot = await page.evaluate((type) => {
@@ -119,6 +119,7 @@ test('a guild can be placed in a gap in a wall line (it is drawn whole beside th
   await page.evaluate(() => {
     const w = window.game.world;
     w.economy.earn(1000);
+    w.realm.buildable.add('wall'); // (as the starting fort's walls are)
     for (const x of [9, 10, 11, 12, 13, 16, 17, 18]) w.place('wall', x, 14);
   });
   await page.keyboard.press('7');
@@ -203,5 +204,86 @@ test('Realm news is sealed by severity in the chronicle, repeats merge, and a ta
   const seal = page.locator('.realm-tag.flag');
   await expect(seal).toHaveText('60');
   await expect(seal.locator('.pips i')).toHaveCount(1);
+  expect(errors).toEqual([]);
+});
+
+test('heroes have rings, a rail of portraits and what they are up to; the dial is a sun by day; dusk is cried; trouble off screen is pointed to', async ({ page }) => {
+  test.setTimeout(120_000);
+  const errors = await openRealm(page);
+  // Three rangers out of a lodge.
+  await page.evaluate(() => {
+    const w = window.game.world;
+    w.economy.earn(500);
+    const h = w.townHall;
+    let guild = null;
+    for (let r = 4; r < 9 && !guild; r++) for (let dx = -r; dx <= r && !guild; dx++) for (let dz = -r; dz <= r && !guild; dz++) {
+      if (Math.max(Math.abs(dx), Math.abs(dz)) === r && w.canPlace('rangersLodge', h.x + dx, h.z + dz).ok) {
+        w.place('rangersLodge', h.x + dx, h.z + dz);
+        guild = w.buildingAt(h.x + dx, h.z + dz);
+      }
+    }
+    for (let i = 0; i < 3; i++) w.recruit(guild.id);
+    for (let t = 0; t < 1; t += 1 / 30) w.update(1 / 30);
+  });
+  await expect(page.locator('.hero-rail .rail-hero')).toHaveCount(3);
+  await expect.poll(() => page.evaluate(() => window.game.renderer.realm.rings.count)).toBe(3);
+  await expect(page.locator('.realm-tag.glyph').first()).toBeVisible();
+  // A tap on a portrait opens that hero's card.
+  const name = await page.evaluate(() => window.game.world.realm.heroes[1].name);
+  await page.locator('.hero-rail .rail-hero').nth(1).click();
+  await expect(page.locator('#info h3')).toHaveText(name);
+  await page.keyboard.press('Escape');
+
+  await expect(page.locator('#wave-dial')).toHaveClass(/sun/);
+  await expect(page.locator('#dial-label')).toHaveText('Day');
+  await page.evaluate(() => {
+    const w = window.game.world;
+    w.phaseTimer = 10;
+  });
+  await expect(page.locator('#chronicle-list')).toContainText('Dusk falls');
+
+  // Raiders out of sight: an arrow at the edge points to them, and a tap looks there.
+  await page.evaluate(() => {
+    const w = window.game.world;
+    w.realm.fog.seen.fill(1);
+    const lair = w.realm.lairs[0];
+    lair.nextRaid = 0;
+    w.update(1 / 30);
+    // Look well away from the camp, on the far side of the Hall.
+    window.game.renderer.focusOn(2 * w.townHall.cx - lair.cx, 2 * w.townHall.cz - lair.cz);
+  });
+  const ping = page.locator('.realm-ping:not([hidden])').first();
+  await expect(ping).toBeVisible();
+  const before = await page.evaluate(() => window.game.renderer.controls.target.toArray().map(Math.round));
+  await ping.click();
+  await expect.poll(() => page.evaluate(() => window.game.renderer.controls.target.toArray().map(Math.round))).not.toEqual(before);
+  expect(errors).toEqual([]);
+});
+
+test("a flag's card says who turned it down, why, and what would change their minds", async ({ page }) => {
+  const errors = await openRealm(page);
+  await page.evaluate(() => {
+    const w = window.game.world;
+    w.economy.earn(500);
+    w.realm.fog.seen.fill(1);
+    for (const l of w.realm.lairs) l.discovered = true;
+    const h = w.townHall;
+    let guild = null;
+    for (let r = 4; r < 9 && !guild; r++) for (let dx = -r; dx <= r && !guild; dx++) for (let dz = -r; dz <= r && !guild; dz++) {
+      if (Math.max(Math.abs(dx), Math.abs(dz)) === r && w.canPlace('roguesDen', h.x + dx, h.z + dz).ok) {
+        w.place('roguesDen', h.x + dx, h.z + dz);
+        guild = w.buildingAt(h.x + dx, h.z + dz);
+      }
+    }
+    w.recruit(guild.id);
+    const lair = w.realm.lairs[0];
+    lair.level = 6;
+    for (const m of w.troops) if (m.lairIndex === lair.index) m.hp = m.maxHp = 3000;
+    const { flag } = w.placeBounty({ kind: 'attack', lair: lair.index }, 25);
+    for (let t = 0; t < 2; t += 1 / 30) w.update(1 / 30);
+    window.game.build.pick({ kind: 'flag', flag });
+  });
+  await expect(page.locator('#info .realm-refusals')).toContainText('too dangerous');
+  await expect(page.locator('#info .realm-hint')).toContainText('raise the bounty');
   expect(errors).toEqual([]);
 });

@@ -518,6 +518,7 @@ export const TROOPS = {
     swordsman: {
       name: 'Man-at-arms',
       plural: 'Men-at-arms',
+      colour: '#a8301e', // the guild's colour: the ring under its heroes, their bark scrolls, their pips on a flag
       maxHp: 110,
       speed: 1.04,
       damage: 9,
@@ -755,14 +756,20 @@ export const CAMPS = {
  */
 export const REALM = {
   startingGold: 400,
+  // What a Realm can build, to begin with (world.realm.buildable; more could be unlocked as it grows). For now only
+  // the guilds: the kingdom is held by its heroes, not by walls and towers.
+  buildable: ['warriorsHall', 'rangersLodge', 'roguesDen'],
   firstDay: 150,
   day: 110,
+  dusk: 15, // seconds before nightfall that the herald warns of it
   guildCap: 4,
   think: 0.5,
   sight: 6.5,
   chunk: 4,
   startClear: 10,
   carryHome: 45,
+  homeBelow: 0.8, // a hero with nothing better to do goes home to rest only below this share of its health
+  roam: [12, 28], // how far from the Town Hall heroes roam the wilds (tiles), when there's nothing to explore
   restBelow: 0.55,
   heal: 0.08,
   rest: 4,
@@ -812,11 +819,12 @@ export const REALM = {
       fleeAt: 0.3,
       tax: 0.4,
       likes: { attack: 1.4, explore: 0.7 },
-      plan: [['defend', 0.95], ['hunt', 0.9], ['raid', 0.6], ['patrol', 0.6], ['explore', 0.25], ['home', 0.5]],
+      plan: [['defend', 0.95], ['hunt', 0.9], ['raid', 0.6], ['explore', 0.6], ['patrol', 0.3], ['roam', 0.5], ['home', 0.3]],
     },
     ranger: {
       name: 'Ranger',
       plural: 'Rangers',
+      colour: '#4f7a3a',
       guild: 'rangersLodge',
       type: 'archer',
       cost: 35,
@@ -827,11 +835,12 @@ export const REALM = {
       fleeAt: 0.35,
       tax: 0.4,
       likes: { explore: 2, attack: 0.9 },
-      plan: [['explore', 0.95], ['hunt', 0.75], ['defend', 0.6], ['raid', 0.2], ['home', 0.15]],
+      plan: [['explore', 0.95], ['hunt', 0.75], ['defend', 0.6], ['raid', 0.3], ['roam', 0.8], ['home', 0.15]],
     },
     rogue: {
       name: 'Rogue',
       plural: 'Rogues',
+      colour: '#4b3f63',
       guild: 'roguesDen',
       type: 'rogue',
       cost: 28,
@@ -842,7 +851,7 @@ export const REALM = {
       fleeAt: 0.45,
       tax: 0.3,
       likes: { attack: 1, explore: 1.2 },
-      plan: [['hunt', 0.55], ['explore', 0.3], ['defend', 0.3], ['raid', 0.15], ['home', 0.9]],
+      plan: [['hunt', 0.55], ['explore', 0.7], ['defend', 0.3], ['raid', 0.2], ['roam', 0.6], ['home', 0.5]],
     },
   },
   lairs: {

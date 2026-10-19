@@ -74,11 +74,15 @@ describe('realm setup', () => {
     expect(seenShare(world)).toBeLessThan(0.5);
   });
 
-  it('offers the guilds and the smithy only in a Realm', () => {
+  it('offers only the guilds in a Realm (for now), and the guilds only in a Realm', () => {
     const world = realm(1);
-    for (const type of ['warriorsHall', 'rangersLodge', 'roguesDen', 'smithy']) expect(world.offers(type)).toBe(true);
-    expect(world.offers('outlawCamp')).toBe(false);
-    expect(world.offers('flagFort')).toBe(false);
+    for (const type of REALM.buildable) expect(world.offers(type)).toBe(true);
+    expect(REALM.buildable).toEqual(['warriorsHall', 'rangersLodge', 'roguesDen']);
+    for (const type of ['wall', 'archerTower', 'barracks', 'smithy', 'outlawCamp', 'flagFort']) expect(world.offers(type)).toBe(false);
+    expect(world.canPlace('archerTower', world.townHall.x + 4, world.townHall.z).reason).toMatch(/can't build/);
+    // Anything more is unlocked in world.realm.buildable.
+    world.realm.buildable.add('smithy');
+    expect(world.offers('smithy')).toBe(true);
     const survival = new World({ seed: 1, terrain: 'generate' });
     expect(survival.realm).toBeUndefined();
     expect(survival.offers('warriorsHall')).toBe(false);
@@ -100,10 +104,10 @@ describe('realm setup', () => {
       for (let x = m; x < g.width - m && !fogged; x++) if (!seenAt(world, x, z) && g.isBuildable(x, z) && g.get(x, z) === null) fogged = { x, z };
     }
     expect(fogged).not.toBeNull();
-    expect(world.canPlace('archerTower', fogged.x, fogged.z).reason).toMatch(/Unexplored/);
+    expect(world.canPlace('warriorsHall', fogged.x, fogged.z).reason).toMatch(/Unexplored/);
     const lair = world.realm.lairs[0];
     world.realm.fog.seen.fill(1);
-    expect(world.canPlace('archerTower', lair.x, lair.z).ok).toBe(false);
+    expect(world.canPlace('warriorsHall', lair.x, lair.z).reason).toMatch(/outlaw camp/);
   });
 });
 
@@ -142,6 +146,7 @@ describe('heroes', () => {
 
   it('buy forged gear at the smithy with their own gold (the treasury takes a cut)', () => {
     const world = realm(1);
+    world.realm.buildable.add('smithy');
     expect(forgeCheck(world).reason).toMatch(/Smithy/);
     build(world, 'smithy');
     world.economy.earn(REALM.gear[1].cost, 'test');
@@ -290,6 +295,7 @@ describe('lairs', () => {
     expect(grew.length).toBe(1);
     expect(world.realm.lairs[0].level).toBe(2);
 
+    world.realm.buildable.add('barracks');
     const barracks = build(world, 'barracks');
     run(world, 20); // the Barracks fills
     const raids = on(world, 'raidSent');
@@ -327,8 +333,7 @@ describe('a realm at play', () => {
       const play = () => {
         const world = realm(seed);
         build(world, 'warriorsHall');
-        build(world, 'archerTower');
-        const plan = ['rangersLodge', 'archerTower', 'smithy', 'archerTower', 'cannonTower', 'roguesDen', 'archerTower', 'cannonTower'];
+        const plan = ['rangersLodge', 'roguesDen'];
         let next = 0;
         const stuck = new Map(); // hero id → [x, z, since]
         let longestStill = 0;
@@ -442,5 +447,31 @@ describe('heroes on a bounty', () => {
     const [id] = flag.takers;
     const nearest = [...rangers].sort((a, b) => Math.hypot(a.x - flag.x, a.z - flag.z) - Math.hypot(b.x - flag.x, b.z - flag.z))[0];
     expect(id).toBe(nearest.id);
+  });
+});
+
+describe('heroes left to themselves', () => {
+  it('go out into the wilds and explore, rather than mill about the town', () => {
+    const world = realm(2, { size: 52 });
+    world.economy.earn(500, 'test');
+    for (const type of ['warriorsHall', 'rangersLodge', 'roguesDen']) {
+      const guild = build(world, type);
+      world.recruit(guild.id);
+      world.recruit(guild.id);
+    }
+    const hall = world.townHall;
+    const seen0 = seenShare(world);
+    let out = 0;
+    let all = 0;
+    run(world, 140, () => {
+      for (const h of world.realm.heroes) {
+        if (h.inside > 0) continue;
+        all++;
+        if (Math.hypot(h.x - hall.cx, h.z - hall.cz) > 10) out++;
+      }
+      return false;
+    });
+    expect(seenShare(world)).toBeGreaterThan(seen0 + 0.5); // most of the map found in the first day
+    expect(out / all).toBeGreaterThan(0.4); // and much of their time spent out there
   });
 });

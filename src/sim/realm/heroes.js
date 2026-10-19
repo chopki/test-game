@@ -1,7 +1,7 @@
 import { BUILDINGS, REALM } from '../config.js';
 import { dist, findPost, reachOf, troopPassable, walkTo } from '../troops.js';
 import { damageLair, lairMen } from './lairs.js';
-import { nearestUnseen, seenAt } from './fog.js';
+import { markUnreachable, nearestUnseen, seenAt } from './fog.js';
 import { flagSpot, liveBounties } from './bounties.js';
 
 /**
@@ -358,8 +358,19 @@ function tryActivity(world, h, act) {
       const at = nearestUnseen(world, h.x, h.z, 34 * range * Math.min(1.4, h.mods.explore));
       return at && { kind: 'explore', ...at };
     }
+    case 'farExplore': {
+      const at = nearestUnseen(world, h.x, h.z, Infinity);
+      return at && { kind: 'explore', ...at };
+    }
     case 'home':
-      return h.hp < h.maxHp * 0.95 || h.gold > 0 ? { kind: 'home' } : null;
+      // Not for a scratch or a few coins: home is for resting up or paying in a decent purse.
+      return h.hp < h.maxHp * REALM.homeBelow || h.gold >= (REALM.carryHome * h.mods.carry) / 2 ? { kind: 'home' } : null;
+    case 'roam': {
+      // Out into the wilds round the town, to see what's about.
+      const hall = world.townHall;
+      const at = spotNear(world, hall.cx, hall.cz, REALM.roam[0], REALM.roam[1] * Math.min(1, range + 0.2));
+      return at && { kind: 'roam', ...at };
+    }
     default:
       return null;
   }
@@ -444,6 +455,13 @@ function think(world, h) {
       setGoal(world, h, goal);
       return;
     }
+  }
+  // Nothing it fancied: rather than mill about the guild, off to the nearest land no one has seen (however far),
+  // else out roaming the wilds. Only a homebody stays round the guild.
+  const fallback = h.mods.range < 1 ? null : tryActivity(world, h, 'farExplore') ?? tryActivity(world, h, 'roam');
+  if (fallback) {
+    setGoal(world, h, fallback);
+    return;
   }
   const home = homeOf(world, h);
   const at = spotNear(world, home.cx, home.cz, 2, 4);
@@ -640,9 +658,11 @@ export function updateHero(world, h, dt) {
     }
     case 'explore':
     case 'patrol':
+    case 'roam':
     case 'wander':
       h.fighting = false;
-      travel(world, h, g.x, g.z, dt, 0);
+      // No way to land it set out to explore: no one can get there (across water with no ford…); don't try again.
+      if (travel(world, h, g.x, g.z, dt, 0) === false && g.kind === 'explore') markUnreachable(world, g.x, g.z);
       break;
     default:
       h.fighting = false;
@@ -700,6 +720,8 @@ export function intentOf(world, h) {
       return `Raiding an ${BUILDINGS[g.lair.type].name.toLowerCase()}`;
     case 'explore':
       return 'Exploring';
+    case 'roam':
+      return 'Roaming the wilds';
     case 'defend':
       return `Defending the ${g.building.def.name}`;
     case 'shop':
