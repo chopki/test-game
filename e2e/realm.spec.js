@@ -73,3 +73,57 @@ test('an explore bounty is placed with B and topped up from its card', async ({ 
   await expect(page.locator('#info')).toBeHidden();
   expect(errors).toEqual([]);
 });
+
+for (const query of ['', 'size=medium&hills=1&sea=1']) {
+  test(`each Realm building can be placed on the generated map and selected, with no errors${query ? ` (${query})` : ''}`, async ({ page }) => {
+    const errors = await openRealm(page, { map: 'terrain', fort: true, query });
+    await page.evaluate(() => window.game.world.economy.earn(1000));
+    for (const [key, type, name] of [
+      ['7', 'warriorsHall', "Warriors' Hall"],
+      ['8', 'rangersLodge', "Rangers' Lodge"],
+      ['9', 'roguesDen', "Rogues' Den"],
+      ['0', 'smithy', 'Smithy'],
+    ]) {
+      // A clear, seen spot near the Town Hall for it.
+      const spot = await page.evaluate((type) => {
+        const w = window.game.world;
+        const h = w.townHall;
+        for (let r = 3; r < 10; r++) {
+          for (let dz = -r; dz <= r; dz++) {
+            for (let dx = -r; dx <= r; dx++) if (Math.max(Math.abs(dx), Math.abs(dz)) === r && w.canPlace(type, h.x + dx, h.z + dz).ok) return { x: h.x + dx, z: h.z + dz };
+          }
+        }
+        return null;
+      }, type);
+      expect(spot, type).not.toBeNull();
+      await page.keyboard.press(key);
+      await expect.poll(() => page.evaluate(() => window.game.build.mode)).toBe(type);
+      const p = await page.evaluate(([x, z]) => window.game.renderer.toScreen(x + 0.5, 0, z + 0.5), [spot.x, spot.z]);
+      await page.mouse.move(p.x, p.y);
+      await page.mouse.click(p.x, p.y);
+      await expect.poll(() => page.evaluate(([x, z]) => window.game.world.buildingAt(x, z)?.type, [spot.x, spot.z]), { message: type }).toBe(type);
+      await page.mouse.click(p.x, p.y);
+      await expect(page.locator('#info h3')).toHaveText(name);
+    }
+    // A moment of play with them standing (drawn, the smithy's smoke…).
+    await page.evaluate(() => window.game.togglePause());
+    await page.waitForTimeout(1500);
+    expect(errors).toEqual([]);
+  });
+}
+
+test('a guild can be placed in a gap in a wall line (it is drawn whole beside the wall, not built into it)', async ({ page }) => {
+  const errors = await openRealm(page);
+  await page.evaluate(() => {
+    const w = window.game.world;
+    w.economy.earn(1000);
+    for (const x of [9, 10, 11, 12, 13, 16, 17, 18]) w.place('wall', x, 14);
+  });
+  await page.keyboard.press('7');
+  const p = await tileToScreen(page, 14, 14);
+  await page.mouse.move(p.x, p.y); // the preview over the gap
+  await page.mouse.click(p.x, p.y);
+  await expect.poll(() => page.evaluate(() => window.game.world.buildingAt(14, 14)?.type)).toBe('warriorsHall');
+  await page.waitForTimeout(300);
+  expect(errors).toEqual([]);
+});

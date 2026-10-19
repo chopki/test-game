@@ -476,6 +476,7 @@ export class BuildController {
     if (this.ghost) this.ghost.visible = false;
     this.wallGhosts.visible = false;
     this.game.renderer.grid.visible = this._buildMode;
+    this.game.renderer.showGridLines(this.game.graphics.buildGrid); // Settings → Build grid (the red unbuildable tint stays)
 
     if (this.selectedId !== null && !this.selected) this.select(null);
 

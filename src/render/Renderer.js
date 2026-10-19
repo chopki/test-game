@@ -598,6 +598,11 @@ export class Renderer {
     return lines;
   }
 
+  /** The build-mode tile lines on or off (Settings → Build grid). */
+  showGridLines(on) {
+    if (this._gridLines) this._gridLines.visible = on;
+  }
+
   /** Build-mode tint over tiles whose terrain can't be built on. */
   _createBlockedTint(grid) {
     const m = grid.spawnMargin;

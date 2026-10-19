@@ -244,8 +244,11 @@ export class RealmPanel {
       const cls = REALM.classes[b.def.guild];
       const check = recruitCheck(w, b);
       const heroes = heroesOf(w, b.id);
-      const rows = heroes.map((h) => `<li><b>${esc(h.name)}</b> · level ${h.level} · ${esc(intentOf(w, h))}</li>`).join('');
-      const key = ['guild', check.ok, check.reason, ...heroes.map((h) => `${h.id}:${h.level}:${intentOf(w, h)}`)].join('|');
+      // Only where each hero is (not what they're up to, which changes all the time): the card, and its Hire button,
+      // are rebuilt only when something on it changes, not under the player's finger (tap a hero for their card).
+      const where = (h) => (h.inside > 0 ? 'resting here' : 'out in the realm');
+      const rows = heroes.map((h) => `<li><b>${esc(h.name)}</b> · level ${h.level} · ${where(h)}</li>`).join('');
+      const key = ['guild', check.ok, check.reason, ...heroes.map((h) => `${h.id}:${h.level}:${where(h)}`)].join('|');
       const html = `
         <p class="garrison">${cls.plural}: ${heroes.length}/${REALM.guildCap}</p>
         ${rows ? `<ul class="realm-heroes">${rows}</ul>` : '<p class="codex-why">No heroes yet: hire one!</p>'}
