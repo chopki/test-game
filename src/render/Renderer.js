@@ -27,6 +27,7 @@ import { CATAPULT_ARM_FRAMES, ENEMY_ANIMS, FLAG_FRAMES, crystalHeight, spriteKey
 import { hallEffects, STAGE_WALL_VARIANTS } from './stageModels.js';
 import { aimStreaks, createArrowStreaks } from './arrows.js';
 import { PENNANT_W } from './modelKit.js';
+import { RealmLayer } from './realmLayer.js';
 
 const SKY = 0xa9d3ee;
 
@@ -65,13 +66,13 @@ const NEIGHBOURS = [
   ['s', 0, 1],
   ['w', -1, 0],
 ];
-const ENEMY_BAR_WIDTH = { swordsman: 0.55, pikeman: 0.55, archer: 0.5, knight: 0.7, ram: 1.0, mangonel: 1.0 };
-const ENEMY_BLOB_RADIUS = { swordsman: 0.26, pikeman: 0.26, archer: 0.24, knight: 0.32, ram: 0.72, mangonel: 0.78 };
+const ENEMY_BAR_WIDTH = { swordsman: 0.55, rogue: 0.5, pikeman: 0.55, archer: 0.5, knight: 0.7, ram: 1.0, mangonel: 1.0 };
+const ENEMY_BLOB_RADIUS = { swordsman: 0.26, rogue: 0.24, pikeman: 0.26, archer: 0.24, knight: 0.32, ram: 0.72, mangonel: 0.78 };
 // Tiles covered by one walk cycle, so feet keep pace with the ground.
 /** With Health bars 'On hit': how long a bar shows after a hit, and how long it takes to fade at the end (s). */
 const BAR_SHOW = 2.5;
 const BAR_FADE = 0.4;
-const WALK_STRIDE = { swordsman: 0.7, pikeman: 0.7, archer: 0.7, knight: 0.75, ram: 0.6, mangonel: 0.6 };
+const WALK_STRIDE = { swordsman: 0.7, rogue: 0.7, pikeman: 0.7, archer: 0.7, knight: 0.75, ram: 0.6, mangonel: 0.6 };
 const DEATH_FRAME_TIME = 0.11; // seconds per death frame
 /** Ring colours for hero abilities (see HEROES.abilities). */
 const ABILITY_RINGS = { warCry: 0xe8c25a, charge: 0xd9562e, volley: 0xc23a2a, fleetFoot: 0x9fd1a8, shieldWall: 0x7fa6d9, rally: 0xf2e2a0 };
@@ -159,6 +160,7 @@ export class Renderer {
     this.glows = new GlowBatch(this.overlayLayer, ISO_QUATERNION);
     this.precipitation = new Precipitation(this.overlayLayer);
     this.wildlife = new Wildlife(this);
+    this.realm = new RealmLayer(this);
     this.weather = { season: 'summer', weather: 'clear' };
     this._look = weatherLook('summer', 'clear');
     this.scorches = [];
@@ -729,6 +731,7 @@ export class Renderer {
     this.setWeather(season, this._weatherFor(0, season));
     this._look = this._targetLook();
     this.wildlife.reset(world);
+    this.realm.attach(world);
     const ev = world.events;
     this._unsubscribe = [
       ev.on('projectileFired', ({ projectile }) => {
@@ -752,7 +755,7 @@ export class Renderer {
       ev.on('troopKilled', ({ troop, dismissed }) => {
         if (dismissed) return;
         this._fxDust(troop.x, 0.25, troop.z, 3, 0.35);
-        this.corpses.push({ type: troop.type, elite: troop.elite ?? false, team: troop.team, heading: troop.heading, x: troop.x, z: troop.z, age: 0 });
+        this.corpses.push({ type: troop.type, elite: troop.elite ?? troop.realm === 'hero', team: troop.team, heading: troop.heading, x: troop.x, z: troop.z, age: 0 });
       }),
       // Heroes: a gold ring for a war cry, a small one where yours is sent.
       // Hero abilities: a ring in the ability's colour where it lands.
@@ -868,8 +871,10 @@ export class Renderer {
     if (world) {
       this._sync(this.views.buildings, world.buildings.values(), (b) => this._createBuildingView(b), (v, b) => this._updateBuildingView(v, b));
       this._drawFlags();
+      this.realm.update(this._time);
       this._sync(this.views.enemies, world.enemies, () => ({ walk: Math.random() }), (v, e) => this._updateEnemyView(v, e));
-      this._sync(this.views.troops, world.troops, () => ({ walk: Math.random() }), (v, t) => this._updateEnemyView(v, t));
+      const troops = world.realm ? world.troops.filter((t) => !this.realm.hides(t)) : world.troops;
+      this._sync(this.views.troops, troops, () => ({ walk: Math.random() }), (v, t) => this._updateEnemyView(v, t));
       this._drawCorpses(dt);
       this._sync(this.views.projectiles, world.projectiles, (p) => this._createProjectileView(p), (v, p) => this._updateProjectileView(v, p));
     }
@@ -1213,8 +1218,9 @@ export class Renderer {
     }
     view.anim = anim;
     view.frame = frame;
-    const scale = e.elite ? 1.3 : 1;
-    this._addEnemySprite(e.type, e.elite, e.heading, anim, frame, this.toScene(e.x, 0, e.z, this._v), team);
+    const elite = e.elite || e.realm === 'hero'; // Realm's heroes wear crowns
+    const scale = elite ? 1.3 : 1;
+    this._addEnemySprite(e.type, elite, e.heading, anim, frame, this.toScene(e.x, 0, e.z, this._v), team);
     this.blobShadows.add(this.toScene(e.x, 0.02, e.z, this._v), (ENEMY_BLOB_RADIUS[e.type] ?? 0.3) * scale);
     // Far out: a ring in his side's colour (bigger for a hero), and only heroes keep their health bars.
     if (this._far > 0) this.teamMarkers.add(team, this.toScene(e.x, 0.03, e.z, this._v), (e.hero ? 0.55 : 0.36) * (1 + (LOD.markerGrow - 1) * this._far));

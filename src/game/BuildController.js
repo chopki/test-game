@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { territoryOf } from '../sim/flags.js';
+import { realmThingAt } from '../sim/realm/index.js';
 import { BUILDINGS } from '../sim/config.js';
 import { wallSeat } from '../render/wallSeat.js';
 import { createBuildingModel } from '../render/models.js';
@@ -18,7 +19,8 @@ const near = (a, b, dist) => Math.max(Math.abs(a.x - b.x), Math.abs(a.z - b.z)) 
  * Translates pointer input into world commands: placing buildings (with a ghost preview),
  * planning wall lines, selling, and selecting.
  *
- * mode: null (select), a building type (build), or 'sell'.
+ * mode: null (select), a building type (build), 'sell', 'hero' (Conquest: orders for your hero) or 'bounty' (Realm:
+ * place a bounty flag). In a Realm, a tap with no mode picks a hero, outlaw, camp or flag (`realmPick`) for its card.
  *
  * Towers and other single buildings: a mouse click places immediately. On touch the finger moves a
  * pending placement, and the HUD shows ✓/✕ for it once the finger lifts.
@@ -34,6 +36,7 @@ export class BuildController {
     this.game = game;
     this.mode = null;
     this.selectedId = null;
+    this.realmPick = null; // Realm: { kind: 'hero' | 'unit' | 'lair' | 'flag', … } (see realmThingAt)
     this.hover = null;
     this.pointer = null; // last mouse position (client px), for the desktop wall-cost tag
     this._rightDown = null;
@@ -101,6 +104,7 @@ export class BuildController {
   reset() {
     this.setMode(null);
     this.select(null);
+    this.realmPick = null;
   }
 
   setMode(mode) {
@@ -124,7 +128,26 @@ export class BuildController {
 
   select(id) {
     this.selectedId = id;
+    this.realmPick = null;
     this.game.hud?.onSelectionChanged(id);
+  }
+
+  /** Realm: show the card of a hero, foe, camp or flag (or none). */
+  pick(thing) {
+    this.realmPick = thing;
+    if (thing) this.selectedId = null;
+    this.game.hud?.onSelectionChanged(null);
+  }
+
+  /** The realm pick, if it's still there (heroes and foes fall, camps burn, flags are claimed). */
+  get picked() {
+    const p = this.realmPick;
+    const r = this.world.realm;
+    if (!p || !r) return null;
+    if ((p.kind === 'hero' || p.kind === 'unit') && !p.unit.alive) return null;
+    if (p.kind === 'lair' && p.lair.razed) return null;
+    if (p.kind === 'flag' && !r.bounties.includes(p.flag)) return null;
+    return p;
   }
 
   get selected() {
@@ -341,6 +364,10 @@ export class BuildController {
       if (this.world.canSell(b)) this.world.sell(b.id);
       return;
     }
+    if (this.mode === 'bounty') {
+      this._placeBounty(tile);
+      return;
+    }
     if (this._buildMode) {
       const a = this.world.anchorFor(this.mode, tile.x, tile.z);
       const result = this.world.place(this.mode, a.x, a.z);
@@ -349,7 +376,43 @@ export class BuildController {
       return;
     }
     const b = this.world.buildingAt(tile.x, tile.z);
+    if (this.world.realm) {
+      // Heroes and foes first (they stand in front of buildings), then the building, then a camp or flag.
+      const thing = realmThingAt(this.world, tile.x + 0.5, tile.z + 0.5);
+      if (thing && (thing.kind === 'hero' || thing.kind === 'unit' || !b)) {
+        this.pick(thing);
+        return;
+      }
+    }
     this.select(b ? b.id : null);
+  }
+
+  /** Realm, bounty mode: a flag on the camp or foe at the tile (attack), else on the tile itself (explore). */
+  _placeBounty(tile) {
+    const w = this.world;
+    const thing = realmThingAt(w, tile.x + 0.5, tile.z + 0.5);
+    let spec;
+    let what;
+    if (thing?.kind === 'lair') [spec, what] = [{ kind: 'attack', lair: thing.lair.index }, 'the outlaw camp'];
+    else if (thing?.kind === 'unit' && thing.unit.team !== 'red') [spec, what] = [{ kind: 'attack', unit: thing.unit }, thing.unit.realm ? 'an outlaw' : `a ${thing.unit.def.name.toLowerCase()}`];
+    else if (thing?.kind === 'flag') [spec, what] = [null, null];
+    else [spec, what] = [{ kind: 'explore', x: tile.x + 0.5, z: tile.z + 0.5 }, 'this spot'];
+    if (!spec) {
+      // Tapping a flag in bounty mode tops it up.
+      const r = w.fundBounty(thing.flag.id);
+      if (!r.ok) this.game.hud?.toast(r.reason, 'warn');
+      this.setMode(null);
+      this.pick(r.ok ? thing : null);
+      return;
+    }
+    const r = w.placeBounty(spec);
+    if (!r.ok) {
+      this.game.hud?.toast(r.reason, 'warn');
+      return;
+    }
+    this.game.hud?.toast(`Bounty: ${r.flag.gold} gold for ${spec.kind === 'explore' ? 'exploring' : 'attacking'} ${what}`, 'info');
+    this.setMode(null);
+    this.pick({ kind: 'flag', flag: r.flag });
   }
 
   /** Hero mode: an enemy building or soldier on (or right by) the tile is attacked; anywhere else, gone to. */
@@ -426,7 +489,14 @@ export class BuildController {
     } else if (this.mode === 'sell' && this.hover) {
       const b = world.buildingAt(this.hover.x, this.hover.z);
       if (world.canSell(b)) this._showFootprint(b.cx, b.cz, b.size, BAD_COLOR);
+    } else if (this.mode === 'bounty' && this.hover && !this._usingTouch) {
+      this._showFootprint(this.hover.x + 0.5, this.hover.z + 0.5, 1, 0xe2b347);
     }
+
+    if (this.realmPick && !this.picked) this.pick(null);
+    const picked = this.picked;
+    if (picked?.kind === 'lair') this._showFootprint(picked.lair.cx, picked.lair.cz, picked.lair.size + 0.4, 0xffe27a);
+    else if (picked?.unit) this._showRange(picked.unit.x, picked.unit.z, 0.45);
 
     const sel = this.selected;
     if (sel) {

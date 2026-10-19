@@ -1074,7 +1074,7 @@ body.menu-open #app canvas {
   align-items: center;
 }
 
-/* Conquest's minimap, under the Town Hall: a parchment card with the lane map in the battlefield's iso view. */
+/* The minimap (Conquest and Realm), under the Town Hall: a parchment card with the lane map in the battlefield's iso view. */
 .minimap {
   position: absolute;
   top: 96px;
@@ -1717,6 +1717,104 @@ body.menu-open #app canvas {
   font-size: 0.8em;
   color: var(--ink-red);
   text-align: center;
+}
+
+/* Realm: hero, camp and flag cards, and the guild and smithy sections of a building's card. */
+.realm-sub {
+  margin: 2px 0 4px;
+  font-size: 0.82em;
+  color: var(--ink-muted);
+}
+
+.realm-sub b {
+  color: var(--ink);
+  border-bottom: 1px dotted var(--ink-muted);
+}
+
+.realm-intent {
+  font-family: var(--fell);
+  font-size: 1em;
+  color: var(--ink);
+}
+
+.realm-facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 12px;
+  margin: 8px 0 0;
+  font-size: 0.85em;
+}
+
+.realm-facts dt {
+  color: var(--ink-muted);
+}
+
+.realm-facts dd {
+  margin: 0;
+  font-weight: 700;
+}
+
+.realm-heroes {
+  margin: 4px 0 0;
+  padding: 0 0 0 18px;
+  font-size: 0.82em;
+  max-height: 7.5em;
+  overflow-y: auto;
+}
+
+.realm-takers {
+  margin: 8px 0 0;
+  font-size: 0.8em;
+  color: var(--ink-muted);
+}
+
+.realm-takers b {
+  color: var(--ink);
+}
+
+/* Realm: labels over the battlefield (heroes' barks, the gold on each bounty flag). */
+.realm-tags {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.realm-tags[hidden] {
+  display: none;
+}
+
+.realm-tag {
+  position: absolute;
+  left: 0;
+  top: 0;
+  white-space: nowrap;
+  font-weight: 800;
+  font-size: 12px;
+  will-change: transform;
+}
+
+.realm-tag.flag {
+  padding: 1px 6px 1px 18px;
+  border-radius: 9px;
+  color: var(--gold-text);
+  background: rgba(58, 36, 20, 0.85) radial-gradient(circle at 9px 50%, #f3c652 0 4px, #8a6418 5px, transparent 6px);
+  border: 1px solid #24150a;
+}
+
+.realm-tag.flag.explore {
+  color: var(--cream);
+}
+
+.realm-tag.bark {
+  max-width: 220px;
+  padding: 3px 8px;
+  border-radius: 10px;
+  font-weight: 600;
+  color: var(--ink);
+  background: var(--parchment);
+  border: 1px solid var(--bronze);
+  box-shadow: 0 2px 6px rgba(30, 18, 8, 0.3);
 }
 
 /* Phones: a selection's card takes the bottom of the screen; the time controls and wheel step aside. */

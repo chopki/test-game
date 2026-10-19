@@ -245,7 +245,7 @@ export const BUILDINGS = {
     },
   },
   // Realm only (`realm: true`; see REALM and sim/realm/): guilds, whose heroes act on their own, and the smithy where
-  // they buy their gear. A guild houses `heroes` heroes of its class (REALM.classes), recruited for their cost.
+  // they buy their gear. A guild houses up to REALM.guildCap heroes of its class (REALM.classes), each hired for its cost.
   warriorsHall: {
     name: "Warriors' Hall",
     description: 'Realm: a guild of Men-at-arms. They defend the town, hunt raiders and raid lairs when they feel strong enough.',

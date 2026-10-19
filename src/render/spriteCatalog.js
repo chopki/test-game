@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { BUILDINGS, CAMPS, ENEMIES, HEROES, TROOPS, UPGRADES, WAVES } from '../sim/config.js';
+import { BUILDINGS, CAMPS, ENEMIES, HEROES, REALM, TROOPS, UPGRADES, WAVES } from '../sim/config.js';
 import { wavingPennant, withoutPennantCloth, withTeam } from './modelKit.js';
 import { ANIMAL_KINDS, ANIMAL_POSES, createAnimal } from './animals.js';
 import { createWallDecor, WALL_DECOR_KINDS } from './wallDecor.js';
@@ -205,7 +205,6 @@ export function spriteSpecs() {
     }
   }
 
-  // The enemy army in blue, and the player's troops (the same men) in red.
   // The enemy army in blue; the player's troops (the same men) in red; Conquest's bandits in grey. Elites (crowned,
   // 1.3× size): the enemy's warlords (Survival) and both sides' heroes (Conquest), one for each kind of hero.
   const heroTypes = new Set(Object.values(HEROES.roster).map((h) => h.type));
@@ -215,6 +214,16 @@ export function spriteSpecs() {
     ...[...heroTypes].filter((type) => !TROOPS.types[type]).map((type) => ({ type, team: 'red', elites: [true] })),
     ...CAMPS.guards.filter((t, i, all) => all.indexOf(t) === i).map((type) => ({ type, team: 'neutral', elites: [false] })),
   ];
+  // Realm's heroes: crowned men in red, one for each class (those not already baked as red elites above).
+  for (const type of new Set(Object.values(REALM.classes).map((c) => c.type))) {
+    const red = units.find((u) => u.type === type && u.team === 'red');
+    if (!red) units.push({ type, team: 'red', elites: [true] });
+    else if (!red.elites.includes(true)) red.elites.push(true);
+  }
+  // Realm's outlaws (lair guards and raiders) in grey.
+  for (const type of new Set([...REALM.lairs.guards, ...REALM.lairs.raid])) {
+    if (!units.some((u) => u.type === type && u.team === 'neutral')) units.push({ type, team: 'neutral', elites: [false] });
+  }
   for (const { type, team, elites } of units) {
     for (const elite of elites) {
       for (let d = 0; d < ENEMY_DIRECTIONS; d++) {

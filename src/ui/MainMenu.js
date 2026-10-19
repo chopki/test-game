@@ -27,6 +27,7 @@ export class MainMenu {
     onPress($('menu-continue'), () => this.close());
     onPress($('menu-endless'), () => this._start('survival'));
     onPress($('menu-conquest'), () => this._start('conquest'));
+    onPress($('menu-realm'), () => this._start('realm'));
     onPress($('hero-pick-close'), () => ($('hero-pick').hidden = true));
     this._buildHeroCards(portrait);
     onPress($('menu-codex'), () => this.openCodex());
@@ -63,17 +64,17 @@ export class MainMenu {
     const now = performance.now();
     $('menu-continue').disabled = !this.started;
     const mode = this.game.world.mode;
-    for (const m of ['survival', 'conquest']) {
-      const id = m === 'survival' ? 'endless' : 'conquest';
+    for (const m of ['survival', 'conquest', 'realm']) {
+      const id = m === 'survival' ? 'endless' : m;
       const confirming = this._confirming === m && now < this._confirmUntil;
-      const name = m === 'survival' ? 'Endless Mode' : 'Conquest';
+      const name = { survival: 'Endless Mode', conquest: 'Conquest', realm: 'Realm' }[m];
       $(`menu-${id}-label`).textContent = confirming ? 'Tap again: this battle ends' : this.started && mode === m ? `New ${name}` : name;
       $(`menu-${id}`).classList.toggle('warn', confirming);
     }
   }
 
   /**
-   * Endless Mode or Conquest: at the start, the battle on the map already laid out behind the menu if it's that
+   * Endless Mode, Conquest or Realm: at the start, the battle on the map already laid out behind the menu if it's that
    * mode, else a new map of the mode; once a battle is under way, a new map (after a second tap within a few
    * seconds, if the battle has got going).
    */

@@ -85,6 +85,10 @@ export class Game {
       this.hud.toast(`Conquest! Bring down the blue Town Hall at the far end of the lanes. Each wave, every Barracks sends a squad down its lane. (Map ${this.world.seed})`, 'info');
       return;
     }
+    if (this.world.mode === 'realm') {
+      this.hud.toast(`A realm in the wilds! Build a guild and hire heroes before nightfall. (Map ${this.world.seed})`, 'info');
+      return;
+    }
     const tip = fort ? 'Close the gaps in the fort wall before the first wave.' : "Use the woods, rocks and water: enemies can't pass them.";
     this.hud.toast(`Protect the Town Hall! ${tip} (Map ${this.world.seed})`, 'info');
   }
@@ -159,7 +163,7 @@ export class Game {
     if (this.settingsMenu.isOpen && key !== 'escape') return;
     this.keys.add(key);
 
-    const hotkeyType = Object.keys(BUILDINGS).find((t) => BUILDINGS[t].hotkey === key);
+    const hotkeyType = Object.keys(BUILDINGS).find((t) => BUILDINGS[t].hotkey === key && this.world.offers(t));
     if (hotkeyType) {
       this.build.setMode(this.build.mode === hotkeyType ? null : hotkeyType);
       return;
@@ -174,6 +178,9 @@ export class Game {
         break;
       case 'g':
         if (this.world.mode === 'conquest') this.hud.toggleHeroMode();
+        break;
+      case 'b':
+        if (this.world.realm) this.build.setMode(this.build.mode === 'bounty' ? null : 'bounty');
         break;
       case 'q':
       case 'e':
@@ -265,7 +272,8 @@ export class Game {
  * Options for new maps (Settings → Map size, Rivers, Coast, Hills), from the URL: `size` is a key of GRID.sizes
  * (`?size=` takes a size name or its tiles across); `river` makes every new map have a stream; `sea` and `hills` are
  * false (never), 'sometimes' (the default) or true (always a coast / plateaus). They last for the session. `mode`:
- * 'survival' (Endless Mode, the default) or 'conquest' (`?mode=conquest`, or the main menu's Conquest); `hero`: the
+ * 'survival' (Endless Mode, the default), 'conquest' (`?mode=conquest`, or the main menu's Conquest) or 'realm'
+ * (`?mode=realm`: heroes, bounties and the fog of war; see src/sim/realm/); `hero`: the
  * player's Conquest hero (`?hero=knight|ranger|warden`, or chosen on the menu).
  */
 export function readMapOptions() {
@@ -274,7 +282,7 @@ export function readMapOptions() {
   const hills = { 0: false, 1: true }[params.get('hills')] ?? 'sometimes';
   const asked = params.get('size');
   const size = Object.keys(GRID.sizes).find((k) => k === asked || String(GRID.sizes[k]) === asked) ?? GRID.defaultSize;
-  const mode = params.get('mode') === 'conquest' ? 'conquest' : 'survival';
+  const mode = ['conquest', 'realm'].includes(params.get('mode')) ? params.get('mode') : 'survival';
   return { size, river: params.get('river') === '1', sea, hills, mode, hero: params.get('hero') };
 }
 
@@ -289,5 +297,5 @@ export function createWorld(mapOptions, { seed } = {}) {
   const fort = params.get('fort') !== '0';
   const { river, sea, hills, size, mode, hero } = mapOptions;
   if (mode === 'conquest') return new World({ seed, mode, hero });
-  return new World({ seed, terrain: params.get('map') === 'open' ? 'open' : 'generate', fort, river, sea, hills, size: GRID.sizes[size] });
+  return new World({ seed, mode, terrain: params.get('map') === 'open' ? 'open' : 'generate', fort, river, sea, hills, size: GRID.sizes[size] });
 }

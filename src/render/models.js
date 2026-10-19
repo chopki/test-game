@@ -6,6 +6,7 @@ import {
   ROOF_TILES,
   Parts,
   SANDSTONE,
+  SLATE,
   banner,
   barrel,
   box,
@@ -83,7 +84,7 @@ function fence(p, { x0, z0, x1, z1, rnd, gapFrom = 2, gapTo = 2, h = 0.42 }) {
 }
 
 /** Chimney tops (smoke rises from them in game), in the model's own coordinates. */
-export const CHIMNEYS = { townHall: { x: 0.3, y: 2.35, z: -0.55 } };
+export const CHIMNEYS = { townHall: { x: 0.3, y: 2.35, z: -0.55 }, smithy: { x: -0.35, y: 1.56, z: -0.62 } };
 
 /**
  * Where each building's pennants fly (the waving cloth is a sprite of its own; see wavingPennant in modelKit.js):
@@ -96,6 +97,7 @@ export const PENNANTS = {
   archerTower: [{ x: 0, y: 1.74 + 0.6 + 0.86 + 0.6 - 0.02, z: 0, w: 0.34 }],
   barracks: [{ x: 0.72, y: 1.25 + 0.55 - 0.02, z: -0.32, w: 0.32 }],
   flagFort: [{ x: 0, y: 1.05 + 1.25 - 0.02, z: 0, w: PENNANT_W }],
+  warriorsHall: [{ x: -0.65, y: 0.77 + 0.3 + 0.7 - 0.02, z: -0.6, w: 0.32 }],
 };
 
 function townHall() {
@@ -1006,7 +1008,239 @@ function flagFort() {
   return p.build();
 }
 
-const BUILDING_MODELS = { townHall, wall, wallJoint, archerTower, cannonTower, magicSpire, catapult, barracks, flagFort, gatehouse };
+// ------------------------------------------------------------------ Realm (see src/sim/realm/)
+// The heroes' guilds, the smithy, and the outlaws' camp out in the wilds. Each sits on a 2 × 2 plot, its door to
+// the front (+z) where its heroes come and go.
+
+const MOSS_ROOF = ['#6f7a3c', '#66713a', '#7a8442'].map((c) => std({ map: speckleTexture(c, 0.12) }));
+const THATCH = ['#c9a85a', '#bf9d50', '#d2b264'].map((c) => std({ map: speckleTexture(c, 0.16) }));
+const EMBER = std({ color: 0xff8a2a, emissive: 0xc84a10, emissiveIntensity: 0.9 });
+const SOOT = std({ color: 0x3a3430 });
+const TENT = ['#8c7a5c', '#7d6c50', '#958463'].map((c) => std({ map: speckleTexture(c, 0.1), side: THREE.DoubleSide }));
+
+/** A sword-and-shield sign on a bracket, over a door. */
+function guildSign(p, { x, y, z, kind }) {
+  const M = MATERIALS;
+  p.add(box(0.04, 0.04, 0.22), M.iron, { x, y: y + 0.12, z: z + 0.1 });
+  p.add(cyl(0.11, 0.11, 0.025, 14), kind === 'shield' ? M.bannerRed : M.woodLight, { x, y, z: z + 0.2, rx: Math.PI / 2 });
+  p.add(torus(0.11, 0.012, 14), M.iron, { x, y, z: z + 0.2 });
+  if (kind === 'shield') {
+    for (const s of [-1, 1]) p.add(box(0.025, 0.26, 0.012), M.steel, { x, y, z: z + 0.22, rz: s * 0.7 });
+  } else if (kind === 'bow') {
+    p.add(torus(0.08, 0.012, 10), M.woodDark, { x, y, z: z + 0.22, sx: 0.6 });
+    p.add(box(0.008, 0.2, 0.008), M.bannerTrim, { x: x + 0.01, y, z: z + 0.22 });
+  } else {
+    p.add(box(0.025, 0.18, 0.012), M.steel, { x, y: y + 0.01, z: z + 0.22, rz: 0.5 });
+    p.add(box(0.07, 0.02, 0.014), M.gold, { x: x + 0.03, y: y - 0.05, z: z + 0.23, rz: 0.5 });
+  }
+}
+
+/**
+ * The Warriors' Hall: a sandstone hall under a steep clay roof, double doors to the front under a red sword-and-shield
+ * sign, banners either side, and a practice ring of posts in the yard.
+ */
+function warriorsHall() {
+  const M = MATERIALS;
+  const p = new Parts();
+  const rnd = rng(61);
+  p.add(box(1.94, 0.05, 1.94), M.dirt, { y: 0.025 });
+  const hz = -0.3;
+  const L = 1.5;
+  const D = 1.0;
+  const h = 0.72;
+  stoneBlocks(p, { x: 0, z: hz, y: 0.05, w: L, d: D, h, rows: 3, rnd });
+  shingleGable(p, { y: 0.05 + h, z: hz, length: L + 0.04, width: D + 0.04, height: 0.62, rnd });
+  // Double doors and a lintel.
+  for (const s of [-1, 1]) p.add(box(0.17, 0.46, 0.04), M.woodDark, { x: s * 0.09, y: 0.28, z: hz + D / 2 + 0.02 });
+  for (const t of [0.14, 0.38]) p.add(box(0.36, 0.03, 0.05), M.iron, { y: t, z: hz + D / 2 + 0.035 });
+  p.add(box(0.44, 0.08, 0.08), M.capstone, { y: 0.55, z: hz + D / 2 + 0.03 });
+  guildSign(p, { x: 0, y: 0.72, z: hz + D / 2, kind: 'shield' });
+  for (const s of [-1, 1]) {
+    banner(p, { x: s * 0.5, y: 0.7, z: hz + D / 2 + 0.01, w: 0.22, h: 0.42 });
+    windowFrame(p, { x: L / 2 + 0.01, y: 0.45, z: hz + s * 0.25, ry: Math.PI / 2, w: 0.14, h: 0.2 });
+  }
+  pennant(p, { x: -L / 2 + 0.1, y: 0.05 + h + 0.3, z: hz - 0.3, h: 0.7, w: 0.32 }); // see PENNANTS
+  // The practice ring: posts and a rope, a pell (a post with a notched top) and a shield on a stand.
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2;
+    p.add(cyl(0.03, 0.035, 0.3, 6), M.woodDark, { x: 0.45 + Math.cos(a) * 0.32, y: 0.15, z: 0.55 + Math.sin(a) * 0.24 });
+  }
+  p.add(torus(0.3, 0.008, 18), M.rope, { x: 0.45, y: 0.25, z: 0.55, rx: Math.PI / 2, sy: 0.75 });
+  p.add(cyl(0.06, 0.07, 0.5, 8), M.wood, { x: 0.45, y: 0.25, z: 0.55 });
+  p.add(cyl(0.11, 0.11, 0.025, 14), M.bannerRed, { x: -0.55, y: 0.3, z: 0.6, rx: Math.PI / 2 - 0.2 });
+  p.add(box(0.04, 0.3, 0.04), M.woodDark, { x: -0.55, y: 0.15, z: 0.55 });
+  barrel(p, { x: -0.82, z: 0.25 });
+  groundDressing(p, { w: 1.8, d: 1.8, rnd, count: 6 });
+  return p.build();
+}
+
+/**
+ * The Rangers' Lodge: a log cabin under a mossy roof, antlers over the door and a bow sign; in the yard, a straw
+ * archery butt with arrows in it and a woodpile.
+ */
+function rangersLodge() {
+  const M = MATERIALS;
+  const p = new Parts();
+  const rnd = rng(67);
+  p.add(box(1.94, 0.05, 1.94), M.dirt, { y: 0.025 });
+  const hx = -0.15;
+  const hz = -0.35;
+  const L = 1.4;
+  const D = 0.9;
+  // Log walls: courses along x on the long sides, along z on the short ones, ends crossing at the corners.
+  for (let i = 0; i < 6; i++) {
+    const y = 0.1 + i * 0.11;
+    for (const s of [-1, 1]) {
+      p.add(cyl(0.06, 0.06, L + 0.16, 8), rnd.pick(LOGS), { x: hx, y, z: hz + s * (D / 2), rz: Math.PI / 2 });
+      p.add(cyl(0.06, 0.06, D + 0.16, 8), rnd.pick(LOGS), { x: hx + s * (L / 2), y: y + 0.055, z: hz, rx: Math.PI / 2 });
+    }
+  }
+  p.add(box(L - 0.06, 0.66, D - 0.06), M.woodDark, { x: hx, y: 0.4, z: hz });
+  shingleGable(p, { x: hx, y: 0.78, z: hz, length: L + 0.1, width: D + 0.1, height: 0.5, rnd, tiles: MOSS_ROOF, endMaterial: M.wood });
+  p.add(box(0.3, 0.46, 0.04), M.wood, { x: hx + 0.15, y: 0.28, z: hz + D / 2 + 0.07 });
+  p.add(box(0.04, 0.04, 0.04), M.iron, { x: hx + 0.25, y: 0.3, z: hz + D / 2 + 0.1 });
+  // Antlers over the door.
+  for (const s of [-1, 1]) {
+    p.add(cyl(0.012, 0.016, 0.2, 5), M.bone, { x: hx + 0.15 + s * 0.06, y: 0.66, z: hz + D / 2 + 0.1, rz: s * 0.7 });
+    p.add(cyl(0.01, 0.012, 0.1, 5), M.bone, { x: hx + 0.15 + s * 0.12, y: 0.72, z: hz + D / 2 + 0.1, rz: s * 0.1 });
+  }
+  guildSign(p, { x: hx + L / 2 + 0.08, y: 0.62, z: hz + D / 2 - 0.05, kind: 'bow' });
+  windowFrame(p, { x: hx - 0.35, y: 0.45, z: hz + D / 2 + 0.07, w: 0.18, h: 0.2 });
+  // Archery butt: a straw disc on a stand, painted rings, three arrows.
+  const bx = 0.55;
+  const bz = 0.5;
+  p.add(cyl(0.2, 0.2, 0.1, 16), THATCH[0], { x: bx, y: 0.32, z: bz, rx: Math.PI / 2 - 0.2 });
+  p.add(cyl(0.12, 0.12, 0.105, 14), M.bannerRed, { x: bx, y: 0.32, z: bz + 0.005, rx: Math.PI / 2 - 0.2 });
+  p.add(cyl(0.05, 0.05, 0.11, 10), M.bannerTrim, { x: bx, y: 0.32, z: bz + 0.008, rx: Math.PI / 2 - 0.2 });
+  for (const s of [-1, 1]) p.add(box(0.035, 0.36, 0.035), M.woodDark, { x: bx + s * 0.16, y: 0.18, z: bz - 0.08, rx: -0.2 });
+  for (const [ax, ay] of [[0.03, 0.04], [-0.07, -0.02], [0.08, -0.06]]) p.add(cyl(0.006, 0.006, 0.22, 4), M.woodLight, { x: bx + ax, y: 0.32 + ay, z: bz + 0.12, rx: Math.PI / 2 - 0.2 });
+  // Woodpile.
+  for (let i = 0; i < 5; i++) p.add(cyl(0.05, 0.05, 0.32, 7), rnd.pick(LOGS), { x: -0.62 + (i % 3) * 0.1, y: 0.06 + Math.floor(i / 3) * 0.09, z: 0.55, rx: Math.PI / 2 });
+  groundDressing(p, { w: 1.8, d: 1.8, rnd, count: 8 });
+  return p.build();
+}
+
+/**
+ * The Rogues' Den: a narrow, leaning timber house with an overhanging upper floor, shuttered windows, a lantern on a
+ * bracket and a dagger sign; crates and barrels piled by an alley door.
+ */
+function roguesDen() {
+  const M = MATERIALS;
+  const p = new Parts();
+  const rnd = rng(71);
+  p.add(box(1.94, 0.05, 1.94), M.dirt, { y: 0.025 });
+  const hx = 0.1;
+  const hz = -0.25;
+  const L = 1.0;
+  const D = 1.0;
+  stoneBlocks(p, { x: hx, z: hz, y: 0.05, w: L + 0.04, d: D + 0.04, h: 0.14, rows: 1, rnd, stones: GREYSTONE });
+  p.add(box(L, 0.46, D), M.plaster, { x: hx, y: 0.42, z: hz });
+  timberFace(p, { x: hx, y: 0.42, z: hz + D / 2, w: L, h: 0.46, spacing: 0.33 });
+  // The upper floor juts out over the street, a little askew.
+  p.add(box(L + 0.12, 0.42, D + 0.1), M.plaster, { x: hx, y: 0.87, z: hz + 0.04, ry: 0.03 });
+  timberFace(p, { x: hx, y: 0.87, z: hz + 0.04 + (D + 0.1) / 2, w: L + 0.12, h: 0.42, spacing: 0.3, ry: 0.03 });
+  timberFace(p, { x: hx + (L + 0.12) / 2, y: 0.87, z: hz + 0.04, w: D + 0.1, h: 0.42, ry: Math.PI / 2 + 0.03, spacing: 0.35, braces: false });
+  shingleGable(p, { x: hx, y: 1.08, z: hz + 0.04, length: L + 0.2, width: D + 0.2, height: 0.55, rnd, tiles: SLATE, ry: Math.PI / 2 });
+  p.add(box(0.26, 0.4, 0.04), M.woodDark, { x: hx - 0.2, y: 0.25, z: hz + D / 2 + 0.02 });
+  windowFrame(p, { x: hx + 0.22, y: 0.5, z: hz + D / 2 + 0.01, w: 0.16, h: 0.18 });
+  for (const lx of [-0.25, 0.25]) windowFrame(p, { x: hx + lx, y: 0.92, z: hz + 0.04 + (D + 0.1) / 2 + 0.01, w: 0.16, h: 0.18 });
+  guildSign(p, { x: hx + L / 2 + 0.05, y: 0.62, z: hz + D / 2 - 0.1, kind: 'dagger' });
+  // A lantern on a bracket by the door.
+  p.add(box(0.03, 0.03, 0.16), M.iron, { x: hx - 0.42, y: 0.58, z: hz + D / 2 + 0.08 });
+  p.add(box(0.07, 0.1, 0.07), EMBER, { x: hx - 0.42, y: 0.5, z: hz + D / 2 + 0.15 });
+  p.add(cone(0.06, 0.06, 4), M.iron, { x: hx - 0.42, y: 0.58, z: hz + D / 2 + 0.15, ry: Math.PI / 4 });
+  crate(p, { x: -0.65, z: 0.35, s: 0.24, ry: 0.2 });
+  crate(p, { x: -0.62, z: 0.35, y: 0.24, s: 0.18, ry: 0.6 });
+  barrel(p, { x: -0.7, z: 0.7 });
+  barrel(p, { x: 0.65, z: 0.6, r: 0.11, h: 0.26 });
+  groundDressing(p, { w: 1.8, d: 1.8, rnd, count: 5 });
+  return p.build();
+}
+
+/**
+ * The Smithy: an open-fronted forge under a roof on posts, a stone hearth glowing at the back with its chimney
+ * (smoke rises from it in game; see CHIMNEYS), an anvil on a stump, a quench trough, a grindstone and a rack of blades.
+ */
+function smithy() {
+  const M = MATERIALS;
+  const p = new Parts();
+  const rnd = rng(73);
+  p.add(box(1.94, 0.05, 1.94), M.dirt, { y: 0.025 });
+  // Back wall and hearth.
+  stoneBlocks(p, { x: 0, z: -0.62, y: 0.05, w: 1.5, d: 0.3, h: 0.7, rows: 3, rnd, stones: GREYSTONE });
+  stoneBlocks(p, { x: -0.35, z: -0.35, y: 0.05, w: 0.5, d: 0.3, h: 0.3, rows: 1, rnd, stones: GREYSTONE });
+  p.add(box(0.36, 0.05, 0.2), EMBER, { x: -0.35, y: 0.37, z: -0.33 });
+  stoneBlocks(p, { x: -0.35, z: -0.62, y: 0.75, w: 0.36, d: 0.3, h: 0.75, rows: 3, rnd, stones: GREYSTONE });
+  p.add(box(0.3, 0.06, 0.24), SOOT, { x: -0.35, y: 1.52, z: -0.62 });
+  // Roof on four posts, open to the front.
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) p.add(box(0.08, 0.8, 0.08), M.woodDark, { x: sx * 0.7, y: 0.45, z: sz > 0 ? 0.2 : -0.58 });
+  for (const sx of [-1, 1]) p.add(box(0.08, 0.08, 0.86), M.beam, { x: sx * 0.7, y: 0.85, z: -0.19 });
+  shingleGable(p, { y: 0.88, z: -0.19, length: 1.6, width: 1.0, height: 0.38, rnd, endMaterial: M.wood });
+  // Anvil on a stump.
+  p.add(cyl(0.12, 0.13, 0.22, 9), M.wood, { x: 0.2, y: 0.11, z: -0.05 });
+  p.add(box(0.26, 0.07, 0.11), M.iron, { x: 0.2, y: 0.29, z: -0.05 });
+  p.add(box(0.12, 0.06, 0.08), M.iron, { x: 0.2, y: 0.24, z: -0.05 });
+  p.add(cone(0.05, 0.12, 6), M.iron, { x: 0.38, y: 0.3, z: -0.05, rz: -Math.PI / 2 });
+  p.add(box(0.03, 0.03, 0.14), M.woodDark, { x: 0.12, y: 0.35, z: 0.02, ry: 0.4 }); // hammer
+  p.add(box(0.06, 0.05, 0.05), M.iron, { x: 0.1, y: 0.35, z: 0.08, ry: 0.4 });
+  // Quench trough and grindstone in the yard.
+  p.add(box(0.46, 0.18, 0.2), M.woodDark, { x: -0.45, y: 0.09, z: 0.45 });
+  p.add(box(0.4, 0.02, 0.15), M.glass, { x: -0.45, y: 0.18, z: 0.45 });
+  wheel(p, { x: 0.55, y: 0.24, z: 0.5, r: 0.17, ry: Math.PI / 2 });
+  for (const s of [-1, 1]) p.add(box(0.04, 0.26, 0.04), M.woodDark, { x: 0.55 + s * 0.1, y: 0.13, z: 0.5 });
+  // Blades on a rack on the side wall.
+  p.add(box(0.05, 0.04, 0.6), M.wood, { x: 0.74, y: 0.62, z: -0.2 });
+  for (let i = 0; i < 4; i++) p.add(box(0.02, 0.34, 0.04), M.steel, { x: 0.76, y: 0.44, z: -0.42 + i * 0.14 });
+  barrel(p, { x: 0.82, z: 0.8, r: 0.1, h: 0.24 });
+  groundDressing(p, { w: 1.8, d: 1.8, rnd, count: 6 });
+  return p.build();
+}
+
+/**
+ * An outlaws' camp: two patched hide tents and a lean-to round a fire ring, a stake fence part way round, a rack of
+ * stolen goods and a grey rag on a pole.
+ */
+function outlawCamp() {
+  const M = MATERIALS;
+  const p = new Parts();
+  const rnd = rng(79);
+  p.add(box(1.94, 0.04, 1.94), M.dirt, { y: 0.02 });
+  // Tents: four-sided cones of hide, a pole poking out of the top.
+  for (const [x, z, r, h] of [[-0.45, -0.4, 0.42, 0.75], [0.5, -0.45, 0.36, 0.65]]) {
+    p.add(cone(r, h, 4), rnd.pick(TENT), { x, y: h / 2 + 0.04, z, ry: Math.PI / 4 + rnd.range(-0.2, 0.2) });
+    p.add(cyl(0.015, 0.015, h * 0.3, 5), M.woodDark, { x, y: h + 0.1, z });
+    p.add(box(r * 0.5, h * 0.5, 0.02), M.opening, { x, y: h * 0.25 + 0.04, z: z + r * 0.62, rx: -0.5 });
+  }
+  // Lean-to: a sloped hide roof on two posts.
+  for (const s of [-1, 1]) p.add(box(0.05, 0.42, 0.05), M.woodDark, { x: -0.55 + s * 0.25, y: 0.21, z: 0.45 });
+  p.add(box(0.62, 0.03, 0.5), TENT[1], { x: -0.55, y: 0.3, z: 0.3, rx: 0.5 });
+  // The fire: a ring of stones, logs and embers.
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2;
+    p.add(dodeca(0.05), rnd.pick(GREYSTONE), { x: 0.1 + Math.cos(a) * 0.16, y: 0.05, z: 0.15 + Math.sin(a) * 0.16, sy: 0.7 });
+  }
+  for (const a of [0, 1.1, 2.2]) p.add(cyl(0.025, 0.025, 0.24, 6), M.woodDark, { x: 0.1, y: 0.08, z: 0.15, rz: Math.PI / 2, ry: a });
+  p.add(sphere(0.07, 8, 6), EMBER, { x: 0.1, y: 0.08, z: 0.15, sy: 0.6 });
+  // Stakes along the back and one side.
+  for (let i = 0; i < 9; i++) {
+    const h = rnd.range(0.38, 0.5);
+    p.add(cyl(0.035, 0.04, h, 6), rnd.pick(LOGS), { x: -0.85 + i * 0.21, y: h / 2, z: -0.88, rx: -0.15 });
+    if (i > 3) p.add(cyl(0.035, 0.04, h, 6), rnd.pick(LOGS), { x: 0.88, y: h / 2, z: -0.85 + (i - 3) * 0.24, rz: -0.15 });
+  }
+  // Loot: a chest, sacks and a barrel.
+  p.add(box(0.26, 0.16, 0.18), M.wood, { x: 0.55, y: 0.1, z: 0.45 });
+  p.add(box(0.27, 0.03, 0.19), M.iron, { x: 0.55, y: 0.16, z: 0.45 });
+  p.add(box(0.05, 0.05, 0.02), M.gold, { x: 0.55, y: 0.12, z: 0.55 });
+  for (const [x, z] of [[0.75, 0.25], [0.3, 0.65]]) p.add(sphere(0.1, 8, 6), M.gambeson, { x, y: 0.08, z, sy: 0.8 });
+  barrel(p, { x: 0.82, z: 0.7, r: 0.1, h: 0.24 });
+  // The camp's rag on a pole.
+  p.add(cyl(0.02, 0.025, 1.1, 6), M.woodDark, { x: -0.85, y: 0.55, z: 0.75 });
+  p.add(box(0.3, 0.2, 0.01), M.bannerPale, { x: -0.7, y: 0.95, z: 0.75, rz: -0.08 });
+  groundDressing(p, { w: 1.8, d: 1.8, rnd, count: 10 });
+  return p.build();
+}
+
+const BUILDING_MODELS = { townHall, wall, wallJoint, archerTower, cannonTower, magicSpire, catapult, barracks, flagFort, gatehouse, warriorsHall, rangersLodge, roguesDen, smithy, outlawCamp };
 /** Building types with a version built into a wall (see IN_WALL_SHAPES). */
 export const IN_WALL_TYPES = [...Object.keys(IN_WALL_MODELS), 'gatehouse'];
 
@@ -1399,7 +1633,37 @@ function mangonel() {
   return root;
 }
 
-const ENEMY_MODELS = { swordsman, pikeman, archer: bowman, knight, ram, mangonel };
+/** Realm's rogue: a hooded cutpurse in dark leather and a short cape, a long knife in each hand. */
+function rogue() {
+  const M = MATERIALS;
+  const knife = (p) => {
+    const tilt = 0.6;
+    const at = (d) => ({ y: HAND_Y + Math.cos(tilt) * d, z: Math.sin(tilt) * d, rx: tilt });
+    p.add(box(0.035, 0.22, 0.014), M.steel, at(0.15));
+    p.add(box(0.09, 0.02, 0.03), M.iron, at(0.04));
+  };
+  return rig({
+    hipY: HIP,
+    legX: 0.075,
+    buildLeg: (p) => manLeg(p, { trousers: M.leatherDark, boots: M.leatherDark }),
+    buildBody: (p) => {
+      manBody(p, { coat: M.leatherDark, under: M.leather, stripe: M.livery });
+      p.add(dome(0.124), M.hood, { y: HEAD_Y + 0.01 });
+      p.add(cone(0.06, 0.2, 6), M.hood, { y: HEAD_Y + 0.04, z: -0.12, rx: -1.2 });
+      p.add(box(0.2, 0.05, 0.02), M.hood, { y: HEAD_Y - 0.05, z: 0.1 }); // a scarf over the mouth
+      p.add(cyl(0.12, 0.2, 0.22, 12), M.livery, { y: 0.3, z: -0.03 }); // cape
+      p.add(sphere(0.05, 8, 6), M.leather, { x: 0.16, y: 0.05, z: 0.08 }); // purse
+    },
+    shoulder: SHOULDER,
+    buildArm: (p) => {
+      manArm(p, { sleeve: M.leather });
+      knife(p);
+    },
+    crown: { y: HEAD_Y + 0.15, z: 0 },
+  });
+}
+
+const ENEMY_MODELS = { swordsman, pikeman, archer: bowman, knight, ram, mangonel, rogue };
 
 /**
  * Each side's colours, worn as hints rather than head to toe: the coat or cape, the shield's face, a stripe, a

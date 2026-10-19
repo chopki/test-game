@@ -211,6 +211,25 @@ shown by livery hints (the same army on both sides, not two factions).
 - [x] Tidier plateaus (short ramps mid-side, never round a corner; a wider clearing round the cliffs)
 - [x] AI against AI in tests (`world.aiTeams`): a long game where no soldier stands stuck and the battle ends
 
+## v0.5a: Realm (heroes on their own, after Majesty)
+
+A third mode (research in `docs/research/`): heroes act on their own and the player steers them with gold. It lives
+in `src/sim/realm/` so it can be spun out into a game of its own.
+
+- [x] Guilds (Warriors' Hall, Rangers' Lodge, Rogues' Den) hire heroes with names, traits and levels
+- [x] Hero AI: courage checks, a class plan (defend, hunt, raid, patrol, explore, home), resting and healing at home
+- [x] Carried gold: kill gold and loot to the hero, tax at home, gear bought at the Smithy (sales tax)
+- [x] Bounty flags: attack (shared by damage) and explore (first to reach it); takers and refusals on the card
+- [x] Outlaw camps: guards that refill, growth, raids on the town, loot; a new camp rises after one burns
+- [x] Fog of war in chunks; no building in unseen land
+- [x] Day/night: Survival's waves by night
+- [x] Hero, camp and flag cards; barks and flag labels over the battlefield; Realm on the minimap
+- [ ] More hero classes (a healer, a wizard) and temples that unlock them
+- [ ] Hero spells and items; a marketplace and inns (more ways to tax)
+- [ ] Monster lairs beyond outlaws (wolves, a dragon), and their own bounty rules
+- [ ] Control-model toggles B and C from the research (a "rally" order, a direct-control hero)
+- [ ] Spin out into its own game: its own map generator, menu and save
+
 ## v0.5: Heroes
 
 - [ ] One hero you control directly (click to move/attack)
