@@ -52,7 +52,9 @@ const FOG_FRAGMENT = /* glsl */ `
     float n = noise(vMap * 0.35) * 0.6 + noise(vMap * 1.1) * 0.4; // the edge's wobble
     float fog = 1.0 - smoothstep(0.3 + n * 0.14, 0.58 + n * 0.14, s);
     if (fog < 0.01) discard;
-    vec3 sheet = texture2D(paper, vMap / ${PAPER_TILES.toFixed(1)}).rgb;
+    // Two copies of the sheet, at different sizes and turned, so its repeats don't show.
+    vec2 turned = mat2(0.8, -0.6, 0.6, 0.8) * vMap;
+    vec3 sheet = mix(texture2D(paper, vMap / ${PAPER_TILES.toFixed(1)}).rgb, texture2D(paper, turned / ${(PAPER_TILES * 1.7).toFixed(1)} + 0.37).rgb, 0.45);
     // Broad variation across the sheet (so its repeats don't show), and the chart's graticule: thin sepia lines every
     // eight tiles, broken into dashes.
     float broad = noise(vMap * 0.06) * 0.6 + noise(vMap * 0.17) * 0.4;
@@ -60,11 +62,12 @@ const FOG_FRAGMENT = /* glsl */ `
     float dash = step(0.35, fract((vMap.x + vMap.y) * 0.5));
     float grid = max(lines(vMap.x, 8.0, 0.05), lines(vMap.y, 8.0, 0.05)) * dash;
     colour = mix(colour, vec3(0.45, 0.3, 0.18), grid * 0.35);
-    // Towards the known land: aged and browned, then hatched (diagonal strokes, broken up), then the inked edge.
-    float near = 1.0 - smoothstep(0.35, 0.95, fog); // 0 deep in the fog, 1 at its edge
-    colour = mix(colour, colour * vec3(0.78, 0.64, 0.48), near * 0.65);
-    float hatch = lines((vMap.x - vMap.y) * 0.7071, 0.33, 0.06) * step(0.4, noise(vMap * 2.3));
-    colour = mix(colour, vec3(0.32, 0.22, 0.14), hatch * smoothstep(0.15, 0.6, near) * (1.0 - smoothstep(0.8, 1.0, near)) * 0.6);
+    // Towards the known land (the last few tiles of the fog): aged and browned, and shaded with a cartographer's
+    // hatching (diagonal strokes, broken up), then the inked edge.
+    float near = smoothstep(0.0, 0.32, s + (n - 0.5) * 0.08); // 0 deep in the fog, 1 at its edge
+    colour = mix(colour, colour * vec3(0.74, 0.6, 0.44), near * 0.75);
+    float hatch = lines((vMap.x - vMap.y) * 0.7071, 0.3, 0.07) * step(0.35, noise(vMap * 1.7));
+    colour = mix(colour, vec3(0.3, 0.2, 0.12), hatch * smoothstep(0.2, 0.75, near) * 0.7);
     float rim = smoothstep(0.08, 0.42, fog) * (1.0 - smoothstep(0.48, 0.85, fog));
     colour = mix(colour, vec3(0.26, 0.17, 0.1), rim * 0.85);
     gl_FragColor = vec4(colour, max(smoothstep(0.0, 0.5, fog) * 0.97, rim * 0.92));

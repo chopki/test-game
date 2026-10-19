@@ -230,8 +230,17 @@ in `src/sim/realm/` so it can be spun out into a game of its own.
       chronicle entries sealed by severity (gold, grey, amber, red), merged when repeated, a tap looks there; on
       phones, a herald ribbon with the latest news in place of toasts (a tap unrolls the chronicle); brighter
       bounty marks on the minimap
-- [ ] Realm look, stage 1: hero base rings and intent glyphs, a Decree button for flags (splitting the wheel), a hero
-      rail, a sun-and-moon day clock, off-screen pings, document-style cards with "how to change their mind" hints
+- [x] A Realm builds only its guilds for now (`REALM.buildable`, per game in `world.realm.buildable`, so more can be
+      unlocked later); heroes explore of their own accord instead of milling about the town
+- [x] A detailed parchment for unseen land (`render/parchment.js`): fibres, laid lines, foxing, a graticule, hatched
+      and browned towards the known land
+- [x] Realm look, stage 1: rings under heroes in their guild's colour, a sign over each head for what it's up to, a
+      hero rail (portraits with health and level; a tap opens the card), a sun-and-moon day dial, the herald crying
+      dusk, edge arrows towards raiders and fleeing heroes out of sight, flag cards that say what would change a
+      refusing hero's mind
+- [ ] Realm look, stage 1 still to do: a health arc and level pips on the rings, heroes drawn a little larger,
+      side pennants for the night's army, the hero and camp cards as documents (a commission, a "wanted" notice)
+      (A Decree button splitting the wheel is no longer needed: the Realm wheel holds just the guilds and the flag.)
 - [ ] Realm look, stage 2: night grade and lantern light, indigo fog at night, the dawn page, cartographer's marks in
       the fog, shape-coded pennants, per-class lettering (with a plain-font setting)
 - [ ] Realm look, stage 3 (needs a bake): hero class silhouettes and guild tabards, distinct outlaws

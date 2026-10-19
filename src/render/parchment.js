@@ -2,7 +2,7 @@ import * as THREE from 'three';
 
 /**
  * A tileable sheet of old paper for Realm's unseen land (see realmLayer.js): mottled cream with fibres, the faint
- * laid and chain lines of hand-made paper, foxing spots and a few tea stains, and a fine speckle. Drawn once on a
+ * laid and chain lines of hand-made paper, foxing spots, and a fine speckle. Drawn once on a
  * canvas (power-of-two, so it mipmaps and stays crisp at every zoom) and cached. `size` in pixels.
  */
 let cached = null;
@@ -79,7 +79,7 @@ export function parchmentTexture(size = 1024) {
     });
   }
 
-  // Foxing: little rust-brown spots, in clusters, and a few tea stains (a ring darker than its middle).
+  // Foxing: little rust-brown spots, in clusters.
   for (let i = 0; i < 70; i++) {
     const cx = rnd() * size;
     const cy = rnd() * size;
@@ -99,22 +99,6 @@ export function parchmentTexture(size = 1024) {
       });
     }
   }
-  for (let i = 0; i < 5; i++) {
-    const x = rnd() * size;
-    const y = rnd() * size;
-    const r = range(50, 110);
-    wrapped(x, y, r, (px, py) => {
-      const grad = g.createRadialGradient(px, py, r * 0.55, px, py, r);
-      grad.addColorStop(0, 'rgba(150, 100, 50, 0.03)');
-      grad.addColorStop(0.85, 'rgba(130, 84, 40, 0.14)');
-      grad.addColorStop(1, 'rgba(130, 84, 40, 0)');
-      g.fillStyle = grad;
-      g.beginPath();
-      g.arc(px, py, r, 0, Math.PI * 2);
-      g.fill();
-    });
-  }
-
   // A fine speckle of grit.
   for (let i = 0; i < 9000; i++) {
     g.fillStyle = rnd() < 0.5 ? `rgba(90, 64, 36, ${range(0.1, 0.3)})` : `rgba(255, 248, 230, ${range(0.2, 0.4)})`;
