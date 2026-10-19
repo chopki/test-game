@@ -76,6 +76,7 @@ test('an explore bounty is placed with B and topped up from its card', async ({ 
 
 for (const query of ['', 'size=medium&hills=1&sea=1']) {
   test(`each Realm building can be placed on the generated map and selected, with no errors${query ? ` (${query})` : ''}`, async ({ page }) => {
+    test.setTimeout(120_000); // four buildings placed and opened, on software WebGL (the medium map is slower)
     const errors = await openRealm(page, { map: 'terrain', fort: true, query });
     await page.evaluate(() => window.game.world.economy.earn(1000));
     for (const [key, type, name] of [

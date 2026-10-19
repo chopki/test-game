@@ -778,7 +778,9 @@ export const REALM = {
     { name: 'Masterwork', cost: 160, price: 80, damage: 0.8, hp: 0.5 },
   ],
   bounty: { base: 25, step: 25, reach: 2, floor: 0.2, seeAll: 40, tempt: 8 },
-  courage: { group: 3.5 },
+  // Courage: allies within `group` tiles stand with a hero; so do heroes on the same errand (a bounty or raid on the
+  // same camp or foe) within `party`; once on its way, a hero takes on odds `committed` times worse before it runs.
+  courage: { group: 3.5, party: 9, committed: 1.5 },
   traits: {
     perHero: 1,
     list: {

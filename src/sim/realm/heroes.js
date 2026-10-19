@@ -180,13 +180,38 @@ function alliesNear(world, x, z, r) {
 
 const strengthOf = (list) => list.reduce((s, u) => s + power(u), 0);
 
-/** Whether hero `h` (with the allies round it) dares take on `foes` (`boost` > 1 for a fat bounty). */
-function dares(world, h, foes, boost = 1) {
+/**
+ * Whether hero `h` dares take on `foes`, with the allies round it and `party` (heroes on the same errand) on its side.
+ * `boost` > 1 for a fat bounty; `committed` once it has set out (it takes on worse odds then, rather than turning
+ * back as the foes come into view). The same reckoning is used when it takes the errand on and when it gets there.
+ */
+function dares(world, h, foes, { boost = 1, party = [], committed = false } = {}) {
   if (!foes.length) return true;
-  const mine = strengthOf(alliesNear(world, h.x, h.z, REALM.courage.group));
+  const allies = new Set(alliesNear(world, h.x, h.z, REALM.courage.group));
+  for (const p of party) if (p.alive && !(p.inside > 0)) allies.add(p);
+  allies.add(h);
   const cls = REALM.classes[h.cls];
-  return mine * cls.selfEst * h.mods.selfEst * boost >= strengthOf(foes) * cls.enemyEst;
+  const nerve = committed ? REALM.courage.committed : 1;
+  return strengthOf([...allies]) * cls.selfEst * h.mods.selfEst * boost * nerve >= strengthOf(foes) * cls.enemyEst;
 }
+
+/** What hero goal `g` is out to attack: a lair (raiding it, or for a bounty on it), a foe with a bounty on it, or null. */
+function errandOf(world, g) {
+  if (g?.kind === 'raid') return g.lair;
+  if (g?.kind === 'bounty' && g.flag.kind === 'attack') return g.flag.lair !== undefined ? world.realm.lairs[g.flag.lair] : g.flag.unit;
+  return null;
+}
+
+/** The heroes out on errand `target` (see errandOf), besides `h`; within `r` tiles of `h` if given. */
+function partyFor(world, h, target, r = Infinity) {
+  return world.realm.heroes.filter((o) => o !== h && o.alive && !(o.inside > 0) && errandOf(world, o.goal) === target && dist(o, h) <= r);
+}
+
+/** Whether foe `u` is part of errand `target`: the foe itself, or one of the lair's men (its guards, or raiders). */
+const partOf = (u, target) => u === target || (target?.lair && u.lairIndex === target.index);
+
+/** An explore flag another hero on it is nearer to (so `h` would likely get there second). */
+const outrun = (world, h, f) => [...f.takers].some((id) => id !== h.id && world.realm.heroes.some((o) => o.id === id && o.alive && !(o.inside > 0) && dist(o, f) < dist(h, f)));
 
 // ---------------------------------------------------------------- bounties
 
@@ -204,8 +229,12 @@ export function bountyValue(world, h, f) {
   const like = (cls.likes[f.kind] ?? 1) * (f.kind === 'explore' ? h.mods.explore : 1);
   const value = (f.gold * (0.5 + greed / 12) * like) / (1 + d / 10);
   if (f.kind === 'attack') {
-    const foes = f.lair !== undefined ? lairMen(world, world.realm.lairs[f.lair]) : [f.unit];
-    if (!dares(world, h, foes, 1 + f.gold / 100)) return { value: 0, why: 'too dangerous' };
+    // Reckoned with the heroes already on it, wherever they are (they'll be there too).
+    const target = f.lair !== undefined ? world.realm.lairs[f.lair] : f.unit;
+    const foes = f.lair !== undefined ? lairMen(world, target) : [f.unit];
+    if (!dares(world, h, foes, { boost: 1 + f.gold / 100, party: partyFor(world, h, target) })) return { value: 0, why: 'too dangerous' };
+  } else if (outrun(world, h, f)) {
+    return { value: 0, why: 'someone nearer is on it' }; // it'd only get there second
   }
   if (value < REALM.bounty.tempt) return { value: 0, why: 'not worth it' };
   return { value, why: null };
@@ -254,7 +283,7 @@ function goalValid(world, h) {
     case 'fight':
       return g.unit.alive && !(g.unit.inside > 0) && dist(g.unit, h) < REALM.sight * 1.6;
     case 'bounty':
-      return r.bounties.includes(g.flag);
+      return r.bounties.includes(g.flag) && !(g.flag.kind === 'explore' && outrun(world, h, g.flag));
     case 'raid':
       return !g.lair.razed;
     case 'explore':
@@ -316,7 +345,7 @@ function tryActivity(world, h, act) {
         const d = Math.hypot(lair.cx - h.x, lair.cz - h.z);
         if (d > 26 * range || (best && d >= best.d)) continue;
         // Only with friends (or alone if it's strong enough), and never against a full camp's worth alone.
-        if (dares(world, h, lairMen(world, lair))) best = { lair, d };
+        if (dares(world, h, lairMen(world, lair), { party: partyFor(world, h, lair) })) best = { lair, d };
       }
       return best && { kind: 'raid', lair: best.lair };
     }
@@ -365,6 +394,15 @@ function think(world, h) {
     if (g?.kind === 'flee') return;
     const near = foes[0];
     const group = foesNear(world, near.x, near.z, REALM.courage.group);
+    // On its way to burn a camp or fell a foe: its men coming at it are what it set out for. It reckons the odds as
+    // when it took the errand on (the bounty, the others on it), with the nerve of having set out.
+    const target = errandOf(world, g);
+    if (target && goalValid(world, h) && group.every((u) => partOf(u, target))) {
+      const boost = g.kind === 'bounty' ? 1 + g.flag.gold / 100 : 1;
+      if (dares(world, h, group, { boost, party: partyFor(world, h, target, REALM.courage.party), committed: true })) return;
+      setGoal(world, h, { kind: 'flee' });
+      return;
+    }
     if (dares(world, h, group)) {
       setGoal(world, h, { kind: 'fight', unit: near });
       return;

@@ -299,7 +299,10 @@ code is all in `src/sim/realm/` behind a few World hooks, so the mode can be lif
   XP is 2 × a foe's gold) adds 15% health and damage.
 - **How a hero thinks** (every 0.5 s, after Majesty's "thought process"): (1) foes within sight: fight the nearest
   group if their side's strength (health × damage a second, with allies within 3.5 tiles) × self-estimate beats the
-  foes' × enemy-estimate, else keep away, and run home if badly hurt; (2) below 55% health, or carrying 45 gold or
+  foes' × enemy-estimate, else keep away, and run home if badly hurt. A hero out to burn a camp or fell a foe (for a
+  bounty, or raiding) reckons that target's men the way it did when it took the job on: with the bounty's boost and
+  the other heroes on the same job (within 9 tiles) on its side, and once it has set out it takes on odds 1.5×
+  worse before it runs, so a party doesn't walk up to a camp and scatter; (2) below 55% health, or carrying 45 gold or
   more, go home (unless burning a camp); (3) keep at the current task unless a bounty is worth a third more;
   (4) otherwise the best bounty flag, new gear if it can afford it, else down its class's list. Stuck for 18 s, it
   thinks again.
@@ -310,8 +313,9 @@ code is all in `src/sim/realm/` behind a few World hooks, so the mode can be lif
   (**attack**, shared when it falls by the heroes who hurt it, by damage, each taking at least 20% of an equal
   share; if no hero hurt it the gold comes back), or on open ground (**explore**, all to the first hero within 2
   tiles). A hero weighs a flag as gold × (0.5 + greed / 12) × its liking for the kind ÷ (1 + distance / 10), and
-  passes on it under 8, if it's more than 40 tiles off, or (attack) if it doesn't dare (a bigger bounty makes it
-  braver: × 1 + gold / 100). A flag's card shows who's on it and who turned it down, and why.
+  passes on it under 8, if it's more than 40 tiles off, (attack) if it doesn't dare (a bigger bounty makes it
+  braver: × 1 + gold / 100; the heroes already on it count on its side), or (explore) if a hero already on it is
+  nearer, so one hero goes, not every one that likes it. A flag's card shows who's on it and who turned it down, and why.
 - **Gear**, forged at a Smithy and bought by heroes with their own gold (the treasury takes 60% of each sale):
 
   | Tier       | Forge | Price to a hero | Damage | Health |

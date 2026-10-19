@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { BUILDINGS, REALM } from '../src/sim/config.js';
 import { seenAt, seenShare } from '../src/sim/realm/fog.js';
-import { lairMen } from '../src/sim/realm/lairs.js';
+import { fillLair, lairMen } from '../src/sim/realm/lairs.js';
 import { splitByShare } from '../src/sim/realm/bounties.js';
 import { bountyValue, intentOf } from '../src/sim/realm/heroes.js';
 import { forgeCheck, realmThingAt } from '../src/sim/realm/index.js';
@@ -371,4 +371,76 @@ describe('a realm at play', () => {
       expect(again.economy.gold).toBe(world.economy.gold);
     });
   }
+});
+
+describe('heroes on a bounty', () => {
+  /**
+   * How often a healthy hero gave up a bounty to flee while others on it stood by it, healthy, within
+   * REALM.courage.party tiles (a hero left alone with the whole camp may well back off; a party shouldn't scatter).
+   */
+  function watchNerve(heroes) {
+    const was = new Map();
+    let fled = 0;
+    return {
+      tick() {
+        for (const h of heroes) {
+          const now = h.goal?.kind;
+          const friends = heroes.some((o) => o !== h && o.alive && o.goal?.kind === 'bounty' && o.hp > o.maxHp * 0.6 && Math.hypot(o.x - h.x, o.z - h.z) <= REALM.courage.party);
+          if (was.get(h.id) === 'bounty' && now === 'flee' && h.hp > h.maxHp * 0.6 && friends) fled++;
+          was.set(h.id, now);
+        }
+      },
+      get fled() {
+        return fled;
+      },
+    };
+  }
+
+  it("a party that sets out to burn a camp for a bounty doesn't scatter when its guards come at them", () => {
+    let fledTotal = 0;
+    for (const seed of [1, 2, 3]) {
+      const world = realm(seed);
+      world.realm.fog.seen.fill(1);
+      for (const l of world.realm.lairs) l.discovered = true;
+      const { heroes: party } = heroes(world, 4);
+      // Out and about in different places when the flag goes up, against a camp that has grown a little.
+      run(world, 20);
+      const lair = world.realm.lairs[0];
+      lair.level = 3;
+      for (const m of lairMen(world, lair)) world._removeTroop(m, 'dismissed');
+      fillLair(world, lair);
+      world.economy.earn(200, 'test');
+      world.placeBounty({ kind: 'attack', lair: lair.index }, 75);
+      const nerve = watchNerve(party);
+      run(world, 150, () => {
+        nerve.tick();
+        return lair.razed;
+      });
+      fledTotal += nerve.fled;
+    }
+    expect(fledTotal).toBe(0);
+  });
+
+  it('an explore flag draws the hero nearest it, not every hero who likes it', () => {
+    const world = realm(3);
+    const { heroes: rangers } = heroes(world, 3, 'rangersLodge');
+    run(world, 2); // they step out and spread a little
+    const g = world.grid;
+    let spot = null;
+    for (let d = 12; d < 20 && !spot; d++) {
+      for (let a = 0; a < 16 && !spot; a++) {
+        const x = Math.floor(world.townHall.cx + Math.cos((a / 16) * Math.PI * 2) * d);
+        const z = Math.floor(world.townHall.cz + Math.sin((a / 16) * Math.PI * 2) * d);
+        if (g.inBounds(x, z) && !g.isBlocked(x, z) && g.get(x, z) === null && !g.isInSpawnZone(x, z)) spot = { x: x + 0.5, z: z + 0.5 };
+      }
+    }
+    world.economy.earn(100, 'test');
+    const { flag } = world.placeBounty({ kind: 'explore', ...spot }, 60);
+    // After a moment's thought (each thinks every REALM.think seconds), one is on its way.
+    run(world, 3);
+    expect(flag.takers.size).toBe(1);
+    const [id] = flag.takers;
+    const nearest = [...rangers].sort((a, b) => Math.hypot(a.x - flag.x, a.z - flag.z) - Math.hypot(b.x - flag.x, b.z - flag.z))[0];
+    expect(id).toBe(nearest.id);
+  });
 });
