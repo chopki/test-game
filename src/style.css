@@ -626,6 +626,33 @@ body.menu-open #app canvas {
   background: radial-gradient(ellipse at 50% 50%, transparent 40%, rgba(40, 24, 10, 0.55));
 }
 
+/* While the game loads behind the menu (see showEarlyMenu): parchment until the battlefield is there to show. */
+body.booting .main-menu {
+  background:
+    radial-gradient(ellipse at 50% 50%, transparent 40%, rgba(40, 24, 10, 0.55)),
+    var(--paper-grain),
+    #d8c193;
+}
+
+.menu-status {
+  margin: 6px 0 0;
+  font-family: var(--fell);
+  font-size: 0.95em;
+  color: var(--ink-muted);
+  text-align: center;
+}
+
+.plaque.waiting {
+  color: var(--ink-red);
+  animation: plaque-wait 1.2s ease-in-out infinite alternate;
+}
+
+@keyframes plaque-wait {
+  to {
+    filter: brightness(0.9);
+  }
+}
+
 .menu-page {
   position: relative;
   display: flex;

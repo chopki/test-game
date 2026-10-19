@@ -20,11 +20,11 @@ export function pickSpriteSet(preference = 'auto') {
  * work on the player's device); the dev server bakes the standard set live so model edits show up immediately.
  * If the pre-baked set is missing or doesn't have every sprite the catalogue expects, it falls back to baking.
  */
-export async function loadSprites({ set = pickSpriteSet(), preferBaked = !import.meta.env?.DEV } = {}) {
+export async function loadSprites({ set = pickSpriteSet(), preferBaked = !import.meta.env?.DEV, onProgress = null } = {}) {
   const specs = spriteSpecs();
   if (preferBaked) {
     try {
-      const atlas = await loadPrebaked(SPRITE_SETS[set].dir);
+      const atlas = await loadPrebaked(SPRITE_SETS[set].dir, onProgress);
       const missing = specs.filter((s) => !atlas.frame(s.key));
       if (missing.length === 0) return Object.assign(atlas, { set });
       console.warn(`Pre-baked sprites (${set}) are missing ${missing.length} frames (e.g. ${missing[0].key}); baking instead. Run npm run bake.`);
@@ -38,9 +38,10 @@ export async function loadSprites({ set = pickSpriteSet(), preferBaked = !import
 /**
  * Load an atlas saved by scripts/bake-sprites.mjs from `baseUrl` (atlas.json + page images), a page at a time: the
  * HD set has a couple of dozen 2048² pages, and decoding them all at once can fail for lack of memory. If a page's
- * decode() is refused anyway, it waits for the image to load the ordinary way instead.
+ * decode() is refused anyway, it waits for the image to load the ordinary way instead. `onProgress(done, total)` is
+ * called as each page is ready.
  */
-async function loadPrebaked(baseUrl) {
+async function loadPrebaked(baseUrl, onProgress = null) {
   const res = await fetch(`${baseUrl}atlas.json`);
   if (!res.ok) throw new Error(`atlas.json: HTTP ${res.status}`);
   const data = await res.json();
@@ -59,6 +60,7 @@ async function loadPrebaked(baseUrl) {
     texture.anisotropy = 4;
     texture.needsUpdate = true;
     atlas.pages.push({ source: img, texture });
+    onProgress?.(atlas.pages.length, data.pages.length);
   }
   atlas.sourceHash = data.sourceHash;
   return atlas;

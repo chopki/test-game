@@ -275,6 +275,14 @@
       </div>
     </div>
 
+    <!-- The main menu at first paint (main.js takes it over; ?menu=0 skips it, as the browser tests do). -->
+    <script>
+      if (new URLSearchParams(location.search).get('menu') !== '0') {
+        document.getElementById('menu').hidden = false;
+        document.getElementById('loading').hidden = true;
+        document.body.classList.add('menu-open', 'booting');
+      }
+    </script>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

@@ -128,3 +128,31 @@ test('a guild can be placed in a gap in a wall line (it is drawn whole beside th
   await page.waitForTimeout(300);
   expect(errors).toEqual([]);
 });
+
+test('the main menu is up before the game has loaded, and a battle picked meanwhile begins once it has', async ({ page }) => {
+  test.setTimeout(180_000); // the whole boot, then a new Realm map, on software WebGL
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  // Hold the sprite pages back, so the menu is seen while they load.
+  let release;
+  const held = new Promise((resolve) => (release = resolve));
+  await page.route(/\/sprites(-hd)?\/page-\d+\./, async (route) => {
+    await held;
+    await route.continue();
+  });
+  await page.goto('/?seed=8&map=open&size=small&sea=0&hills=0&fort=0', { waitUntil: 'domcontentloaded' }); // ('load' waits for the held pages)
+  await expect(page.locator('#menu')).toBeVisible();
+  await expect(page.locator('.menu-status')).toContainText('Preparing the battlefield');
+  expect(await page.evaluate(() => Boolean(window.game))).toBe(false);
+  await expect(page.locator('#menu-codex')).toBeDisabled();
+  await page.locator('#menu-realm').click();
+  await expect(page.locator('#menu-realm')).toHaveClass(/waiting/);
+  await expect(page.locator('.menu-status')).toHaveText('Getting ready…');
+
+  release();
+  await expect.poll(() => page.evaluate(() => window.game?.world.mode), { timeout: 120_000 }).toBe('realm');
+  await expect(page.locator('#intro-title')).toHaveText(/Realm/);
+  await expect(page.locator('.menu-status')).toHaveCount(0);
+  await expect(page.locator('#menu-codex')).toBeEnabled();
+  expect(errors).toEqual([]);
+});
