@@ -7,6 +7,7 @@ import { expect, gold, openGame, tileToScreen } from './helpers.js';
 const openRealm = (page, opts = {}) => openGame(page, { ...opts, query: ['mode=realm', opts.query].filter(Boolean).join('&') });
 
 test('the main menu starts a Realm, with its briefing, the guilds in the wheel and the minimap', async ({ page }) => {
+  test.setTimeout(120_000); // a new Realm map is laid out and painted, on software WebGL
   const errors = await openGame(page, { paused: false, query: 'menu=1' });
   await page.locator('#menu-realm').click();
   await expect.poll(() => page.evaluate(() => window.game.world.mode)).toBe('realm');
