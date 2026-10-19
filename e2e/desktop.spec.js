@@ -974,7 +974,7 @@ test('main menu: holds the battle at the start; Endless Mode begins it, Continue
   // The Royal Codex: a card for every tower and every foe.
   await page.getByRole('button', { name: 'The Royal Codex' }).click();
   await expect(page.locator('#codex')).toBeVisible();
-  expect(await page.locator('#codex-towers .codex-card').count()).toBe(7);
+  expect(await page.locator('#codex-towers .codex-card').count()).toBe(11); // every mode's buildings (the Flag Fort is Conquest's; guilds and the Smithy are Realm's)
   expect(await page.locator('#codex-foes .codex-card').count()).toBe(6);
   await page.getByRole('button', { name: 'Close' }).click();
 
