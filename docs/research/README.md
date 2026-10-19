@@ -14,6 +14,7 @@ Sim*), either as a mode of Hold the Hall or as a game of its own. Gathered in Oc
 | [07-buildings.md](07-buildings.md) | Buildings across the games by role (Crown of Greed, Kingdom, Dungeon Keeper rooms, Thronefall, Kingdom Rush, Stronghold, Dungeon Village) with costs and stats; patterns; a proposed Realm building list |
 | [08-units.md](08-units.md) | Heroes, troops and workers: production models, rosters (Majesty 2 promotion, Kingdom subjects, Dungeon Keeper creatures with wages and attraction rules, Thronefall units…), patterns, a proposed Realm roster |
 | [09-enemies.md](09-enemies.md) | Enemies, monsters and lairs: where they come from, **what they go for**, damage systems, bestiaries for each game with stats, a proposed Realm bestiary |
+| [10-ui-and-art-direction.md](10-ui-and-art-direction.md) | **UI, HUD and art direction** of the reference games and phone strategy games, and a proposed identity for Realm: the realm as a living chart (vellum fog, heroes on bases, sealed bounty notices, a lettered chronicle, lantern-lit nights), phone layout and touch patterns, what to avoid, a staged plan. Source notes in [ui-notes/](ui-notes/) |
 | [data/](data/) | JSON: Majesty 1 [heroes](data/majesty1-heroes.json) (stats and decision lists), [buildings](data/majesty1-buildings.json), [spells](data/majesty1-spells.json), [monsters](data/majesty1-monsters.json); [Dungeon Keeper creatures and heroes](data/dungeon-keeper-creatures.json); [Thronefall buildings, units and enemies](data/thronefall.json) |
 
 ## Things to remember
