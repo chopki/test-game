@@ -21,7 +21,10 @@ export function onPress(el, fn) {
     fn(e);
   });
   el.addEventListener('click', (e) => {
-    if (performance.now() - touchPressAt < 800) return; // the touch release already handled it
+    // A click that comes of a touch (Chrome says so: clicks are pointer events) was handled on release; elsewhere,
+    // any click just after a touch release is taken to be that touch's.
+    if (e.pointerType === 'touch' || e.pointerType === 'pen') return;
+    if (performance.now() - touchPressAt < 800) return;
     fn(e);
   });
 }
