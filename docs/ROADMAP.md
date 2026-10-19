@@ -242,8 +242,12 @@ in `src/sim/realm/` so it can be spun out into a game of its own.
       pennant by day at the map's edge where the night's army will come from, and the cards as documents (a hero's
       commission with its trait in plain words and when it runs, a camp's "wanted" notice, a bounty under its seal).
       (A Decree button splitting the wheel is no longer needed: the Realm wheel holds just the guilds and the flag.)
-- [ ] Realm look, stage 2: night grade and lantern light, indigo fog at night, the dawn page, cartographer's marks in
-      the fog, shape-coded pennants, per-class lettering (with a plain-font setting)
+- [x] Realm look, stage 2: night grade (a CSS grade and vignette) with lantern light round the Hall, camps and heroes,
+      the parchment an indigo ink wash at night, the dawn page, each guild's own lettering for its words (Settings →
+      Hero lettering → Plain), a rumour mark on the parchment where a camp rose out of sight
+- [ ] Realm look, stage 2 still to do: more cartographer's marks in the fog (roads running on past the known edge,
+      hill symbols), shape-coded pennants (with stage 3's bake), a sepia "stale" fog for land no longer watched (needs
+      the sim to keep when each chunk was last seen)
 - [ ] Realm look, stage 3 (needs a bake): hero class silhouettes and guild tabards, distinct outlaws
 - [ ] More hero classes (a healer, a wizard) and temples that unlock them
 - [ ] Hero spells and items; a marketplace and inns (more ways to tax)
