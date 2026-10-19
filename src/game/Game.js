@@ -49,6 +49,7 @@ export class Game {
     this.hud = new HUD(this);
     this.settingsMenu = new SettingsMenu(this);
     this.hud.setFpsVisible(this.graphics.showFps);
+    document.body.classList.toggle('plain-letters', this.graphics.lettering === 'plain');
     this.speed = 1;
     this.paused = false;
     this.keys = new Set();
@@ -125,6 +126,7 @@ export class Game {
     this.renderer.applySettings(settings);
     this._syncDynamicResolution();
     this.hud.setFpsVisible(settings.showFps);
+    document.body.classList.toggle('plain-letters', settings.lettering === 'plain');
   }
 
   // 'auto' resolution: a controller that nudges the render scale to hold the target frame rate.

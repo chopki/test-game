@@ -238,8 +238,9 @@ in `src/sim/realm/` so it can be spun out into a game of its own.
       hero rail (portraits with health and level; a tap opens the card), a sun-and-moon day dial, the herald crying
       dusk, edge arrows towards raiders and fleeing heroes out of sight, flag cards that say what would change a
       refusing hero's mind
-- [ ] Realm look, stage 1 still to do: a health arc and level pips on the rings, heroes drawn a little larger,
-      side pennants for the night's army, the hero and camp cards as documents (a commission, a "wanted" notice)
+- [x] Realm look, stage 1 finished: the rings show health (the lost part darkened), heroes drawn 12% larger, a blue
+      pennant by day at the map's edge where the night's army will come from, and the cards as documents (a hero's
+      commission with its trait in plain words and when it runs, a camp's "wanted" notice, a bounty under its seal).
       (A Decree button splitting the wheel is no longer needed: the Realm wheel holds just the guilds and the flag.)
 - [ ] Realm look, stage 2: night grade and lantern light, indigo fog at night, the dawn page, cartographer's marks in
       the fog, shape-coded pennants, per-class lettering (with a plain-font setting)

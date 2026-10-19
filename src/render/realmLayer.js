@@ -28,12 +28,41 @@ const FOG_VERTEX = /* glsl */ `
 // Towards the known land the paper is aged and browned, a cartographer's hatching shades it, and where it gives way
 // there's a dark ink-bleed line, as if that edge had just been drawn (the chunk texture is sampled smoothly, and noise
 // breaks up the line). See docs/research/10-ui-and-art-direction.md.
+// The hero rings: the guild's colour round the part of the ring that's the hero's health (clockwise from the top of
+// the screen), the rest dark.
+const RING_VERTEX = /* glsl */ `
+  attribute float hp;
+  attribute vec3 tint;
+  varying vec3 vColour;
+  varying float vHp;
+  varying vec2 vLocal;
+  void main() {
+    vColour = tint;
+    vHp = hp;
+    vLocal = position.xz;
+    gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(position, 1.0);
+  }
+`;
+const RING_FRAGMENT = /* glsl */ `
+  uniform float opacity;
+  varying vec3 vColour;
+  varying float vHp;
+  varying vec2 vLocal;
+  void main() {
+    // The iso camera looks from +x +z, so "up the screen" is towards -x -z.
+    float a = atan(vLocal.x - vLocal.y, -(vLocal.x + vLocal.y)) / 6.28318 + 0.5;
+    vec3 colour = a <= vHp ? vColour : vColour * 0.25 + vec3(0.08);
+    gl_FragColor = vec4(colour, opacity);
+  }
+`;
+
 const PAPER_TILES = 14;
 const MAX_RINGS = 64;
 const FOG_FRAGMENT = /* glsl */ `
   uniform sampler2D seen;
   uniform sampler2D paper;
   uniform vec2 size;
+  uniform float night; // 0 by day, 1 at night: the paper goes to an indigo ink wash
   varying vec2 vMap;
   float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
   float noise(vec2 p) {
@@ -70,6 +99,7 @@ const FOG_FRAGMENT = /* glsl */ `
     colour = mix(colour, vec3(0.3, 0.2, 0.12), hatch * smoothstep(0.2, 0.75, near) * 0.7);
     float rim = smoothstep(0.08, 0.42, fog) * (1.0 - smoothstep(0.48, 0.85, fog));
     colour = mix(colour, vec3(0.26, 0.17, 0.1), rim * 0.85);
+    colour = mix(colour, colour * vec3(0.32, 0.36, 0.62) + vec3(0.02, 0.03, 0.08), night * 0.8);
     gl_FragColor = vec4(colour, max(smoothstep(0.0, 0.5, fog) * 0.97, rim * 0.92));
   }
 `;
@@ -79,11 +109,21 @@ export class RealmLayer {
     this.r = renderer;
     this.fog = null;
     // A ring on the ground under each hero, in its guild's colour (REALM.classes), so heroes stand out from the
-    // soldiers and the outlaws, and tell you whose they are.
-    const material = new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false });
-    underlay(material, 0.85);
-    this.rings = new THREE.InstancedMesh(new THREE.RingGeometry(0.3, 0.42, 28).rotateX(-Math.PI / 2), material, MAX_RINGS);
-    this.rings.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(MAX_RINGS * 3), 3);
+    // soldiers and the outlaws, and tell you whose they are; the ring is also its health, the lost part darkened.
+    const material = underlay(
+      new THREE.ShaderMaterial({
+        uniforms: { opacity: { value: 0.9 } },
+        vertexShader: RING_VERTEX,
+        fragmentShader: RING_FRAGMENT,
+      }),
+      0.9,
+    );
+    const ring = new THREE.RingGeometry(0.3, 0.44, 32).rotateX(-Math.PI / 2);
+    this._ringHp = new THREE.InstancedBufferAttribute(new Float32Array(MAX_RINGS), 1);
+    this._ringTint = new THREE.InstancedBufferAttribute(new Float32Array(MAX_RINGS * 3), 3);
+    ring.setAttribute('hp', this._ringHp);
+    ring.setAttribute('tint', this._ringTint);
+    this.rings = new THREE.InstancedMesh(ring, material, MAX_RINGS);
     this.rings.renderOrder = 1;
     this.rings.frustumCulled = false;
     this.rings.count = 0;
@@ -98,6 +138,7 @@ export class RealmLayer {
   attach(world) {
     this.detach();
     this.world = world;
+    this.r.setNight(false);
     this._flagViews.clear();
     this._lairViews.clear();
     if (!world.realm) return;
@@ -108,6 +149,7 @@ export class RealmLayer {
     this._fogTexture.magFilter = THREE.LinearFilter;
     this._fogTexture.minFilter = THREE.LinearFilter;
     this._fogVersion = -1;
+    this._night = 0;
     const { width, height } = world.grid;
     const w = width + PAINT_BORDER * 2;
     const h = height + PAINT_BORDER * 2;
@@ -115,6 +157,7 @@ export class RealmLayer {
       uniforms: {
         seen: { value: this._fogTexture },
         paper: { value: parchmentTexture() },
+        night: { value: 0 },
         size: { value: new THREE.Vector2(f.cols * REALM.chunk, f.rows * REALM.chunk) },
         offset: { value: new THREE.Vector2(this.r.offsetX, this.r.offsetZ) },
       },
@@ -171,17 +214,36 @@ export class RealmLayer {
       this._fogTexture.needsUpdate = true;
     }
 
+    // Night (the wave): the field dims and cools (Renderer.setNight), the paper turns to ink wash, and lantern light
+    // pools round the Hall, the camps and each hero out of doors, so they can still be found.
+    const night = w.phase === 'wave';
+    r.setNight(night);
+    this._night += ((night ? 1 : 0) - this._night) * Math.min(1, (r._dt ?? 0.016) * 0.5);
+    this.fog.material.uniforms.night.value = this._night;
+    if (this._night > 0.05 && r.graphics.glow) {
+      const k = this._night;
+      const hall = w.townHall;
+      r.glows.add(r.toScene(hall.cx, 1.2, hall.cz, this._pos), 4.5, 0xffc27a, 0.55 * k);
+      for (const h of realm.heroes) {
+        if (!h.alive || h.inside > 0) continue;
+        r.glows.add(r.toScene(h.x, 0.6, h.z, this._pos), 2.2, 0xffd08a, (0.45 + 0.05 * Math.sin(time * 7 + h.id)) * k);
+      }
+    }
+
     let n = 0;
     for (const h of realm.heroes) {
       if (!h.alive || h.inside > 0 || n >= MAX_RINGS) continue;
       r.toScene(h.x, 0.03, h.z, this._pos);
       this.rings.setMatrixAt(n, this._m.makeTranslation(this._pos.x, this._pos.y, this._pos.z));
-      this.rings.setColorAt(n, this._colour.set(REALM.classes[h.cls].colour));
+      this._colour.setStyle(REALM.classes[h.cls].colour, THREE.LinearSRGBColorSpace); // (as given: the shader outputs it as is)
+      this._ringTint.setXYZ(n, this._colour.r, this._colour.g, this._colour.b);
+      this._ringHp.setX(n, Math.max(0, h.hp / h.maxHp));
       n++;
     }
     this.rings.count = n;
     this.rings.instanceMatrix.needsUpdate = true;
-    this.rings.instanceColor.needsUpdate = true;
+    this._ringTint.needsUpdate = true;
+    this._ringHp.needsUpdate = true;
 
     const camp = spriteKeys.building(REALM.lairs.type);
     for (const lair of realm.lairs) {

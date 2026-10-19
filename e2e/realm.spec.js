@@ -287,3 +287,60 @@ test("a flag's card says who turned it down, why, and what would change their mi
   await expect(page.locator('#info .realm-hint')).toContainText('raise the bounty');
   expect(errors).toEqual([]);
 });
+
+test('night falls dark over a Realm, dawn brings a page of the night, words come in each guild\'s hand, and a new camp is rumoured', async ({ page }) => {
+  test.setTimeout(120_000);
+  const errors = await openRealm(page);
+  await page.evaluate(() => {
+    const w = window.game.world;
+    w.economy.earn(500);
+    const h = w.townHall;
+    let guild = null;
+    for (let r = 4; r < 9 && !guild; r++) for (let dx = -r; dx <= r && !guild; dx++) for (let dz = -r; dz <= r && !guild; dz++) {
+      if (Math.max(Math.abs(dx), Math.abs(dz)) === r && w.canPlace('warriorsHall', h.x + dx, h.z + dz).ok) {
+        w.place('warriorsHall', h.x + dx, h.z + dz);
+        guild = w.buildingAt(h.x + dx, h.z + dz);
+      }
+    }
+    w.recruit(guild.id);
+    w.startWave();
+  });
+  await expect(page.locator('body')).toHaveClass(/realm-night/);
+  await expect(page.locator('#dial-label')).toHaveText('Night');
+  await expect.poll(() => page.evaluate(() => window.game.renderer.renderer.domElement.style.filter)).toContain('brightness(0.62)');
+  // Dawn: the night is over (its foes gone), and the page says what it brought.
+  await page.evaluate(() => {
+    const w = window.game.world;
+    w.waves.queue.length = 0;
+    for (const e of [...w.enemies]) w._damageEnemy(e, e.hp + 1);
+    for (let i = 0; i < 5; i++) w.update(1 / 30);
+  });
+  await expect(page.locator('.dawn-page')).toBeVisible();
+  await expect(page.locator('.dawn-page h3')).toHaveText('Dawn of day 2');
+  await expect(page.locator('body')).not.toHaveClass(/realm-night/);
+  await page.locator('.dawn-page').click();
+  await expect(page.locator('.dawn-page')).toBeHidden();
+
+  // A bark, lettered in its guild's hand (or plain type, by the setting).
+  await page.evaluate(() => {
+    const w = window.game.world;
+    const hero = w.realm.heroes[0];
+    hero.inside = 0;
+    hero.bark = { text: 'For the realm!', at: w.time, kind: 'fight' };
+    window.game.renderer.focusOn(hero.x, hero.z);
+  });
+  await expect(page.locator('.realm-tag.bark')).toHaveAttribute('data-hand', 'manAtArms');
+  await page.evaluate(() => window.game.setGraphics({ ...window.game.graphics, lettering: 'plain' }));
+  await expect(page.locator('body')).toHaveClass(/plain-letters/);
+
+  // A camp that rises out of sight is rumoured on the parchment until it's found.
+  await page.evaluate(() => {
+    const w = window.game.world;
+    const lair = w.realm.lairs[0];
+    lair.discovered = false;
+    lair.rumour = true;
+    window.game.renderer.focusOn(lair.cx, lair.cz);
+  });
+  await expect(page.locator('.realm-tag.rumour')).toBeVisible();
+  expect(errors).toEqual([]);
+});

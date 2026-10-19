@@ -2377,3 +2377,211 @@ body.menu-open .realm-pings {
 .realm-hint {
   color: var(--ink-red);
 }
+
+/* Where the night's army will come from: a blue swallow-tailed pennant at the map's edge. */
+.realm-tag.army {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 36px;
+  padding-bottom: 6px;
+  font-size: 15px;
+  color: #f3ead7;
+  background: #2f4f93;
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 78%, 0 100%);
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.45));
+}
+
+/* ------------------------------------------------------------------ Realm cards as documents */
+
+.realm-doc {
+  position: relative;
+  margin: -4px -4px 6px;
+  padding: 8px 10px;
+  border-radius: 3px;
+  background: var(--paper-grain), rgba(243, 228, 196, 0.6);
+  border: 1px solid rgba(120, 80, 40, 0.35);
+}
+
+.realm-doc h3 {
+  font-family: var(--fell);
+  font-size: 1.25em;
+}
+
+/* A hero's commission: its portrait in a roundel of its guild's colour, its trait on a ribbon. */
+.doc-portrait {
+  flex: none;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  object-fit: contain;
+  background: var(--paper);
+  border: 4px solid var(--guild);
+  box-shadow: 0 0 0 1px #2e1f12, 0 2px 5px rgba(0, 0, 0, 0.35);
+}
+
+.trait-ribbon {
+  display: inline-block;
+  margin-top: 2px;
+  padding: 2px 14px 2px 8px;
+  font-size: 0.78em;
+  font-weight: 700;
+  color: #fbf3df;
+  background: var(--guild);
+  clip-path: polygon(0 0, 100% 0, calc(100% - 7px) 50%, 100% 100%, 0 100%);
+}
+
+.realm-why {
+  margin: 4px 0 0;
+  font-size: 0.78em;
+  color: var(--ink-muted);
+}
+
+/* An outlaw camp's "wanted" notice. */
+.realm-doc.wanted {
+  border: 2px double rgba(90, 50, 24, 0.6);
+}
+
+.doc-banner {
+  margin: 0 0 4px;
+  font-family: var(--title);
+  font-size: 1.15em;
+  letter-spacing: 0.2em;
+  text-align: center;
+  text-transform: uppercase;
+  color: var(--ink-red);
+}
+
+/* A bounty notice under its wax seal. */
+.realm-doc.notice {
+  padding-left: 58px;
+  min-height: 48px;
+}
+
+.doc-seal {
+  position: absolute;
+  left: 8px;
+  top: 8px;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 40px;
+  border-radius: 46% 54% 50% 48% / 52% 46% 54% 48%;
+  font-family: var(--fell);
+  font-size: 15px;
+  color: #fbe9c4;
+  background: radial-gradient(circle at 35% 28%, rgba(255, 255, 255, 0.35), transparent 42%), radial-gradient(circle, transparent 52%, rgba(0, 0, 0, 0.25) 55% 62%, transparent 65%), #a8301e;
+  box-shadow: 0 2px 3px rgba(30, 18, 8, 0.5);
+}
+
+.realm-doc.notice.explore .doc-seal {
+  background: radial-gradient(circle at 35% 28%, rgba(255, 255, 255, 0.35), transparent 42%), radial-gradient(circle, transparent 52%, rgba(0, 0, 0, 0.25) 55% 62%, transparent 65%), #3f6b4a;
+}
+
+/* "Post a bounty": a wax seal of a button. */
+.codex-actions button.seal-button {
+  color: #fbe9c4;
+  background: radial-gradient(circle at 30% 25%, rgba(255, 255, 255, 0.25), transparent 45%), #a8301e;
+  border-color: #6b1f16;
+}
+
+/* ------------------------------------------------------------------ Realm stage 2: night, dawn, lettering, rumours */
+
+/* At night a dark-blue vignette closes in round the field (with the canvas's night grade; see Renderer.setNight). */
+#app::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 3s;
+  background: radial-gradient(ellipse at 50% 50%, transparent 45%, rgba(10, 14, 36, 0.6) 100%);
+}
+
+body.realm-night #app::after {
+  opacity: 1;
+}
+
+/* The dawn page: what the night brought. */
+.dawn-page {
+  position: absolute;
+  left: 50%;
+  top: 92px;
+  transform: translateX(-50%);
+  width: min(360px, 86vw);
+  padding: 10px 16px 8px;
+  border: 1px solid var(--bronze);
+  border-radius: 3px;
+  background: var(--paper-grain), var(--parchment);
+  color: var(--ink);
+  text-align: left;
+  box-shadow: 0 6px 18px rgba(30, 18, 8, 0.45);
+  animation: herald-cry 0.6s ease-out;
+}
+
+.dawn-page[hidden] {
+  display: none;
+}
+
+.dawn-page h3 {
+  margin: 0 0 4px;
+  font-family: var(--title);
+  font-size: 1.1em;
+  text-align: center;
+  color: #b0761e;
+}
+
+.dawn-page ul {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 0.88em;
+  line-height: 1.4;
+}
+
+.dawn-page .lost {
+  color: var(--ink-red);
+}
+
+.dawn-page small {
+  display: block;
+  margin-top: 4px;
+  text-align: center;
+  color: var(--ink-muted);
+}
+
+body.menu-open .dawn-page {
+  visibility: hidden;
+}
+
+/* Each guild's own hand for its heroes' words: a man-at-arms' blackletter, a ranger's italic, a rogue's scrawl.
+   (Settings → Hero lettering → Plain uses plain type instead.) */
+.realm-tag.bark[data-hand='manAtArms'] {
+  font-family: 'UnifrakturMaguntia', var(--fell-body);
+  font-size: 15px;
+}
+
+.realm-tag.bark[data-hand='ranger'] {
+  font-family: var(--fell-body);
+  font-style: italic;
+}
+
+.realm-tag.bark[data-hand='rogue'] {
+  font-family: 'Caveat', var(--fell-body);
+  font-size: 17px;
+  font-weight: 600;
+}
+
+body.plain-letters .realm-tag.bark {
+  font-family: var(--body);
+  font-size: 13px;
+  font-style: normal;
+  font-weight: 600;
+}
+
+/* A rumoured camp, sketched on the parchment of the unseen land. */
+.realm-tag.rumour {
+  font-family: var(--fell);
+  font-size: 22px;
+  color: rgba(70, 40, 20, 0.8);
+  text-shadow: 0 0 4px rgba(243, 228, 196, 0.9);
+}

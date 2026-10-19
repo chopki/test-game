@@ -54,6 +54,13 @@ export class RealmPanel {
     this.pings = document.createElement('div');
     this.pings.className = 'realm-pings';
     document.getElementById('hud').appendChild(this.pings);
+    // The dawn page: what the night brought, for a few moments after it (play goes on; a tap puts it away).
+    this.dawn = document.createElement('button');
+    this.dawn.type = 'button';
+    this.dawn.className = 'dawn-page';
+    this.dawn.hidden = true;
+    document.getElementById('hud').appendChild(this.dawn);
+    onPress(this.dawn, () => (this.dawn.hidden = true));
   }
 
   attach(world) {
@@ -64,6 +71,8 @@ export class RealmPanel {
     this.rail.replaceChildren();
     this.pings.replaceChildren();
     this._railKey = '';
+    this.dawn.hidden = true;
+    document.body.classList.remove('realm-night');
     if (!world.realm) return;
     const ev = world.events;
     // Realm news for the chronicle, with where it happened (a tap on the entry looks there).
@@ -83,6 +92,12 @@ export class RealmPanel {
     });
     ev.on('gearForged', ({ gear }) => toast(`The smithy can now make ${gear.name.toLowerCase()} gear: heroes will come to buy it`, 'good'));
     ev.on('heroBought', ({ hero, gear, tax }) => toast(`${hero.name} buys ${gear.name.toLowerCase()} gear (+${tax} gold to the treasury)`, 'good', hero));
+    // What each night brought, for the dawn page.
+    let night = null;
+    ev.on('waveStarted', () => (night = { taxes: world.realm.stats.taxes, fallen: [], rose: [], razed: world.realm.stats.lairsRazed }));
+    ev.on('realmHeroFell', ({ hero }) => night?.fallen.push(hero.name));
+    ev.on('heroLevelUp', ({ hero, level }) => night && hero.realm === 'hero' && night.rose.push(`${hero.name} (level ${level})`));
+    ev.on('waveCleared', ({ wave, bonus }) => night && this._showDawn(wave, bonus, night));
     // The barks that matter are written down too, as the hero said them.
     ev.on('heroBark', ({ hero, text }) => {
       const kind = hero.bark?.kind;
@@ -139,6 +154,7 @@ export class RealmPanel {
         el.title = h.name;
         el.style.setProperty('--guild', GUILD_COLOURS[h.cls]);
         el.classList.toggle('danger', BARK_RANK[h.bark.kind] === 0);
+        el.dataset.hand = h.cls; // each guild's own lettering (see style.css; Settings → Hero lettering)
       }, true);
       const el = this._tagEls.get(`h${h.id}`);
       const at = el && r.toScreen(h.x, h.def.height * 1.3 + 0.4, h.z);
@@ -154,6 +170,33 @@ export class RealmPanel {
       placed.push(box);
       el.style.transform = `translate(${Math.round(box.x)}px, ${Math.round(box.y)}px)`;
     }
+    // By day, a blue pennant at the edge of the map where the night's army will come from (it stands on the parchment
+    // of the unseen land, so it's drawn over it).
+    if (w.phase === 'build') {
+      const { width, height, spawnMargin: m } = w.grid;
+      const edge = { north: [width / 2, m + 1], south: [width / 2, height - m - 1], west: [m + 1, height / 2], east: [width - m - 1, height / 2] };
+      for (const side of w.waves.next.sides) {
+        const [x, z] = edge[side];
+        show(`a${side}`, 'army', x, 0, z, (el) => {
+          if (el.dataset.side === side) return;
+          el.dataset.side = side;
+          el.textContent = '⚔';
+          el.title = `Tonight the blue army comes from the ${side}`;
+        });
+      }
+    }
+    // Word of a camp that sprang up out of sight: a "?" skull on the parchment, roughly where (off by a few tiles, the
+    // same each time), until someone finds it.
+    for (const lair of w.realm.lairs) {
+      if (!lair.rumour || lair.discovered || lair.razed) continue;
+      const a = lair.index * 2.39996;
+      show(`r${lair.index}`, 'rumour', lair.cx + Math.cos(a) * 2.5, 0, lair.cz + Math.sin(a) * 2.5, (el) => {
+        if (el.textContent) return;
+        el.textContent = '☠?';
+        el.title = 'Word is there are outlaws somewhere about here';
+      });
+    }
+    document.body.classList.toggle('realm-night', w.phase === 'wave');
     // What each hero is up to, over its head (close enough in to make them out).
     if (r.farness < 0.5) {
       for (const h of w.realm.heroes) {
@@ -195,14 +238,22 @@ export class RealmPanel {
     const next = REALM.levels[h.level];
     const traits = h.traits.map((t) => REALM.traits.list[t]);
     const key = ['hero', h.id, Math.ceil(h.hp), h.level, h.gold, h.gear, h.kills, intent].join(':');
+    // In plain words, what this hero's class and trait mean for what it does.
+    const runs = Math.round(Math.max(0.05, cls.fleeAt + h.mods.fleeAt) * 100);
+    const carries = Math.round(REALM.carryHome * h.mods.carry);
+    // A commission: the hero's portrait in its guild's colours, its name, its trait on a ribbon.
     const html = `
-      <div class="codex-body">
-        <img class="codex-art" src="${this._portrait(h.type)}" alt="" />
-        <div>
-          <h3>${esc(h.name)}</h3>
-          <p class="realm-sub">Level ${h.level} ${cls.name} · ${traits.map((t) => `<b title="${esc(t.text)}">${t.name}</b>`).join(', ')}</p>
-          <p class="desc realm-intent">${esc(intent)}</p>
+      <div class="realm-doc commission" style="--guild:${cls.colour}">
+        <div class="codex-body">
+          <img class="doc-portrait" src="${this._portrait(h.type)}" alt="" />
+          <div>
+            <h3>${esc(h.name)}</h3>
+            <p class="realm-sub">Level ${h.level} ${cls.name}</p>
+            ${traits.map((t) => `<span class="trait-ribbon">${t.name}: ${esc(t.text.toLowerCase())}</span>`).join('')}
+          </div>
         </div>
+        <p class="desc realm-intent">${esc(intent)}</p>
+        <p class="realm-why">Runs below ${runs}% health · goes home to pay tax with ${carries} gold</p>
       </div>
       ${hpBar(h.hp, h.maxHp)}
       <dl class="realm-facts">
@@ -223,13 +274,17 @@ export class RealmPanel {
     const refill = lair.refillAt === null ? null : Math.max(0, Math.ceil(lair.refillAt - w.time));
     const raid = Math.max(0, Math.ceil(lair.nextRaid));
     const key = ['lair', lair.index, Math.ceil(lair.hp), lair.level, guards, refill, raid, flag?.gold, w.economy.canAfford(REALM.bounty.base)].join(':');
+    // A "wanted" notice.
     const html = `
-      <div class="codex-body">
-        <img class="codex-art" src="${this.hud.icons.outlawCamp}" alt="" />
-        <div>
-          <h3>${BUILDINGS.outlawCamp.name}</h3>
-          <p class="realm-sub">Level ${lair.level} of ${REALM.lairs.maxLevel}</p>
-          <p class="desc">${BUILDINGS.outlawCamp.description}</p>
+      <div class="realm-doc wanted">
+        <p class="doc-banner">Wanted</p>
+        <div class="codex-body">
+          <img class="codex-art" src="${this.hud.icons.outlawCamp}" alt="" />
+          <div>
+            <h3>${BUILDINGS.outlawCamp.name}</h3>
+            <p class="realm-sub">Level ${lair.level} of ${REALM.lairs.maxLevel}</p>
+            <p class="desc">${BUILDINGS.outlawCamp.description}</p>
+          </div>
         </div>
       </div>
       ${hpBar(lair.hp, lair.maxHp)}
@@ -267,11 +322,15 @@ export class RealmPanel {
     const what = f.kind === 'explore' ? 'Explore flag' : f.lair !== undefined ? 'Bounty on an outlaw camp' : 'Bounty on a foe';
     const why = f.kind === 'explore' ? 'The first hero to reach it takes the gold.' : 'Shared, when it falls, by the heroes who fought it.';
     const key = ['flag', f.id, f.gold, this._takersKey(f), this.world.economy.canAfford(REALM.bounty.step)].join(':');
+    // The notice itself, under its seal.
     const html = `
-      <div class="codex-body">
-        <div>
-          <h3>${what}</h3>
-          <p class="desc"><i class="coin"></i>${f.gold} · ${why} The gold isn't given back if you take it down.</p>
+      <div class="realm-doc notice ${f.kind}">
+        <span class="doc-seal">${f.gold}</span>
+        <div class="codex-body">
+          <div>
+            <h3>${what}</h3>
+            <p class="desc">${why} The gold isn't given back if you take it down.</p>
+          </div>
         </div>
       </div>
       <div class="codex-actions">${this._bountyButtons(f)}<button id="realm-flag-down">Take down</button></div>
@@ -291,7 +350,7 @@ export class RealmPanel {
 
   _bountyButtons(flag, label) {
     const afford = (g) => (this.world.economy.canAfford(g) ? '' : 'disabled title="Not enough gold"');
-    if (!flag) return `<button id="realm-bounty" class="primary" ${afford(REALM.bounty.base)}>${label}</button>`;
+    if (!flag) return `<button id="realm-bounty" class="primary seal-button" ${afford(REALM.bounty.base)}>${label}</button>`;
     return `<button id="realm-fund" class="primary" ${afford(REALM.bounty.step)}>+<i class="coin"></i>${REALM.bounty.step}</button><button id="realm-fund-more" ${afford(100)}>+<i class="coin"></i>100</button>`;
   }
 
@@ -325,6 +384,24 @@ export class RealmPanel {
     for (const [id, why] of off) byWhy.set(why, [...(byWhy.get(why) ?? []), named(id)]);
     const refusals = [...byWhy].map(([why, who]) => `<li><b>${esc(names(who))}</b>: ${esc(why)}${HINTS[why] ? ` <i class="realm-hint">→ ${esc(HINTS[why])}</i>` : ''}</li>`).join('');
     return `<p class="realm-takers">${on.length ? `On it: <b>${esc(names(on))}</b>` : 'No hero has taken it on yet.'}</p>${refusals ? `<ul class="realm-refusals">${refusals}</ul>` : ''}`;
+  }
+
+  /** The dawn page after night `wave`: the Hall's reward, the night's taxes, who fell, who rose, camps burnt. */
+  _showDawn(wave, bonus, night) {
+    const r = this.world.realm;
+    const taxes = r.stats.taxes - night.taxes;
+    const razed = r.stats.lairsRazed - night.razed;
+    const lines = [
+      `The Hall stands: <i class="coin"></i>${bonus} from the crown`,
+      taxes > 0 ? `Taxes paid in the night: <i class="coin"></i>${taxes}` : null,
+      night.rose.length ? `Rose in rank: ${esc(names(night.rose))}` : null,
+      night.fallen.length ? `<span class="lost">Fell in the dark: ${esc(names(night.fallen))}</span>` : 'Not one hero fell',
+      razed ? `Outlaw camps burnt: ${razed}` : null,
+    ].filter(Boolean);
+    this.dawn.innerHTML = `<h3>Dawn of day ${wave + 1}</h3><ul>${lines.map((l) => `<li>${l}</li>`).join('')}</ul><small>Tap to put away</small>`;
+    this.dawn.hidden = false;
+    clearTimeout(this._dawnTimer);
+    this._dawnTimer = setTimeout(() => (this.dawn.hidden = true), 9000);
   }
 
   // ---------------------------------------------------------------- the hero rail and edge pings

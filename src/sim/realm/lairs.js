@@ -91,6 +91,7 @@ function riseLair(world) {
   r.lairs.push(lair);
   fillLair(world, lair);
   lair.discovered = seenAt(world, lair.cx, lair.cz);
+  lair.rumour = !lair.discovered; // word of it reaches the town (roughly where; see the renderer's rumour marks)
   world.events.emit('lairRose', { lair });
   return lair;
 }
