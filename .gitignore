@@ -4,3 +4,7 @@ dist/
 *.log
 test-results/
 playwright-report/
+
+# Deep-research working folders (finished reports and notes are copied into docs/research/)
+/research_notes/
+/reports/
