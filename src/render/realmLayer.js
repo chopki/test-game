@@ -21,11 +21,12 @@ const FOG_VERTEX = /* glsl */ `
   }
 `;
 
-// Soft-edged, slowly drifting cloud over the unseen chunks (the chunk texture is sampled smoothly, so edges blend).
+// Unseen land is blank vellum, as on a chart not yet drawn: warm, mottled paper with a faint grain, and where it
+// gives way to the known land a dark ink-bleed rim, as if that edge had just been drawn (the chunk texture is sampled
+// smoothly, and noise breaks up the line). See docs/research/10-ui-and-art-direction.md.
 const FOG_FRAGMENT = /* glsl */ `
   uniform sampler2D seen;
   uniform vec2 size;
-  uniform float time;
   varying vec2 vMap;
   float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
   float noise(vec2 p) {
@@ -36,11 +37,15 @@ const FOG_FRAGMENT = /* glsl */ `
   }
   void main() {
     float s = texture2D(seen, clamp(vMap / size, 0.0, 1.0)).r;
-    float n = noise(vMap * 0.35 + vec2(time * 0.05, time * 0.03)) * 0.6 + noise(vMap * 1.1 - time * 0.04) * 0.4;
-    float fog = 1.0 - smoothstep(0.32 + n * 0.12, 0.62 + n * 0.12, s);
+    float n = noise(vMap * 0.35) * 0.6 + noise(vMap * 1.1) * 0.4; // the edge's wobble and the paper's mottling
+    float fog = 1.0 - smoothstep(0.3 + n * 0.14, 0.58 + n * 0.14, s);
     if (fog < 0.01) discard;
-    vec3 colour = mix(vec3(0.17, 0.16, 0.19), vec3(0.33, 0.31, 0.33), n);
-    gl_FragColor = vec4(colour, fog * (0.8 + n * 0.12));
+    float grain = noise(vMap * 6.0) * 0.5 + noise(vMap * 13.0) * 0.5;
+    vec3 paper = mix(vec3(0.78, 0.7, 0.54), vec3(0.9, 0.84, 0.68), n) * (0.93 + grain * 0.1);
+    // The rim: strongest part-way into the fog, fading both ways.
+    float rim = smoothstep(0.08, 0.45, fog) * (1.0 - smoothstep(0.5, 0.9, fog));
+    vec3 colour = mix(paper, vec3(0.3, 0.2, 0.12), rim * 0.8);
+    gl_FragColor = vec4(colour, max(fog * 0.95, rim * 0.9));
   }
 `;
 
@@ -74,7 +79,6 @@ export class RealmLayer {
         seen: { value: this._fogTexture },
         size: { value: new THREE.Vector2(f.cols * REALM.chunk, f.rows * REALM.chunk) },
         offset: { value: new THREE.Vector2(this.r.offsetX, this.r.offsetZ) },
-        time: { value: 0 },
       },
       vertexShader: FOG_VERTEX,
       fragmentShader: FOG_FRAGMENT,
@@ -127,7 +131,6 @@ export class RealmLayer {
       for (let i = 0; i < seen.length; i++) this._fogData[i * 4] = seen[i] ? 255 : 0;
       this._fogTexture.needsUpdate = true;
     }
-    this.fog.material.uniforms.time.value = time;
 
     const camp = spriteKeys.building(REALM.lairs.type);
     for (const lair of realm.lairs) {

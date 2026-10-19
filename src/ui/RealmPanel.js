@@ -7,6 +7,12 @@ import { spriteKeys } from '../render/spriteCatalog.js';
 import { onPress } from './press.js';
 
 const BARK_TIME = 3.5; // seconds a hero's bark stays over their head
+// How many barks at once (a phone's screen fills fast), and which come first: danger, then bounties, then gold, then
+// the rest (see BARKS in sim/realm/heroes.js).
+const BARK_BUDGET = { compact: 3, wide: 6 };
+const BARK_RANK = { flee: 0, fight: 0, defend: 0, bounty: 1, raid: 1, shop: 2, home: 2 };
+/** Each guild's colour: the ends of its heroes' bark scrolls, their pips on a flag's seal. */
+export const GUILD_COLOURS = { manAtArms: '#a8301e', ranger: '#4f7a3a', rogue: '#4b3f63' };
 
 const esc = (text) => String(text).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const names = (list) => (list.length > 1 ? `${list.slice(0, -1).join(', ')} and ${list.at(-1)}` : list[0] ?? '');
@@ -36,30 +42,42 @@ export class RealmPanel {
     this.tags.hidden = !world.realm;
     if (!world.realm) return;
     const ev = world.events;
-    const toast = (text, kind) => this.hud.toast(text, kind);
-    ev.on('heroRecruited', ({ hero }) => toast(`${hero.name} the ${REALM.classes[hero.cls].name} joins the realm (${REALM.traits.list[hero.traits[0]].name})`, 'good'));
-    ev.on('realmHeroFell', ({ hero }) => toast(`${hero.name}, a level ${hero.level} ${REALM.classes[hero.cls].name}, has fallen`, 'warn'));
-    ev.on('lairFound', () => toast('An outlaw camp has been found! Tap it to put a bounty on it', 'info'));
-    ev.on('lairRose', ({ lair }) => toast(lair.discovered ? 'A new outlaw camp has sprung up!' : 'Word is the outlaws have a new camp out in the wilds', 'warn'));
-    ev.on('lairRazed', ({ payouts, loot }) => toast(`Outlaw camp burnt down! ${payouts.length ? `${names(payouts.map((p) => p.hero.name))} share ${loot} gold of loot` : 'Its loot is lost'}`, 'good'));
-    ev.on('raidSent', ({ target }) => toast(`Outlaws are out raiding, making for the ${target.def.name}!`, 'danger'));
+    // Realm news for the chronicle, with where it happened (a tap on the entry looks there).
+    const toast = (text, kind, at = null) => this.hud.toast(text, kind, at && { x: at.x, z: at.z });
+    const camp = (lair) => ({ x: lair.cx, z: lair.cz });
+    const spot = (b) => ({ x: b.cx, z: b.cz });
+    ev.on('heroRecruited', ({ hero }) => toast(`${hero.name} the ${REALM.classes[hero.cls].name} joins the realm (${REALM.traits.list[hero.traits[0]].name})`, 'good', hero));
+    ev.on('realmHeroFell', ({ hero }) => toast(`${hero.name}, a level ${hero.level} ${REALM.classes[hero.cls].name}, has fallen`, 'warn', hero));
+    ev.on('lairFound', ({ lair }) => toast('An outlaw camp has been found! Tap it to put a bounty on it', 'info', camp(lair)));
+    ev.on('lairRose', ({ lair }) => toast(lair.discovered ? 'A new outlaw camp has sprung up!' : 'Word is the outlaws have a new camp out in the wilds', 'warn', lair.discovered ? camp(lair) : null));
+    ev.on('lairRazed', ({ lair, payouts, loot }) => toast(`Outlaw camp burnt down! ${payouts.length ? `${names(payouts.map((p) => p.hero.name))} share ${loot} gold of loot` : 'Its loot is lost'}`, 'good', camp(lair)));
+    ev.on('raidSent', ({ target }) => toast(`Outlaws are out raiding, making for the ${target.def.name}!`, 'danger', spot(target)));
     ev.on('bountyRemoved', ({ flag, claimed, payouts }) => {
-      if (claimed) toast(`Bounty claimed: ${names(payouts.map((p) => `${p.hero.name} (${p.gold})`))}`, 'good');
-      else if (flag.kind !== 'explore' && payouts) toast(`No hero earned the ${flag.gold} gold bounty: it's back in the treasury`, 'info');
+      const at = flag.lair !== undefined ? camp(world.realm.lairs[flag.lair]) : (flag.unit ?? flag);
+      if (claimed) toast(`Bounty claimed: ${names(payouts.map((p) => `${p.hero.name} (${p.gold})`))}`, 'good', at);
+      else if (flag.kind !== 'explore' && payouts) toast(`No hero earned the ${flag.gold} gold bounty: it's back in the treasury`, 'info', at);
     });
     ev.on('gearForged', ({ gear }) => toast(`The smithy can now make ${gear.name.toLowerCase()} gear: heroes will come to buy it`, 'good'));
-    ev.on('heroBought', ({ hero, gear, tax }) => toast(`${hero.name} buys ${gear.name.toLowerCase()} gear (+${tax} gold to the treasury)`, 'good'));
+    ev.on('heroBought', ({ hero, gear, tax }) => toast(`${hero.name} buys ${gear.name.toLowerCase()} gear (+${tax} gold to the treasury)`, 'good', hero));
+    // The barks that matter are written down too, as the hero said them.
+    ev.on('heroBark', ({ hero, text }) => {
+      const kind = hero.bark?.kind;
+      if (kind === 'bounty' || kind === 'flee') this.hud.chronicle(`${hero.name}: “${text}”`, kind === 'flee' ? 'warn' : 'info', { x: hero.x, z: hero.z });
+    });
   }
 
   // ---------------------------------------------------------------- the battlefield's labels
 
-  /** Each frame: barks over heroes' heads and each flag's gold, placed over the battlefield. */
+  /**
+   * Each frame: barks over heroes' heads (a few at a time, the most urgent first, as scrolls beside the speaker so
+   * they never hide it) and each flag's wax seal with its gold and a pip for each hero on it.
+   */
   update() {
     const w = this.world;
     if (!w?.realm) return;
     const r = this.game.renderer;
     const live = new Set();
-    const show = (key, text, cls, x, y, z) => {
+    const show = (key, cls, x, y, z, fill, beside = false) => {
       const at = r.toScreen(x, y, z);
       if (!at) return;
       let el = this._tagEls.get(key);
@@ -69,14 +87,48 @@ export class RealmPanel {
         this.tags.appendChild(el);
         this._tagEls.set(key, el);
       }
-      if (el.textContent !== text) el.textContent = text;
-      el.style.transform = `translate(${Math.round(at.x)}px, ${Math.round(at.y)}px) translate(-50%, -100%)`;
+      fill(el);
+      el.style.transform = beside ? `translate(${Math.round(at.x + 10)}px, ${Math.round(at.y)}px) translate(0, -100%)` : `translate(${Math.round(at.x)}px, ${Math.round(at.y)}px) translate(-50%, -100%)`;
       live.add(key);
     };
-    for (const tag of r.realm.flagTags()) show(`f${tag.flag.id}`, `${tag.flag.gold}`, tag.flag.kind === 'explore' ? 'flag explore' : 'flag', tag.x, tag.y, tag.z);
-    for (const h of w.realm.heroes) {
-      if (!h.alive || h.inside > 0 || !h.bark || w.time - h.bark.at > BARK_TIME) continue;
-      show(`h${h.id}`, `${h.name}: ${h.bark.text}`, 'bark', h.x, h.def.height * 1.3 + 0.55, h.z);
+    for (const tag of r.realm.flagTags()) {
+      const f = tag.flag;
+      const pips = [...f.takers].map((id) => w.realm.heroes.find((h) => h.id === id)).filter(Boolean);
+      const key = `${f.gold}|${pips.map((h) => h.cls).join(',')}`;
+      show(`f${f.id}`, f.kind === 'explore' ? 'flag explore' : 'flag', tag.x, tag.y, tag.z, (el) => {
+        if (el.dataset.key === key) return;
+        el.dataset.key = key;
+        el.innerHTML = `${f.gold}<span class="pips">${pips.map((h) => `<i style="background:${GUILD_COLOURS[h.cls]}"></i>`).join('')}</span>`;
+      });
+    }
+    const speaking = w.realm.heroes
+      .filter((h) => h.alive && !(h.inside > 0) && h.bark && w.time - h.bark.at <= BARK_TIME)
+      .sort((a, b) => (BARK_RANK[a.bark.kind] ?? 3) - (BARK_RANK[b.bark.kind] ?? 3) || b.bark.at - a.bark.at)
+      .slice(0, this.hud._compact() ? BARK_BUDGET.compact : BARK_BUDGET.wide);
+    // Heroes standing together would talk over each other: each scroll that would overlap one already up goes above
+    // it (the most urgent were placed first, so they stay by their speakers).
+    const placed = [];
+    for (const h of speaking) {
+      show(`h${h.id}`, 'bark', h.x, h.def.height * 1.3 + 0.4, h.z, (el) => {
+        if (el.textContent === h.bark.text) return;
+        el.textContent = h.bark.text;
+        el.title = h.name;
+        el.style.setProperty('--guild', GUILD_COLOURS[h.cls]);
+        el.classList.toggle('danger', BARK_RANK[h.bark.kind] === 0);
+      }, true);
+      const el = this._tagEls.get(`h${h.id}`);
+      const at = el && r.toScreen(h.x, h.def.height * 1.3 + 0.4, h.z);
+      if (!at) continue;
+      const box = { x: at.x + 10, y: at.y - el.offsetHeight, w: el.offsetWidth, h: el.offsetHeight };
+      for (let i = 0; i < placed.length; i++) {
+        const o = placed[i];
+        if (box.x < o.x + o.w && o.x < box.x + box.w && box.y < o.y + o.h && o.y < box.y + box.h) {
+          box.y = o.y - box.h - 3;
+          i = -1; // (and check again against them all)
+        }
+      }
+      placed.push(box);
+      el.style.transform = `translate(${Math.round(box.x)}px, ${Math.round(box.y)}px)`;
     }
     for (const [key, el] of this._tagEls) {
       if (live.has(key)) continue;

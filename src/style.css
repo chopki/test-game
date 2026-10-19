@@ -234,6 +234,7 @@ kbd {
   list-style: none;
   margin: 0;
   padding: 0;
+  overflow: hidden; /* (cut short above the open build wheel; see HUD._fitChronicle) */
 }
 
 .chronicle li {
@@ -248,30 +249,54 @@ kbd {
 }
 
 .chronicle li::before {
-  content: '•';
+  content: '';
   position: absolute;
   left: 5px;
   top: 4px;
+}
+
+/* Each entry is sealed in wax by how much it matters: gold good news, grey neutral, amber bad, red a threat. */
+.chronicle li::before,
+.herald .seal {
   width: 15px;
   height: 15px;
-  border-radius: 3px;
-  font-size: 11px;
+  border-radius: 46% 54% 50% 48% / 52% 46% 54% 48%;
+  background: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.45), transparent 45%), radial-gradient(circle, transparent 38%, rgba(0, 0, 0, 0.22) 40% 48%, transparent 50%), var(--seal, #8c8478);
+  box-shadow: 0 1px 1px rgba(30, 18, 8, 0.45);
+}
+
+.chronicle li.good,
+.herald.good {
+  --seal: #c9962e;
+}
+
+.chronicle li.info,
+.herald.info {
+  --seal: #8c8478;
+}
+
+.chronicle li.warn,
+.herald.warn {
+  --seal: #d0821e;
+}
+
+.chronicle li.danger,
+.herald.danger {
+  --seal: #a8301e;
+}
+
+.chronicle li .count {
+  margin-left: 4px;
   font-weight: 800;
-  line-height: 15px;
-  text-align: center;
-  color: #fff;
-  background: var(--ink-muted);
+  color: var(--ink-red);
 }
 
-.chronicle li.danger::before,
-.chronicle li.warn::before {
-  content: '!';
-  background: var(--danger);
+.chronicle li.jump {
+  cursor: pointer;
 }
 
-.chronicle li.good::before {
-  content: '✓';
-  background: var(--good);
+.chronicle li.jump:hover {
+  background: rgba(120, 80, 40, 0.2);
 }
 
 .chronicle li:nth-child(n + 4) {
@@ -546,6 +571,95 @@ kbd {
   #toasts {
     display: flex;
   }
+
+  /* A Realm: the herald ribbon cries the latest news instead (it stays), and a tap unrolls the chronicle as a sheet
+     over the bottom of the screen; a tap on an entry looks there. */
+  body.realm #toasts {
+    display: none;
+  }
+
+  body.realm #herald:not([hidden]) {
+    display: flex;
+  }
+
+  body.realm.chronicle-open .chronicle {
+    display: block;
+    top: auto;
+    right: 10px;
+    left: 10px;
+    bottom: 150px;
+    width: auto;
+    max-height: 45vh;
+    overflow-y: auto;
+    z-index: 4;
+  }
+
+  body.realm.chronicle-open .chronicle ul {
+    max-height: none !important;
+  }
+
+  body.realm.chronicle-open .chronicle li {
+    padding-top: 8px;
+    padding-bottom: 8px;
+    font-size: 0.95em;
+  }
+
+  body.realm.chronicle-open .chronicle li:nth-child(n + 4) {
+    opacity: 1;
+  }
+}
+
+/* The herald ribbon: a parchment banner over the bottom corners, with the latest entry's seal. */
+#herald {
+  display: none;
+  position: absolute;
+  left: 50%;
+  bottom: 96px;
+  transform: translateX(-50%);
+  align-items: center;
+  gap: 8px;
+  max-width: min(92vw, 520px);
+  min-height: 40px;
+  padding: 6px 22px 6px 12px;
+  border: 1px solid var(--bronze);
+  border-radius: 3px;
+  clip-path: polygon(0 0, 100% 0, calc(100% - 12px) 50%, 100% 100%, 0 100%, 12px 50%);
+  background: var(--paper-grain), var(--parchment);
+  color: var(--ink);
+  font-family: var(--fell-body);
+  font-size: 15px;
+  text-align: left;
+  box-shadow: 0 3px 8px rgba(30, 18, 8, 0.35);
+}
+
+#herald .seal {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin-left: 6px;
+}
+
+#herald .herald-text {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+#herald.cried {
+  animation: herald-cry 0.5s ease-out;
+}
+
+@keyframes herald-cry {
+  from {
+    transform: translateX(-50%) translateY(10px) scale(0.96);
+    opacity: 0.4;
+  }
+}
+
+body.menu-open #herald,
+body.has-selection #herald {
+  visibility: hidden;
 }
 
 @media (max-width: 720px) {
@@ -1821,27 +1935,70 @@ body.booting .main-menu {
   will-change: transform;
 }
 
+/* A bounty's wax seal, stamped with its gold (red wax to attack, green to explore), and a pip in each taker's guild
+   colour beneath it. */
 .realm-tag.flag {
-  padding: 1px 6px 1px 18px;
-  border-radius: 9px;
-  color: var(--gold-text);
-  background: rgba(58, 36, 20, 0.85) radial-gradient(circle at 9px 50%, #f3c652 0 4px, #8a6418 5px, transparent 6px);
-  border: 1px solid #24150a;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 32px;
+  border-radius: 46% 54% 50% 48% / 52% 46% 54% 48%;
+  font-family: var(--fell);
+  font-size: 13px;
+  color: #fbe9c4;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5);
+  background: radial-gradient(circle at 35% 28%, rgba(255, 255, 255, 0.35), transparent 42%), radial-gradient(circle, transparent 52%, rgba(0, 0, 0, 0.25) 55% 62%, transparent 65%), #a8301e;
+  box-shadow: 0 2px 3px rgba(30, 18, 8, 0.5);
 }
 
 .realm-tag.flag.explore {
-  color: var(--cream);
+  background: radial-gradient(circle at 35% 28%, rgba(255, 255, 255, 0.35), transparent 42%), radial-gradient(circle, transparent 52%, rgba(0, 0, 0, 0.25) 55% 62%, transparent 65%), #3f6b4a;
 }
 
+.realm-tag.flag .pips {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 50%;
+  display: flex;
+  gap: 2px;
+  transform: translateX(-50%);
+}
+
+.realm-tag.flag .pips i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  border: 1px solid #f3ead7;
+}
+
+/* A hero's bark: a parchment scroll beside its head (never over it), its ends in the guild's colour. */
 .realm-tag.bark {
-  max-width: 220px;
-  padding: 3px 8px;
-  border-radius: 10px;
-  font-weight: 600;
+  max-width: 200px;
+  padding: 3px 14px;
+  border-radius: 2px;
+  white-space: normal;
+  font-family: var(--fell-body);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.15;
   color: var(--ink);
-  background: var(--parchment);
-  border: 1px solid var(--bronze);
-  box-shadow: 0 2px 6px rgba(30, 18, 8, 0.3);
+  background: linear-gradient(90deg, var(--guild, var(--bronze)) 0 6px, transparent 6px calc(100% - 6px), var(--guild, var(--bronze)) calc(100% - 6px)), var(--parchment);
+  border: 1px solid rgba(58, 39, 23, 0.55);
+  box-shadow: 0 2px 5px rgba(30, 18, 8, 0.3);
+}
+
+/* Its tail, pointing back at the speaker. */
+.realm-tag.bark::after {
+  content: '';
+  position: absolute;
+  left: -7px;
+  bottom: 2px;
+  border: 5px solid transparent;
+  border-right: 7px solid var(--guild, var(--bronze));
+}
+
+.realm-tag.bark.danger {
+  color: var(--ink-red);
 }
 
 /* Phones: a selection's card takes the bottom of the screen; the time controls and wheel step aside. */

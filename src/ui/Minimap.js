@@ -193,11 +193,11 @@ export class Minimap {
     }
   }
 
-  /** Realm: the fog over unseen chunks, found camps (a dark square) and bounty flags (a gold dot). */
+  /** Realm: unseen chunks as blank vellum (as on the battlefield), found camps (a dark square) and bounty seals. */
   _drawRealm(g, realm) {
     const c = REALM.chunk;
     const { cols, rows, seen } = realm.fog;
-    g.fillStyle = 'rgba(38, 35, 42, 0.82)';
+    g.fillStyle = 'rgba(214, 196, 158, 0.95)';
     for (let cz = 0; cz < rows; cz++) {
       for (let cx = 0; cx < cols; cx++) {
         if (seen[cz * cols + cx]) continue;
@@ -223,15 +223,22 @@ export class Minimap {
       g.fill();
       g.stroke();
     }
-    const k = Math.max(2, this.s * 1.2);
+    // Bounties are the brightest marks on the map (faint ones are easily lost): a wax seal, red to attack, green to
+    // explore, ringed in cream.
+    const k = Math.max(3.5, this.s * 2);
     for (const f of realm.bounties) {
       const at = f.lair !== undefined ? { x: realm.lairs[f.lair].cx, z: realm.lairs[f.lair].cz } : f.unit ?? f;
       const [px, py] = this.project(at.x, at.z);
-      g.fillStyle = f.kind === 'explore' ? '#f3ecd8' : '#e2b347';
-      g.strokeStyle = '#3a2a18';
+      g.beginPath();
+      g.arc(px, py, k + 1.5, 0, Math.PI * 2);
+      g.fillStyle = '#fbf3df';
+      g.fill();
       g.beginPath();
       g.arc(px, py, k, 0, Math.PI * 2);
+      g.fillStyle = f.kind === 'explore' ? '#3f6b4a' : '#b8352a';
       g.fill();
+      g.lineWidth = 1;
+      g.strokeStyle = '#2a1a0e';
       g.stroke();
     }
   }

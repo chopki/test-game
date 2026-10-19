@@ -30,7 +30,7 @@ test('a guild is built, a hero hired from its card, and the hero has a card of t
   await page.keyboard.press('8');
   const far = await tileToScreen(page, 4, 4);
   await page.mouse.click(far.x, far.y);
-  await expect(page.locator('#toasts')).toContainText('Unexplored');
+  await expect(page.locator('#chronicle-list')).toContainText('Unexplored'); // (Realm news goes to the chronicle and, on phones, its herald)
   await page.keyboard.press('Escape');
 
   await page.mouse.click(p.x, p.y);
@@ -154,5 +154,53 @@ test('the main menu is up before the game has loaded, and a battle picked meanwh
   await expect(page.locator('#intro-title')).toHaveText(/Realm/);
   await expect(page.locator('.menu-status')).toHaveCount(0);
   await expect(page.locator('#menu-codex')).toBeEnabled();
+  expect(errors).toEqual([]);
+});
+
+test('Realm news is sealed by severity in the chronicle, repeats merge, and a tap on an entry looks there', async ({ page }) => {
+  const errors = await openRealm(page);
+  const camera = () => page.evaluate(() => window.game.renderer.controls.target.toArray().map((v) => Math.round(v)));
+  await page.evaluate(() => {
+    const w = window.game.world;
+    w.economy.earn(500);
+    // A raid sets out from the first camp, twice.
+    const lair = w.realm.lairs[0];
+    lair.nextRaid = 0;
+    w.update(1 / 30);
+  });
+  const entry = page.locator('#chronicle-list li').first();
+  await expect(entry).toContainText('Outlaws are out raiding');
+  await expect(entry).toHaveClass(/danger/);
+  await expect(entry).toHaveClass(/jump/);
+  await page.evaluate(() => {
+    const w = window.game.world;
+    w.realm.lairs[0].nextRaid = 0;
+    w.update(1 / 30);
+  });
+  await expect(entry.locator('.count')).toHaveText('×2');
+  await page.evaluate(() => window.game.renderer.focusOn(6, 6)); // look elsewhere first
+  const before = await camera();
+  await entry.click();
+  await expect.poll(camera).not.toEqual(before);
+  // A bounty's wax seal shows its gold, and a pip for each hero on it.
+  await page.evaluate(() => {
+    const w = window.game.world;
+    const h = w.townHall;
+    let guild = null;
+    for (let r = 4; r < 9 && !guild; r++) for (let dx = -r; dx <= r && !guild; dx++) for (let dz = -r; dz <= r && !guild; dz++) {
+      if (Math.max(Math.abs(dx), Math.abs(dz)) === r && w.canPlace('rangersLodge', h.x + dx, h.z + dz).ok) {
+        w.place('rangersLodge', h.x + dx, h.z + dz);
+        guild = w.buildingAt(h.x + dx, h.z + dz);
+      }
+    }
+    w.recruit(guild.id);
+    for (let t = 0; t < 2; t += 1 / 30) w.update(1 / 30);
+    w.placeBounty({ kind: 'explore', x: h.cx + 6.5, z: h.cz + 0.5 }, 60);
+    for (let t = 0; t < 2; t += 1 / 30) w.update(1 / 30);
+    window.game.renderer.focusOn(h.cx + 3, h.cz);
+  });
+  const seal = page.locator('.realm-tag.flag');
+  await expect(seal).toHaveText('60');
+  await expect(seal.locator('.pips i')).toHaveCount(1);
   expect(errors).toEqual([]);
 });

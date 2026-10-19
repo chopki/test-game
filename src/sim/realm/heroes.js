@@ -264,7 +264,7 @@ function setGoal(world, h, goal) {
   h.since = { x: h.x, z: h.z, t: world.time };
   if (goal?.kind === 'bounty') goal.flag.takers.add(h.id);
   if (goal && goal.kind !== old?.kind && BARKS[goal.kind] && world.time - (h.bark?.at ?? -99) > 6) {
-    h.bark = { text: world.realm.rng.pick(BARKS[goal.kind]), at: world.time };
+    h.bark = { text: world.realm.rng.pick(BARKS[goal.kind]), at: world.time, kind: goal.kind };
     world.events.emit('heroBark', { hero: h, text: h.bark.text });
   }
 }

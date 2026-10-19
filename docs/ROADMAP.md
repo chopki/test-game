@@ -224,6 +224,17 @@ in `src/sim/realm/` so it can be spun out into a game of its own.
 - [x] Fog of war in chunks; no building in unseen land
 - [x] Day/night: Survival's waves by night
 - [x] Hero, camp and flag cards; barks and flag labels over the battlefield; Realm on the minimap
+- [x] Realm look, stage 0 (see [research/10-ui-and-art-direction.md](research/10-ui-and-art-direction.md): "a living
+      chart"): unseen land as blank vellum with an ink-bleed edge; barks as scrolls in the guild's colours, a few at a
+      time (danger first), never over the speaker; bounties as wax seals stamped with their gold, a pip per taker;
+      chronicle entries sealed by severity (gold, grey, amber, red), merged when repeated, a tap looks there; on
+      phones, a herald ribbon with the latest news in place of toasts (a tap unrolls the chronicle); brighter
+      bounty marks on the minimap
+- [ ] Realm look, stage 1: hero base rings and intent glyphs, a Decree button for flags (splitting the wheel), a hero
+      rail, a sun-and-moon day clock, off-screen pings, document-style cards with "how to change their mind" hints
+- [ ] Realm look, stage 2: night grade and lantern light, indigo fog at night, the dawn page, cartographer's marks in
+      the fog, shape-coded pennants, per-class lettering (with a plain-font setting)
+- [ ] Realm look, stage 3 (needs a bake): hero class silhouettes and guild tabards, distinct outlaws
 - [ ] More hero classes (a healer, a wizard) and temples that unlock them
 - [ ] Hero spells and items; a marketplace and inns (more ways to tax)
 - [ ] Monster lairs beyond outlaws (wolves, a dragon), and their own bounty rules

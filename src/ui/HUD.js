@@ -127,6 +127,22 @@ export class HUD {
     this.icons.sell = sellIcon();
     this.icons.bounty = bountyIcon();
     this.realm = new RealmPanel(game, this);
+    // The herald ribbon (a Realm on a small screen): the latest chronicle entry, in place of toasts that vanish.
+    this.el.herald = document.createElement('button');
+    this.el.herald.type = 'button';
+    this.el.herald.id = 'herald';
+    this.el.herald.hidden = true;
+    this.el.herald.setAttribute('aria-label', 'Latest news: open the chronicle');
+    this.el.herald.innerHTML = '<span class="seal" aria-hidden="true"></span><span class="herald-text"></span>';
+    $('hud').appendChild(this.el.herald);
+    onPress(this.el.herald, () => this.toggleChronicle());
+    // A chronicle entry about somewhere: a tap looks there. (Unrolled on a small screen, a tap anywhere else on it
+    // rolls it up.)
+    onPress($('chronicle'), (e) => {
+      const li = e.target.closest?.('li.jump');
+      if (li) game.renderer.focusOn(Number(li.dataset.x), Number(li.dataset.z));
+      this.toggleChronicle(false);
+    });
 
     this.buttons = new Map();
     for (const [type, def] of Object.entries(BUILDINGS)) {
@@ -213,6 +229,7 @@ export class HUD {
   /** Open or fold the build wheel (the hammer in the bottom-right corner). */
   setWheelOpen(open) {
     this.wheelOpen = open;
+    this._fitChronicle();
     $('build-wheel').classList.toggle('open', open);
     $('build-fab').setAttribute('aria-expanded', String(open));
     $('build-fab').setAttribute('aria-label', open ? 'Close the build wheel' : 'Build');
@@ -229,7 +246,7 @@ export class HUD {
     // Far enough out that neighbours (and their cost tags) don't touch: an arc step of about 1.2 medallions. Too many
     // for one arc on the screen (a Realm's wheel on a phone): two arcs, the inner one a medallion and a bit in.
     const fit = (count) => ((size * 1.2 * Math.max(1, count - 1)) / (Math.PI / 2)) | 0;
-    const most = window.innerWidth - 90;
+    const most = Math.min(window.innerWidth - 90, window.innerHeight - 360); // (clear of the chronicle above it)
     const outer = fit(n) > most ? Math.ceil(n * 0.6) : n;
     const r = Math.min(fit(outer), most);
     const arcs = [
@@ -243,6 +260,20 @@ export class HUD {
         btn.style.transform = `translate(${Math.cos(a) * arc.r - size / 2}px, ${-Math.sin(a) * arc.r - size / 2}px)`;
       });
     }
+    this._wheelReach = r + size / 2 + 14; // how far above the hammer the wheel goes (with its cost tags)
+    this._fitChronicle();
+  }
+
+  /** The chronicle (wide screens) stops short of the open build wheel below it: older entries are cut off. */
+  _fitChronicle() {
+    const list = this.el.chronicle;
+    const fab = $('build-fab').getBoundingClientRect();
+    if (!this.wheelOpen || !this._wheelReach || !fab.height) {
+      list.style.maxHeight = '';
+      return;
+    }
+    const top = fab.top + fab.height / 2 - this._wheelReach;
+    list.style.maxHeight = `${Math.max(60, top - list.getBoundingClientRect().top - 16)}px`;
   }
 
   attach(world) {
@@ -251,6 +282,9 @@ export class HUD {
     // Only what this mode offers is in the wheel (the Flag Fort in Conquest; guilds, the smithy and bounties in a Realm).
     for (const [type, btn] of this.buttons) btn.hidden = type === 'bounty' ? !world.realm : BUILDINGS[type] ? !world.offers(type) : false;
     this.realm.attach(world);
+    document.body.classList.toggle('realm', Boolean(world.realm));
+    this.el.herald.hidden = true;
+    this.toggleChronicle(false);
     this._layoutWheel();
     this.el.gameover.hidden = true;
     this._last = {};
@@ -597,9 +631,14 @@ export class HUD {
     this._last.info = null;
   }
 
-  /** Report an event: a short toast (shown on small screens) and an entry in the Battle Chronicle. */
-  toast(message, kind = 'info') {
-    this._chronicle(message, kind);
+  /**
+   * Report an event: a short toast (shown on small screens) and an entry in the Battle Chronicle. `kind` is its
+   * severity ('good', 'info', 'warn' or 'danger': a gold, grey, amber or red seal); `at` ({ x, z }), where it happened
+   * (a tap on its chronicle entry looks there). In a Realm on a small screen, the herald ribbon shows it instead.
+   */
+  toast(message, kind = 'info', at = null) {
+    this.chronicle(message, kind, at);
+    if (this.world?.realm) return; // (the herald ribbon has it; see chronicle)
     const el = document.createElement('div');
     el.className = `toast ${kind}`;
     el.textContent = message;
@@ -609,12 +648,47 @@ export class HUD {
     setTimeout(() => el.remove(), 3200);
   }
 
-  _chronicle(message, kind) {
-    const li = document.createElement('li');
-    li.className = kind;
-    li.textContent = message;
-    this.el.chronicle.prepend(li);
-    while (this.el.chronicle.children.length > CHRONICLE_LENGTH) this.el.chronicle.lastChild.remove();
+  /**
+   * An entry in the Battle Chronicle only (no toast), sealed by `kind` (see toast). The same news twice running is
+   * one entry with a count ("×3"). In a Realm it's also cried by the herald ribbon (small screens).
+   */
+  chronicle(message, kind = 'info', at = null) {
+    const list = this.el.chronicle;
+    const top = list.firstElementChild;
+    if (top && top.dataset.message === message && top.classList.contains(kind)) {
+      top.dataset.count = String(Number(top.dataset.count) + 1);
+      top.querySelector('.count').textContent = `×${top.dataset.count}`;
+      if (at) Object.assign(top.dataset, { x: at.x, z: at.z });
+    } else {
+      const li = document.createElement('li');
+      li.className = kind;
+      Object.assign(li.dataset, { message, count: '1' });
+      li.append(message, Object.assign(document.createElement('span'), { className: 'count' }));
+      if (at) {
+        Object.assign(li.dataset, { x: at.x, z: at.z });
+        li.classList.add('jump');
+        li.title = 'Look there';
+      }
+      list.prepend(li);
+      while (list.children.length > CHRONICLE_LENGTH) list.lastChild.remove();
+    }
+    if (this.world?.realm) this._cry(list.firstElementChild);
+  }
+
+  /** The herald ribbon (a Realm, small screens): the latest news, sealed; a tap unrolls the chronicle. */
+  _cry(li) {
+    const herald = this.el.herald;
+    herald.className = `herald ${['good', 'info', 'warn', 'danger'].find((k) => li.classList.contains(k)) ?? 'info'}`;
+    herald.querySelector('.herald-text').textContent = li.dataset.message + (li.dataset.count > 1 ? ` ×${li.dataset.count}` : '');
+    herald.hidden = false;
+    herald.classList.remove('cried');
+    void herald.offsetWidth; // (restart the flourish)
+    herald.classList.add('cried');
+  }
+
+  /** Unroll (or roll up) the chronicle as a sheet over the bottom of the screen (small screens). */
+  toggleChronicle(open = !document.body.classList.contains('chronicle-open')) {
+    document.body.classList.toggle('chronicle-open', open);
   }
 
   setSpeed(speed) {

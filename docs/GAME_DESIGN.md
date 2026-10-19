@@ -371,6 +371,13 @@ hit buildings far harder than men. Damage is against buildings, and against the 
 
 ## Art direction
 
+Realm mode has a look of its own on top of this one, "the realm as a living chart" (see
+[research/10-ui-and-art-direction.md](research/10-ui-and-art-direction.md)): unseen land is blank vellum with an
+ink-bleed edge where it's been drawn in, bounties are wax seals stamped with their gold, heroes' barks are scrolls in
+their guild's colours (Men-at-arms red, Rangers green, Rogues violet), and the chronicle's entries are sealed by
+severity (gold good news, grey neutral, amber bad, red a threat); on phones a herald ribbon over the bottom corners
+cries the latest. Stages 1–3 of that plan are on the roadmap.
+
 ![Art style reference](reference/art-style.jpg)
 
 The reference sheet above ([`docs/reference/art-style.jpg`](reference/art-style.jpg)) is the target look, including
