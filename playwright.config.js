@@ -21,7 +21,7 @@ export default defineConfig({
     reducedMotion: 'reduce',
   },
   projects: [
-    { name: 'desktop', testMatch: /desktop\.spec\.js/, use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 } } },
+    { name: 'desktop', testMatch: /(desktop|realm)\.spec\.js/, use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 800 } } },
     { name: 'mobile', testMatch: /mobile\.spec\.js/, use: { ...devices['Pixel 7'] } },
   ],
   webServer: {

@@ -799,6 +799,7 @@ export const REALM = {
   classes: {
     manAtArms: {
       name: 'Man-at-arms',
+      plural: 'Men-at-arms',
       guild: 'warriorsHall',
       type: 'swordsman',
       cost: 45,
@@ -813,6 +814,7 @@ export const REALM = {
     },
     ranger: {
       name: 'Ranger',
+      plural: 'Rangers',
       guild: 'rangersLodge',
       type: 'archer',
       cost: 35,
@@ -827,6 +829,7 @@ export const REALM = {
     },
     rogue: {
       name: 'Rogue',
+      plural: 'Rogues',
       guild: 'roguesDen',
       type: 'rogue',
       cost: 28,

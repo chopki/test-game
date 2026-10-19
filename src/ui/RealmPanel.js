@@ -247,7 +247,7 @@ export class RealmPanel {
       const rows = heroes.map((h) => `<li><b>${esc(h.name)}</b> · level ${h.level} · ${esc(intentOf(w, h))}</li>`).join('');
       const key = ['guild', check.ok, check.reason, ...heroes.map((h) => `${h.id}:${h.level}:${intentOf(w, h)}`)].join('|');
       const html = `
-        <p class="garrison">${cls.name}s: ${heroes.length}/${REALM.guildCap}</p>
+        <p class="garrison">${cls.plural}: ${heroes.length}/${REALM.guildCap}</p>
         ${rows ? `<ul class="realm-heroes">${rows}</ul>` : '<p class="codex-why">No heroes yet: hire one!</p>'}
         <div class="codex-actions"><button id="realm-recruit" class="primary" ${check.ok ? '' : `disabled title="${esc(check.reason)}"`}>Hire a ${cls.name} <i class="coin"></i>${cls.cost}</button></div>
         ${check.ok ? '' : `<p class="codex-why">${esc(check.reason)}</p>`}`;
