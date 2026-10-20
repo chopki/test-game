@@ -27,6 +27,7 @@ export class MainMenu {
     onPress($('menu-continue'), () => this.close());
     onPress($('menu-endless'), () => this._start('survival'));
     onPress($('menu-conquest'), () => this._start('conquest'));
+    onPress($('menu-realm'), () => this._start('realm'));
     onPress($('hero-pick-close'), () => ($('hero-pick').hidden = true));
     this._buildHeroCards(portrait);
     onPress($('menu-codex'), () => this.openCodex());
@@ -41,6 +42,11 @@ export class MainMenu {
 
   get isOpen() {
     return !this.el.hidden;
+  }
+
+  /** Begin a battle of `mode` ('survival', 'conquest' or 'realm'), as its plaque does. */
+  start(mode) {
+    return this._start(mode);
   }
 
   open() {
@@ -63,17 +69,17 @@ export class MainMenu {
     const now = performance.now();
     $('menu-continue').disabled = !this.started;
     const mode = this.game.world.mode;
-    for (const m of ['survival', 'conquest']) {
-      const id = m === 'survival' ? 'endless' : 'conquest';
+    for (const m of ['survival', 'conquest', 'realm']) {
+      const id = m === 'survival' ? 'endless' : m;
       const confirming = this._confirming === m && now < this._confirmUntil;
-      const name = m === 'survival' ? 'Endless Mode' : 'Conquest';
+      const name = { survival: 'Endless Mode', conquest: 'Conquest', realm: 'Realm' }[m];
       $(`menu-${id}-label`).textContent = confirming ? 'Tap again: this battle ends' : this.started && mode === m ? `New ${name}` : name;
       $(`menu-${id}`).classList.toggle('warn', confirming);
     }
   }
 
   /**
-   * Endless Mode or Conquest: at the start, the battle on the map already laid out behind the menu if it's that
+   * Endless Mode, Conquest or Realm: at the start, the battle on the map already laid out behind the menu if it's that
    * mode, else a new map of the mode; once a battle is under way, a new map (after a second tap within a few
    * seconds, if the battle has got going).
    */
@@ -174,4 +180,50 @@ export class MainMenu {
     $('codex-towers').innerHTML = towers.join('');
     $('codex-foes').innerHTML = foes.join('');
   }
+}
+
+const BOOT_ONLY = ['menu-codex', 'menu-options', 'menu-help', 'menu-credits']; // need the game (or its sprites)
+const BOOT_MODES = { 'menu-endless': 'survival', 'menu-conquest': 'conquest', 'menu-realm': 'realm' };
+
+/**
+ * The main menu at once, before the game has loaded (it's plain DOM): the sprites, the first map and the painted
+ * ground load behind it, with a line on the page saying how far along that is. A battle picked meanwhile waits on its
+ * plaque ("Getting ready…") and begins as soon as the game is up; the Codex, Options and Help wait until then. Hand
+ * over to the real menu with `handOver(game)`.
+ */
+export function showEarlyMenu() {
+  const el = document.getElementById('menu');
+  const status = document.createElement('p');
+  status.className = 'menu-status';
+  status.setAttribute('role', 'status');
+  el.querySelector('.menu-page').appendChild(status);
+  el.hidden = false;
+  document.getElementById('loading').hidden = true; // (the loading screen is for later maps, and ?menu=0)
+  document.body.classList.add('menu-open', 'booting');
+  document.getElementById('menu-continue').disabled = true;
+  for (const id of BOOT_ONLY) document.getElementById(id).disabled = true;
+  let chosen = null;
+  for (const [id, mode] of Object.entries(BOOT_MODES)) {
+    onPress(document.getElementById(id), () => {
+      if (window.game || chosen) return; // (once the game is up, the real menu answers)
+      chosen = mode;
+      document.getElementById(id).classList.add('waiting');
+      status.textContent = 'Getting ready…';
+    });
+  }
+  return {
+    /** How far the loading has got (0–1). */
+    setProgress(p) {
+      if (!chosen) status.textContent = `Preparing the battlefield… ${Math.round(p * 100)}%`;
+    },
+    /** The game is up: its menu takes over, and begins the battle picked meanwhile, if any. */
+    handOver(game) {
+      status.remove();
+      document.body.classList.remove('booting');
+      for (const id of BOOT_ONLY) document.getElementById(id).disabled = false;
+      for (const id of Object.keys(BOOT_MODES)) document.getElementById(id).classList.remove('waiting');
+      game.menu.refresh();
+      if (chosen) game.menu.start(chosen);
+    },
+  };
 }

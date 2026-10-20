@@ -42,6 +42,7 @@ to a fixed-timestep server, replays or AI opponents later.
 | `heroes.js`      | Conquest heroes (`HEROES.roster`): `spawnHero`, `orderHero`, `useAbility`, XP and levels (`heroXp`), falling and coming back, the blue hero's orders and abilities (`updateHeroes`) |
 | `flags.js`       | Conquest's capturable flags (`updateFlags`) and territory (`inTerritory`, `territoryOf`): where a side may build |
 | `camps.js`       | Conquest's neutral camps: their guards (team 'neutral'), the camp turning on attackers, filling again |
+| `realm/`         | Realm mode (`World({ mode: 'realm' })`), see below: `index.js` (setup and the World hooks), `heroes.js` (hero AI, tax, gear), `bounties.js` (flags and payouts), `lairs.js` (outlaw camps, guards, raids), `fog.js` (the fog of war) |
 | `conquest.js`    | Conquest: the mirrored forts (`buildForts`), each wave's squads (`sendSquads`), lane soldiers (`updateLaneSoldier`), the AI (`aiThink(world, team)`: blue, and red as well for sides listed in `world.aiTeams`, as tests do) |
 | `troops.js`      | The player's troops: Barracks posts (`findPost`), training (`updateBarracks`), troop AI and movement (`updateTroop`) |
 | `pathfind.js`    | A* over the grid (`findPath`) for units that go somewhere of their own (troops) |
@@ -291,6 +292,30 @@ The build bar button, hotkey, placement, targeting and health bar all follow aut
 
 Extend `_fire` / `_updateProjectile` in `World.js`, plus `createProjectileModel` and the impact effect in `Renderer.attach`.
 
+### Realm, and spinning it out
+
+Realm mode keeps everything of its own in `world.realm` (`heroes`, `lairs`, `bounties`, `fog`, `fallen`, `stats`)
+and in `src/sim/realm/`. World calls in at six points, and nothing else in World knows about it:
+
+- `setupRealm(world)` after the map and fort are made;
+- `updateRealm(world, dt)` each tick, before the soldiers move (lairs grow and raid, flags are claimed, the fog lifts);
+- `updateRealmUnit(world, t, dt)` for a troop with a `realm` role ('hero', 'guard', 'raider') instead of the troop AI;
+- `realmHit(world, target, amount, source)` and `realmKill(world, victim, source)` from `_damageTroop` /
+  `_damageEnemy` (who hurt what, for bounty shares; a hero's kill pays the hero, not the treasury);
+- `canPlaceInRealm(world, type, x, z)` from `canPlace` (the fog, and the camps).
+
+Commands go through World like any other: `recruit(guildId)`, `placeBounty(spec, gold)`, `fundBounty(id, gold)`,
+`cancelBounty(id)`, `forge()`, and `offers(type)` says what the wheel shows. Heroes are troops (team 'red',
+`realm: 'hero'`, `inside` > 0 while resting in their guild); outlaws are troops of team 'neutral' (`realm: 'guard'` or
+'raider'); lairs are not buildings (they're in `world.realm.lairs`, off the grid). The renderer's part is
+`render/realmLayer.js` (fog, camps, flags) and the HUD's `ui/RealmPanel.js`. To spin Realm out into a game of its
+own, the pieces to take are `src/sim/realm/`, those two files and the REALM / guild entries in `config.js`; the
+World hooks are the seam to keep (or to grow a smaller World round).
+
+Realm events: `heroRecruited`, `heroBark`, `heroTaxed`, `heroBought`, `heroLevelUp`, `realmHeroFell`, `lairFound`,
+`lairGrew`, `lairHit`, `lairCleared`, `lairRazed`, `lairRose`, `raidSent`, `bountyPlaced`, `bountyFunded`,
+`bountyRemoved`, `gearForged`.
+
 ## Planned extensions and where they plug in
 
 - **Troops** are in (`sim/troops.js`, `world.troops`, A* in `sim/pathfind.js`); units carry a `team` ('red' the
@@ -319,6 +344,9 @@ See [ROADMAP.md](ROADMAP.md) for ordering.
 - `waves.test.js`: wave growth, boss waves, the spawn queue
 - `world.test.js`: placement rules, selling, the auto-start timer, end-to-end "undefended falls" / "defended
   survives wave 1" / "enemies breach a full enclosure"
+- `realm.test.js`: Realm setup (lairs, fog, what's offered), hiring, tax, gear, kill gold, bounties (split, explore,
+  refusals), lairs (burning, refilling, growing, raids that Barracks soldiers fight), and twenty seeded minutes of a
+  simple player with no hero stuck for long, the same each run
 
 Keep new gameplay logic in `sim/` so it can be tested the same way.
 
@@ -334,6 +362,8 @@ SwiftShader so they work without a GPU (including on CI):
   ✓ builds, re-drag keeps the finger offset, ✕ cancels, invalid ✓), edge-scroll while dragging, wall lines with ✓ and
   snapping a dragged end onto a tower,
   one-finger pan and tap-to-select
+- `e2e/realm.spec.js` (full suite only): the Realm menu plaque, the guilds in the wheel, hiring from a guild's card,
+  a hero's card, and placing and topping up an explore flag
 
 Tests drive the game through real input and read state through `window.game`, e.g. `game.renderer.toScreen()` to
 find where a tile is on screen. Shared helpers, including CDP-based touch drags, are in `e2e/helpers.js`. On push,

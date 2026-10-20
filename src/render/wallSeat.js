@@ -17,10 +17,16 @@ import { BUILDINGS } from '../sim/config.js';
  * Returns { shape, dx, dz }, with dx/dz in tiles (0 or ±0.5). Looks only at walls touching the footprint from
  * outside, so it gives the same answer for the build preview (before the walls under it go) as for the tower.
  */
+/**
+ * The types that have models built into a wall (IN_WALL_TYPES in models.js: the towers and the gatehouse). Anything
+ * else (a Barracks, a guild…) is drawn whole beside the wall, whatever runs past it.
+ */
+export const SEATED = new Set(['archerTower', 'cannonTower', 'magicSpire', 'catapult', 'gatehouse']);
+
 export function wallSeat(world, type, x, z) {
   const none = { shape: null, dx: 0, dz: 0 };
   const size = BUILDINGS[type].size;
-  if (type === 'wall' || size !== 2) return none;
+  if (!SEATED.has(type) || size !== 2) return none;
   const isWall = (tx, tz) => world.buildingAt(tx, tz)?.type === 'wall';
   const joins = { n: [], s: [], w: [], e: [] }; // the row (w/e) or column (n/s) each wall comes in on
   for (let i = 0; i < size; i++) {

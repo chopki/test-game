@@ -1,10 +1,10 @@
-import { CONQUEST, HEROES } from '../sim/config.js';
+import { CONQUEST, HEROES, REALM } from '../sim/config.js';
 import { onPress } from './press.js';
 
 const $ = (id) => document.getElementById(id);
 
 /**
- * The briefing for each kind of battle (Endless Mode's Survival, and Conquest): what you're fighting for, how to
+ * The briefing for each kind of battle (Endless Mode's Survival, Conquest and Realm): what you're fighting for, how to
  * play, and a few hints. Shown when a battle of that kind is begun from the main menu (until "Don't show this
  * again"), and from Help at any time. The battle is held while it's open.
  */
@@ -43,6 +43,23 @@ const INTROS = {
       'Bandit camps in the woods are worth gold and hero XP, and fill again after a while.',
       "Siege engines come with later waves and go for your buildings: catch them before they reach your towers.",
       'Repair your buildings any time they are not under attack.',
+    ],
+  },
+  realm: {
+    title: 'Realm: Heroes of the Hall',
+    objective: 'Raise a town in the wilds and hire heroes to keep it. They go where they please, but they love gold. By day they explore and hunt; each night the blue army comes for your Town Hall.',
+    how: [
+      `Build guilds from the wheel (keys 7–9): a Warriors' Hall, Rangers' Lodge or Rogues' Den. Tap one to hire its heroes (up to ${REALM.guildCap} each).`,
+      'Heroes act on their own: exploring, hunting, raiding outlaw camps, coming home to rest. Tap one to see what they are up to.',
+      'To steer them, place bounty flags (B): on an outlaw camp or foe to have it attacked, or on open ground to have it explored. More gold draws more heroes; tap a flag to add to it.',
+      'Heroes keep the gold they earn and pay tax on it when they come home: that tax is how the treasury grows.',
+      "You can only build where someone has been: the blank parchment of the map is land no one has seen yet. There are no walls or towers to raise here: at night your heroes and the old fort hold the Hall.",
+    ],
+    hints: [
+      'Rangers love to explore; Men-at-arms stand and fight; Rogues go wherever the gold is (and run when it gets hot).',
+      'A lone hero won\'t take on a whole camp: hire a few, or put a fat bounty on it to stiffen their nerve.',
+      'Outlaw camps grow stronger and send raiders at your buildings. When one burns another rises somewhere, stronger, after a while.',
+      'A hero that falls is gone for good, with their gold. Keep the healers busy: they rest at their guild.',
     ],
   },
 };

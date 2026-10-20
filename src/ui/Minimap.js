@@ -1,11 +1,14 @@
 import { T } from '../sim/terrain.js';
 import { territoryOf } from '../sim/flags.js';
+import { REALM } from '../sim/config.js';
+import { seenAt } from '../sim/realm/fog.js';
 
 /**
- * The minimap (Conquest): the whole lane map in the battlefield's own isometric view, so the lanes run the same way
+ * The minimap (Conquest and Realm): the whole map in the battlefield's own isometric view, so the lanes run the same way
  * on both, with each side's buildings and soldiers in their colours and a frame round what the camera sees. Press
  * or drag on it to move the camera there; while giving your hero orders, press it to send them there. It only
- * reads the world (orders go through World, as from the battlefield).
+ * reads the world (orders go through World, as from the battlefield). In a Realm, the fog lies over land no one has
+ * seen (and hides the outlaws in it), and found camps and bounty flags are marked.
  */
 
 const GROUND = {
@@ -49,10 +52,10 @@ export class Minimap {
     for (const end of ['pointerup', 'pointercancel']) this.el.addEventListener(end, () => (this._dragging = false));
   }
 
-  /** Shown for Conquest maps only. */
+  /** Shown for Conquest and Realm maps. */
   attach(world) {
     this.world = world;
-    this.el.hidden = world.mode !== 'conquest';
+    this.el.hidden = world.mode !== 'conquest' && world.mode !== 'realm';
     if (this.el.hidden) return;
     this._layout();
     this._paintGround();
@@ -132,7 +135,7 @@ export class Minimap {
     }
     g.globalAlpha = 1;
     // Territory (faint, each side's colour) and the flags (a diamond in the holder's colour, pale if no one's).
-    for (const team of ['red', 'blue']) {
+    for (const team of world.mode === 'conquest' ? ['red', 'blue'] : []) {
       g.strokeStyle = TEAM[team];
       g.globalAlpha = 0.45;
       g.lineWidth = 1;
@@ -161,10 +164,19 @@ export class Minimap {
       g.fill();
       g.stroke();
     }
-    // Soldiers: a dot each.
+    const realm = world.realm;
+    if (realm) this._drawRealm(g, realm);
+    // Soldiers: a dot each (heroes a bigger one).
     const r = Math.max(1, this.s * 0.9);
     for (const t of world.troops) {
       if (!t.alive || t.delay > 0) continue;
+      if (realm && (t.inside > 0 || (t.team === 'neutral' && !seenAt(world, t.x, t.z)))) continue;
+      if (t.realm === 'hero') {
+        g.fillStyle = '#f2d27a';
+        const [hx, hy] = this.project(t.x, t.z);
+        g.fillRect(hx - r, hy - r, r * 2, r * 2);
+        continue;
+      }
       g.fillStyle = TEAM[t.team] ?? TEAM.red;
       const [px, py] = this.project(t.x, t.z);
       g.fillRect(px - r / 2, py - r / 2, r, r);
@@ -177,6 +189,56 @@ export class Minimap {
       g.beginPath();
       view.forEach(([x, z], i) => (i ? g.lineTo(...this.project(x, z)) : g.moveTo(...this.project(x, z))));
       g.closePath();
+      g.stroke();
+    }
+  }
+
+  /** Realm: unseen chunks as blank vellum (as on the battlefield), found camps (a dark square) and bounty seals. */
+  _drawRealm(g, realm) {
+    const c = REALM.chunk;
+    const { cols, rows, seen } = realm.fog;
+    g.fillStyle = 'rgba(214, 196, 158, 0.95)';
+    for (let cz = 0; cz < rows; cz++) {
+      for (let cx = 0; cx < cols; cx++) {
+        if (seen[cz * cols + cx]) continue;
+        const [x0, z0, x1, z1] = [cx * c, cz * c, Math.min(this.world.grid.width, (cx + 1) * c), Math.min(this.world.grid.height, (cz + 1) * c)];
+        g.beginPath();
+        g.moveTo(...this.project(x0, z0));
+        g.lineTo(...this.project(x1, z0));
+        g.lineTo(...this.project(x1, z1));
+        g.lineTo(...this.project(x0, z1));
+        g.fill();
+      }
+    }
+    for (const lair of realm.lairs) {
+      if (!lair.discovered || lair.razed) continue;
+      g.fillStyle = TEAM.neutral;
+      g.strokeStyle = '#2a2018';
+      g.beginPath();
+      g.moveTo(...this.project(lair.x, lair.z));
+      g.lineTo(...this.project(lair.x + lair.size, lair.z));
+      g.lineTo(...this.project(lair.x + lair.size, lair.z + lair.size));
+      g.lineTo(...this.project(lair.x, lair.z + lair.size));
+      g.closePath();
+      g.fill();
+      g.stroke();
+    }
+    // Bounties are the brightest marks on the map (faint ones are easily lost): a wax seal, red to attack, green to
+    // explore, ringed in cream.
+    const k = Math.max(3.5, this.s * 2);
+    for (const f of realm.bounties) {
+      const at = f.lair !== undefined ? { x: realm.lairs[f.lair].cx, z: realm.lairs[f.lair].cz } : f.unit ?? f;
+      const [px, py] = this.project(at.x, at.z);
+      g.beginPath();
+      g.arc(px, py, k + 1.5, 0, Math.PI * 2);
+      g.fillStyle = '#fbf3df';
+      g.fill();
+      g.beginPath();
+      g.arc(px, py, k, 0, Math.PI * 2);
+      g.fillStyle = f.kind === 'explore' ? '#3f6b4a' : '#b8352a';
+      g.fill();
+      g.lineWidth = 1;
+      g.strokeStyle = '#2a1a0e';
       g.stroke();
     }
   }

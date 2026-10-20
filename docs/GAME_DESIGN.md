@@ -263,6 +263,83 @@ south end, **blue** (the AI) the north.
 - **Minimap** (under the Town Hall): the whole map in the battlefield's angle, both sides' buildings and soldiers
   as red and blue, and a frame round what you're looking at. Press or drag on it to look there.
 
+## Realm (heroes and the wilds)
+
+Picked on the main menu (or `?mode=realm`); a first go at a Majesty-style kingdom (see `docs/research/`, and
+`06-design-synthesis.md` for the reasoning). It's Survival's town, walls, towers and night waves, plus **heroes who
+act on their own** and the **wilds** round the town: outlaw camps, and the fog of war. You never order a hero about:
+you hire them, build what they need, and steer them with **bounty flags** (control model A in the research). The
+code is all in `src/sim/realm/` behind a few World hooks, so the mode can be lifted out into a game of its own.
+
+- **Day and night.** The day (the build phase) lasts 150 s the first time, then 110 s; each night is a Survival wave
+  from the map's edges. The treasury starts with 400 gold. Heroes go about their business day and night.
+- **Left to themselves** heroes go out: exploring is high on every class's list, an idle hero heads for the nearest
+  unseen land however far (land found to be unreachable is not tried again) or roams the wilds 12–28 tiles from the
+  Hall, and goes home only below 80% health or with half a purse to pay in (a homebody stays round its guild).
+- **Fog of war**, in 4 × 4 tile chunks: only the ground within 10 tiles of the Town Hall is known at the start.
+  Heroes out of doors reveal 6.5 tiles round them; your buildings 3 round theirs. **Nothing can be built in a chunk
+  no one has seen**, and outlaws in the fog aren't shown.
+- **Building**: for now a Realm builds only its **guilds** (keys 7–9), which hire heroes of their class, up to 4 a
+  guild (`REALM.buildable`, kept per game in `world.realm.buildable` so more can be unlocked later). No walls, towers,
+  Barracks or Smithy: the heroes and the starting fort hold the Hall at night. (The Smithy and its gear, below, are
+  in the sim, waiting for an unlock.)
+
+  | Building         | Cost | HP  | Heroes       |
+  | ---------------- | ---- | --- | ------------ |
+  | Warriors' Hall   | 80   | 600 | Men-at-arms  |
+  | Rangers' Lodge   | 70   | 320 | Rangers      |
+  | Rogues' Den      | 60   | 300 | Rogues       |
+  | Smithy           | 50   | 350 | (sells gear) |
+
+- **Heroes** (crowned figures in red), each with a name and a trait:
+
+  | Class       | Hire | HP  | Speed | Damage | Hit every | Reach | Greed | Tax | Flees below | What they like doing (in order, with the chance they try it) |
+  | ----------- | ---- | --- | ----- | ------ | --------- | ----- | ----- | --- | ----------- | ----------------------------------------------------------- |
+  | Man-at-arms | 45   | 150 | 0.95  | 10     | 1.0s      | melee | 12    | 40% | 30%         | defend 95%, hunt 90%, raid 60%, explore 60%, patrol 30%, roam 50%, home 30% |
+  | Ranger      | 35   | 90  | 1.15  | 9      | 1.2s      | 5     | 6     | 40% | 35%         | explore 95%, hunt 75%, defend 60%, raid 30%, roam 80%, home 15% |
+  | Rogue       | 28   | 75  | 1.25  | 8      | 0.8s      | melee | 26    | 30% | 45%         | hunt 55%, explore 70%, defend 30%, raid 20%, roam 60%, home 50% |
+
+  Traits (one each): Brave (×1.25 self-estimate, flees later), Craven (×0.75, flees sooner), Greedy (+8 greed),
+  Frugal (carries ×1.6 more before going home), Tough (+20% health), Quick (+15% speed), Curious (×1.5 liking for
+  exploring) and Homebody (strays only 60% as far). Each level (XP at 30, 80, 150, 240, 350, 480, 640, 830, 1050;
+  XP is 2 × a foe's gold) adds 15% health and damage.
+- **How a hero thinks** (every 0.5 s, after Majesty's "thought process"): (1) foes within sight: fight the nearest
+  group if their side's strength (health × damage a second, with allies within 3.5 tiles) × self-estimate beats the
+  foes' × enemy-estimate, else keep away, and run home if badly hurt. A hero out to burn a camp or fell a foe (for a
+  bounty, or raiding) reckons that target's men the way it did when it took the job on: with the bounty's boost and
+  the other heroes on the same job (within 9 tiles) on its side, and once it has set out it takes on odds 1.5×
+  worse before it runs, so a party doesn't walk up to a camp and scatter; (2) below 55% health, or carrying 45 gold or
+  more, go home (unless burning a camp); (3) keep at the current task unless a bounty is worth a third more;
+  (4) otherwise the best bounty flag, new gear if it can afford it, else down its class's list. Stuck for 18 s, it
+  thinks again.
+- **Gold.** A hero keeps the gold for what it fells (1.5 × the foe's reward; the treasury gets nothing for those,
+  but still gets tower kills and the dawn bonus), and its bounties and loot. At its guild it pays its class's
+  **tax** on what it carries, then rests indoors (8% health a second, at least 4 s).
+- **Bounty flags** (B, 25 gold; +25 or +100 to top one up; gold isn't given back): on an outlaw camp or a foe
+  (**attack**, shared when it falls by the heroes who hurt it, by damage, each taking at least 20% of an equal
+  share; if no hero hurt it the gold comes back), or on open ground (**explore**, all to the first hero within 2
+  tiles). A hero weighs a flag as gold × (0.5 + greed / 12) × its liking for the kind ÷ (1 + distance / 10), and
+  passes on it under 8, if it's more than 40 tiles off, (attack) if it doesn't dare (a bigger bounty makes it
+  braver: × 1 + gold / 100; the heroes already on it count on its side), or (explore) if a hero already on it is
+  nearer, so one hero goes, not every one that likes it. A flag's card shows who's on it and who turned it down, and why.
+- **Gear**, forged at a Smithy and bought by heroes with their own gold (the treasury takes 60% of each sale):
+
+  | Tier       | Forge | Price to a hero | Damage | Health |
+  | ---------- | ----- | --------------- | ------ | ------ |
+  | Iron       | -     | -               | -      | -      |
+  | Steel      | 40    | 20              | +25%   | +15%   |
+  | Fine steel | 90    | 45              | +50%   | +30%   |
+  | Masterwork | 160   | 80              | +80%   | +50%   |
+
+- **Outlaw camps** (3 on a small map, 4 on a medium, 5 on a large; at least 13 tiles from the Town Hall and 10
+  apart): 420 HP, guarded by 2 swordsmen and an archer in grey (a man more every 2 levels), who fight anyone within
+  3.5 tiles and chase up to 6. The guards come back 70 s after they all fall. A camp grows a level every 200 s (up to
+  6; +18% guard health a level) and, after the first night, sends **raiders** (2 swordsmen, +1 man every 2 levels)
+  at the nearest building every 130 s (10 s sooner a level, never under 60 s). Barracks soldiers fight raiders near
+  their post. Burning a camp gives its loot (60 + 15 a level) to the heroes who fought it and are still near; 240 s
+  later a new camp rises elsewhere in the wilds, as strong as the time says.
+- A hero who falls is gone for good, with its gold.
+
 ## Enemies
 
 A human army in blue-and-cream livery, marching in **squads**. Men walk to the Town Hall and hack at whatever
@@ -299,6 +376,13 @@ hit buildings far harder than men. Damage is against buildings, and against the 
 - Wave clear bonus: `30 + 10n` gold.
 
 ## Art direction
+
+Realm mode has a look of its own on top of this one, "the realm as a living chart" (see
+[research/10-ui-and-art-direction.md](research/10-ui-and-art-direction.md)): unseen land is blank vellum with an
+ink-bleed edge where it's been drawn in, bounties are wax seals stamped with their gold, heroes' barks are scrolls in
+their guild's colours (Men-at-arms red, Rangers green, Rogues violet), and the chronicle's entries are sealed by
+severity (gold good news, grey neutral, amber bad, red a threat); on phones a herald ribbon over the bottom corners
+cries the latest. Stages 1–3 of that plan are on the roadmap.
 
 ![Art style reference](reference/art-style.jpg)
 

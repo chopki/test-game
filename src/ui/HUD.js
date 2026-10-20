@@ -1,8 +1,9 @@
-import { BUILDINGS, HEROES, TIMING, TROOPS, UPGRADES } from '../sim/config.js';
+import { BUILDINGS, HEROES, REALM, TIMING, TROOPS, UPGRADES } from '../sim/config.js';
 import { onPress } from './press.js';
 import { summarizeWave } from '../sim/WaveManager.js';
 import { squadFor } from '../sim/conquest.js';
 import { Minimap } from './Minimap.js';
+import { RealmPanel } from './RealmPanel.js';
 
 /** Conquest: a squad (a list of troop types) as words, e.g. "3 Men-at-arms, 1 Bowman". */
 function summarizeSquad(types) {
@@ -30,6 +31,34 @@ const STAT_MAX = {
 const CHRONICLE_LENGTH = 6;
 /** How long the "tap again to send the wave" prompt waits for the second tap (ms). */
 const WAVE_CONFIRM_MS = 4000;
+
+/** A small drawn icon for the Bounty card (Realm): a red flag on a pole over a heap of coins. */
+function bountyIcon() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 96;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#5a3a1e';
+  ctx.fillRect(40, 14, 6, 66);
+  ctx.fillStyle = '#b8352a';
+  ctx.beginPath();
+  ctx.moveTo(46, 16);
+  ctx.lineTo(82, 26);
+  ctx.lineTo(46, 40);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = '#6b1f16';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  for (const [x, y] of [[30, 76], [56, 78], [44, 66]]) {
+    ctx.fillStyle = '#e2b347';
+    ctx.beginPath();
+    ctx.ellipse(x, y, 14, 9, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#6b4a10';
+    ctx.stroke();
+  }
+  return c.toDataURL('image/png');
+}
 
 /** A small drawn icon for the Sell card: a stack of coins. */
 function sellIcon() {
@@ -96,12 +125,31 @@ export class HUD {
     // Portraits cropped from the baked sprite atlas, so the cards match the battlefield exactly.
     this.icons = Object.fromEntries(Object.keys(BUILDINGS).map((t) => [t, frameToDataURL(game.renderer.atlas, spriteKeys.icon(t))]));
     this.icons.sell = sellIcon();
+    this.icons.bounty = bountyIcon();
+    this.realm = new RealmPanel(game, this);
+    // The herald ribbon (a Realm on a small screen): the latest chronicle entry, in place of toasts that vanish.
+    this.el.herald = document.createElement('button');
+    this.el.herald.type = 'button';
+    this.el.herald.id = 'herald';
+    this.el.herald.hidden = true;
+    this.el.herald.setAttribute('aria-label', 'Latest news: open the chronicle');
+    this.el.herald.innerHTML = '<span class="seal" aria-hidden="true"></span><span class="herald-text"></span>';
+    $('hud').appendChild(this.el.herald);
+    onPress(this.el.herald, () => this.toggleChronicle());
+    // A chronicle entry about somewhere: a tap looks there. (Unrolled on a small screen, a tap anywhere else on it
+    // rolls it up.)
+    onPress($('chronicle'), (e) => {
+      const li = e.target.closest?.('li.jump');
+      if (li) game.renderer.focusOn(Number(li.dataset.x), Number(li.dataset.z));
+      this.toggleChronicle(false);
+    });
 
     this.buttons = new Map();
     for (const [type, def] of Object.entries(BUILDINGS)) {
       if (!def.buildable) continue;
       this.buttons.set(type, this._makeButton(type, def.name, def.cost, def.hotkey, def.description));
     }
+    this.buttons.set('bounty', this._makeButton('bounty', 'Bounty', REALM.bounty.base, 'B', 'Place a bounty flag: on an outlaw camp or foe to have it attacked, or on open ground to have it explored.'));
     this.buttons.set('sell', this._makeButton('sell', 'Sell', null, 'X', 'Click a building to sell it for part of its cost.'));
     this._layoutWheel();
     this.setWheelOpen(!this._compact());
@@ -181,6 +229,7 @@ export class HUD {
   /** Open or fold the build wheel (the hammer in the bottom-right corner). */
   setWheelOpen(open) {
     this.wheelOpen = open;
+    this._fitChronicle();
     $('build-wheel').classList.toggle('open', open);
     $('build-fab').setAttribute('aria-expanded', String(open));
     $('build-fab').setAttribute('aria-label', open ? 'Close the build wheel' : 'Build');
@@ -194,30 +243,61 @@ export class HUD {
     const shown = [...this.buttons.values()].filter((b) => !b.hidden);
     const n = shown.length;
     const size = this._compact() ? 56 : 64;
-    // Far enough out that neighbours (and their cost tags) don't touch: an arc step of about 1.2 medallions.
-    const r = Math.min(((size * 1.2 * (n - 1)) / (Math.PI / 2)) | 0, window.innerWidth - 90);
-    shown.forEach((btn, i) => {
-      const a = (Math.PI / 2) * (1 + i / (n - 1)); // 90° (up) to 180° (left)
-      btn.style.width = btn.style.height = `${size}px`;
-      btn.style.transform = `translate(${Math.cos(a) * r - size / 2}px, ${-Math.sin(a) * r - size / 2}px)`;
-    });
+    // Far enough out that neighbours (and their cost tags) don't touch: an arc step of about 1.2 medallions. Too many
+    // for one arc on the screen (a Realm's wheel on a phone): two arcs, the inner one a medallion and a bit in.
+    const fit = (count) => ((size * 1.2 * Math.max(1, count - 1)) / (Math.PI / 2)) | 0;
+    const most = Math.min(window.innerWidth - 90, window.innerHeight - 360); // (clear of the chronicle above it)
+    const outer = fit(n) > most ? Math.ceil(n * 0.6) : n;
+    const r = Math.min(fit(outer), most);
+    const arcs = [
+      { items: shown.slice(0, outer), r },
+      { items: shown.slice(outer), r: r - size * 1.3 },
+    ];
+    for (const arc of arcs) {
+      arc.items.forEach((btn, i) => {
+        const a = (Math.PI / 2) * (1 + (arc.items.length > 1 ? i / (arc.items.length - 1) : 0.5)); // 90° (up) to 180° (left)
+        btn.style.width = btn.style.height = `${size}px`;
+        btn.style.transform = `translate(${Math.cos(a) * arc.r - size / 2}px, ${-Math.sin(a) * arc.r - size / 2}px)`;
+      });
+    }
+    this._wheelReach = r + size / 2 + 14; // how far above the hammer the wheel goes (with its cost tags)
+    this._fitChronicle();
+  }
+
+  /** The chronicle (wide screens) stops short of the open build wheel below it: older entries are cut off. */
+  _fitChronicle() {
+    const list = this.el.chronicle;
+    const fab = $('build-fab').getBoundingClientRect();
+    if (!this.wheelOpen || !this._wheelReach || !fab.height) {
+      list.style.maxHeight = '';
+      return;
+    }
+    const top = fab.top + fab.height / 2 - this._wheelReach;
+    list.style.maxHeight = `${Math.max(60, top - list.getBoundingClientRect().top - 16)}px`;
   }
 
   attach(world) {
     this.world = world;
     this.minimap.attach(world);
-    // Conquest-only buildings (the Flag Fort) are in the wheel only there.
-    for (const [type, btn] of this.buttons) btn.hidden = Boolean(BUILDINGS[type]?.conquest) && world.mode !== 'conquest';
+    // Only what this mode offers is in the wheel (the Flag Fort in Conquest; guilds, the smithy and bounties in a Realm).
+    for (const [type, btn] of this.buttons) btn.hidden = type === 'bounty' ? !world.realm : BUILDINGS[type] ? !world.offers(type) : false;
+    this.realm.attach(world);
+    document.body.classList.toggle('realm', Boolean(world.realm));
+    this._dusk = false;
+    this.el.herald.hidden = true;
+    this.toggleChronicle(false);
     this._layoutWheel();
     this.el.gameover.hidden = true;
     this._last = {};
     this.el.toasts.replaceChildren();
     this.el.chronicle.replaceChildren();
     const ev = world.events;
-    ev.on('waveStarted', ({ wave, sides }) =>
-      world.mode === 'conquest' ? this.toast(`Wave ${wave}: the squads march out, ours and theirs!`, 'danger') : this.toast(`Wave ${wave} incoming from the ${joinSides(sides)}!`, 'danger'),
-    );
-    ev.on('waveCleared', ({ wave, bonus }) => this.toast(`Wave ${wave} survived! +${bonus} gold`, 'good'));
+    ev.on('waveStarted', ({ wave, sides }) => {
+      if (world.mode === 'conquest') this.toast(`Wave ${wave}: the squads march out, ours and theirs!`, 'danger');
+      else if (world.realm) this.toast(`Night falls: the blue army comes from the ${joinSides(sides)}!`, 'danger');
+      else this.toast(`Wave ${wave} incoming from the ${joinSides(sides)}!`, 'danger');
+    });
+    ev.on('waveCleared', ({ wave, bonus }) => this.toast(world.realm ? `Dawn! Night ${wave} survived. +${bonus} gold` : `Wave ${wave} survived! +${bonus} gold`, 'good'));
     ev.on('buildingDestroyed', ({ building }) => {
       if ((building.def.attack || building.def.trains) && building.type !== 'townHall') {
         if (building.team === 'blue') this.toast(`Enemy ${building.def.name} destroyed!`, 'good');
@@ -268,8 +348,8 @@ export class HUD {
     let phase = '';
     let progress = 0;
     if (w.phase === 'build') {
-      phase = `Next wave in ${Math.ceil(w.phaseTimer)}s`;
-      const total = w.waves.wave === 0 ? TIMING.firstBuildPhase : TIMING.buildPhase;
+      phase = w.realm ? `Day ${w.waves.wave + 1} · night falls in ${Math.ceil(w.phaseTimer)}s` : `Next wave in ${Math.ceil(w.phaseTimer)}s`;
+      const total = w.realm ? (w.waves.wave === 0 ? REALM.firstDay : REALM.day) : w.waves.wave === 0 ? TIMING.firstBuildPhase : TIMING.buildPhase;
       progress = 1 - w.phaseTimer / total;
     } else if (w.phase === 'wave') {
       const remaining = w.enemies.length + w.waves.queue.length;
@@ -283,11 +363,23 @@ export class HUD {
     const confirming = w.phase === 'build' && performance.now() < this._waveConfirmUntil;
     if (confirming) phase = `Tap again to send wave ${w.waves.wave + 1} now`;
     this._set('phase', phase);
-    if (this._last.confirming !== confirming) {
+    // In a Realm the dial is a sun by day and a moon by night, and counts days.
+    const dial = confirming ? 'Send?' : !w.realm ? 'Wave' : w.phase === 'wave' ? 'Night' : 'Day';
+    if (this._last.confirming !== confirming || this._last.dial !== dial) {
       this._last.confirming = confirming;
+      this._last.dial = dial;
       this.el.waveDial.classList.toggle('confirm', confirming);
       this.el.startWave.classList.toggle('confirm', confirming);
-      $('dial-label').textContent = confirming ? 'Send?' : 'Wave';
+      this.el.waveDial.classList.toggle('sun', dial === 'Day');
+      this.el.waveDial.classList.toggle('moon', dial === 'Night');
+      $('dial-label').textContent = dial;
+    }
+    // Realm: at dusk, the herald cries where the night's army is gathering.
+    if (w.realm && w.phase === 'build' && w.phaseTimer <= REALM.dusk && !this._dusk) {
+      this._dusk = true;
+      this.chronicle(`Dusk falls: the blue army gathers to the ${joinSides(w.waves.next.sides)}`, 'danger');
+    } else if (w.phase !== 'build') {
+      this._dusk = false;
     }
     const pct = `${Math.round(Math.max(0, Math.min(1, progress)) * 100)}%`;
     if (this._last.progress !== pct) {
@@ -314,11 +406,13 @@ export class HUD {
     for (const [type, btn] of this.buttons) {
       const def = BUILDINGS[type];
       btn.classList.toggle('active', this.game.build.mode === type);
-      btn.classList.toggle('unaffordable', !!def && !w.economy.canAfford(def.cost));
+      btn.classList.toggle('unaffordable', type === 'bounty' ? !w.economy.canAfford(REALM.bounty.base) : !!def && !w.economy.canAfford(def.cost));
     }
 
     this._updateInfo();
     this._updateHero();
+    this.realm.update();
+    this.realm.updateRail();
     this.minimap.update();
     this._updateConfirm();
     this._updateBuildTag();
@@ -368,13 +462,19 @@ export class HUD {
 
   // The Engineer's Codex: details of the selected building, its stage, and what upgrading it would bring.
   _updateInfo() {
+    const pick = this.game.build.picked;
+    if (pick) {
+      this._updateRealmCard(pick);
+      return;
+    }
     const b = this.game.build.selected;
     const w = this.world;
+    const realm = b && this.realm.buildingSection(b);
     const up = b && w.upgradeCheck(b);
     const fix = b && w.repairCheck(b);
     const line = b?.type === 'wall' && up.next ? w.wallLine(b.id) : [];
     const garrison = b?.def.trains ? this._garrison(b, b.team === 'blue' ? null : up.next) : '';
-    const key = b ? [b.id, Math.ceil(b.hp), b.stage, up.ok, up.reason, fix.ok, fix.cost, line.length, w.canSell(b) && w.sellValue(b), garrison].join(':') : '';
+    const key = b ? [b.id, Math.ceil(b.hp), b.stage, up.ok, up.reason, fix.ok, fix.cost, line.length, w.canSell(b) && w.sellValue(b), garrison, realm?.key].join(':') : '';
     if (this._last.info === key) return;
     this._last.info = key;
     document.body.classList.toggle('has-selection', Boolean(b));
@@ -419,6 +519,7 @@ export class HUD {
           : ''
       }
       ${garrison ? `<p class="garrison">${garrison}</p>` : ''}
+      ${realm ? `<div class="realm-section">${realm.html}</div>` : ''}
       <div class="codex-actions">
         ${
           n
@@ -433,6 +534,7 @@ export class HUD {
       ${line.length > 1 ? `<button id="upgrade-line" class="line-btn" ${up.ok ? '' : 'disabled'}>Upgrade the whole line: ${line.length} walls, <i class="coin"></i>${line.length * up.cost}</button>` : ''}
       ${n && !up.ok ? `<p class="codex-why">${up.reason}</p>` : ''}`;
     if (b.team === 'blue') this.el.info.querySelector('.codex-actions').replaceChildren();
+    realm?.bind();
     onPress($('info-close'), () => this.game.build.select(null));
     if (n) onPress($('upgrade-selected'), () => w.upgrade(b.id));
     if (line.length > 1) onPress($('upgrade-line'), () => w.upgradeLine(b.id));
@@ -443,6 +545,18 @@ export class HUD {
         this.game.build.select(null);
       });
     }
+  }
+
+  /** Realm: the card of the picked hero, foe, camp or flag (see RealmPanel). */
+  _updateRealmCard(pick) {
+    const card = this.realm.card(pick);
+    if (this._last.info === card.key) return;
+    this._last.info = card.key;
+    document.body.classList.add('has-selection');
+    this.el.info.hidden = false;
+    this.el.info.innerHTML = `<button id="info-close" class="info-close" type="button" aria-label="Close">×</button>${card.html}`;
+    onPress($('info-close'), () => this.game.build.pick(null));
+    card.bind();
   }
 
   /** Conquest: start (or stop) giving your hero orders; the camera goes to them. */
@@ -531,9 +645,14 @@ export class HUD {
     this._last.info = null;
   }
 
-  /** Report an event: a short toast (shown on small screens) and an entry in the Battle Chronicle. */
-  toast(message, kind = 'info') {
-    this._chronicle(message, kind);
+  /**
+   * Report an event: a short toast (shown on small screens) and an entry in the Battle Chronicle. `kind` is its
+   * severity ('good', 'info', 'warn' or 'danger': a gold, grey, amber or red seal); `at` ({ x, z }), where it happened
+   * (a tap on its chronicle entry looks there). In a Realm on a small screen, the herald ribbon shows it instead.
+   */
+  toast(message, kind = 'info', at = null) {
+    this.chronicle(message, kind, at);
+    if (this.world?.realm) return; // (the herald ribbon has it; see chronicle)
     const el = document.createElement('div');
     el.className = `toast ${kind}`;
     el.textContent = message;
@@ -543,12 +662,47 @@ export class HUD {
     setTimeout(() => el.remove(), 3200);
   }
 
-  _chronicle(message, kind) {
-    const li = document.createElement('li');
-    li.className = kind;
-    li.textContent = message;
-    this.el.chronicle.prepend(li);
-    while (this.el.chronicle.children.length > CHRONICLE_LENGTH) this.el.chronicle.lastChild.remove();
+  /**
+   * An entry in the Battle Chronicle only (no toast), sealed by `kind` (see toast). The same news twice running is
+   * one entry with a count ("×3"). In a Realm it's also cried by the herald ribbon (small screens).
+   */
+  chronicle(message, kind = 'info', at = null) {
+    const list = this.el.chronicle;
+    const top = list.firstElementChild;
+    if (top && top.dataset.message === message && top.classList.contains(kind)) {
+      top.dataset.count = String(Number(top.dataset.count) + 1);
+      top.querySelector('.count').textContent = `×${top.dataset.count}`;
+      if (at) Object.assign(top.dataset, { x: at.x, z: at.z });
+    } else {
+      const li = document.createElement('li');
+      li.className = kind;
+      Object.assign(li.dataset, { message, count: '1' });
+      li.append(message, Object.assign(document.createElement('span'), { className: 'count' }));
+      if (at) {
+        Object.assign(li.dataset, { x: at.x, z: at.z });
+        li.classList.add('jump');
+        li.title = 'Look there';
+      }
+      list.prepend(li);
+      while (list.children.length > CHRONICLE_LENGTH) list.lastChild.remove();
+    }
+    if (this.world?.realm) this._cry(list.firstElementChild);
+  }
+
+  /** The herald ribbon (a Realm, small screens): the latest news, sealed; a tap unrolls the chronicle. */
+  _cry(li) {
+    const herald = this.el.herald;
+    herald.className = `herald ${['good', 'info', 'warn', 'danger'].find((k) => li.classList.contains(k)) ?? 'info'}`;
+    herald.querySelector('.herald-text').textContent = li.dataset.message + (li.dataset.count > 1 ? ` ×${li.dataset.count}` : '');
+    herald.hidden = false;
+    herald.classList.remove('cried');
+    void herald.offsetWidth; // (restart the flourish)
+    herald.classList.add('cried');
+  }
+
+  /** Unroll (or roll up) the chronicle as a sheet over the bottom of the screen (small screens). */
+  toggleChronicle(open = !document.body.classList.contains('chronicle-open')) {
+    document.body.classList.toggle('chronicle-open', open);
   }
 
   setSpeed(speed) {
@@ -584,6 +738,16 @@ export class HUD {
       return;
     }
     $('gameover-title').textContent = 'The Town Hall has fallen';
+    const r = this.world.realm;
+    if (r) {
+      const n = stats.wavesSurvived;
+      this.el.gameoverStats.innerHTML = `
+        Your realm held for <strong>${n}</strong> night${n === 1 ? '' : 's'}. Your heroes burnt <strong>${r.stats.lairsRazed}</strong>
+        outlaw camp${r.stats.lairsRazed === 1 ? '' : 's'} and paid <strong>${r.stats.taxes}</strong> gold in tax;
+        ${r.stats.heroesLost ? `${r.stats.heroesLost} fell.` : 'not one of them fell.'}`;
+      this.el.gameover.hidden = false;
+      return;
+    }
     const best = this.game.recordBest(stats.wavesSurvived);
     this.el.gameoverStats.innerHTML = `
       You survived <strong>${stats.wavesSurvived}</strong> wave${stats.wavesSurvived === 1 ? '' : 's'}

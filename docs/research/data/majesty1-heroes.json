@@ -1,0 +1,1645 @@
+{
+ "source": "Majesty: The Fantasy Kingdom Sim wiki (majesty.fandom.com) hero pages, Oct 2026. Stats are level-1 values; ranges are the random roll at recruitment. decisions = the class thought process from the game manual, in order; chance = how often that step fires when reached.",
+ "heroes": [
+  {
+   "class": "Warrior",
+   "cost": 450,
+   "hp": 18,
+   "weapon": "Short Sword (10)",
+   "armour": "Partial Plate Armor (9)",
+   "moveSpeed": "Slow",
+   "attackSpeed": "Average",
+   "keyAttribute": "Strength",
+   "str": [
+    16,
+    20
+   ],
+   "int": [
+    6,
+    10
+   ],
+   "art": [
+    5,
+    9
+   ],
+   "vit": [
+    16,
+    20
+   ],
+   "wil": 14,
+   "melee": 70,
+   "ranged": 0,
+   "parry": 45,
+   "dodge": 35,
+   "resist": 0,
+   "greed": 12,
+   "loyalty": 30,
+   "luck": 15,
+   "speed": 1,
+   "sight": 185,
+   "range": "None",
+   "home": "Warriors Guild",
+   "decisions": [
+    {
+     "action": "Check for nearby hostile creatures or heroes"
+    },
+    {
+     "action": "Check for interest in Reward Flags"
+    },
+    {
+     "action": "Defend home or Palace if under assault"
+    },
+    {
+     "action": "Defend Temple to Agrela if under assault"
+    },
+    {
+     "action": "Rest if needed"
+    },
+    {
+     "action": "Check to upgrade items or attributes"
+    },
+    {
+     "action": "Pursue entertainment check"
+    },
+    {
+     "action": "Raid lair",
+     "chance": 95
+    },
+    {
+     "action": "Raid enemy building",
+     "chance": 90
+    },
+    {
+     "action": "Combat wandering monsters",
+     "chance": 95
+    },
+    {
+     "action": "Combat wandering enemy heroes",
+     "chance": 95
+    },
+    {
+     "action": "Visit Inn",
+     "chance": 50
+    },
+    {
+     "action": "Train Magic Resistance",
+     "chance": 10
+    },
+    {
+     "action": "Learn spell",
+     "chance": 10
+    },
+    {
+     "action": "Collect special items left on the map",
+     "chance": 20
+    },
+    {
+     "action": "Go home",
+     "chance": 90
+    },
+    {
+     "action": "Visit Royal Gardens",
+     "chance": 20
+    },
+    {
+     "action": "Explore",
+     "chance": 45
+    },
+    {
+     "action": "Wander"
+    }
+   ]
+  },
+  {
+   "class": "Ranger",
+   "cost": 350,
+   "hp": 17,
+   "weapon": "Longbow (6)",
+   "armour": "Soft Leather Armor (3)",
+   "moveSpeed": "3/5",
+   "attackSpeed": "Average",
+   "keyAttribute": "Strength",
+   "str": [
+    13,
+    17
+   ],
+   "int": [
+    14,
+    18
+   ],
+   "art": [
+    16,
+    20
+   ],
+   "vit": [
+    11,
+    15
+   ],
+   "wil": 18,
+   "melee": 0,
+   "ranged": 75,
+   "parry": 25,
+   "dodge": 50,
+   "resist": 0,
+   "greed": 3,
+   "loyalty": 10,
+   "luck": 15,
+   "speed": 3,
+   "sight": 260,
+   "range": 250,
+   "home": "Rangers Guild",
+   "decisions": [
+    {
+     "action": "Check for nearby hostile creatures or heroes"
+    },
+    {
+     "action": "Check for interest in Reward Flags"
+    },
+    {
+     "action": "Defend home or Palace if under assault"
+    },
+    {
+     "action": "Defend Trading Post if under assault"
+    },
+    {
+     "action": "Rest if needed"
+    },
+    {
+     "action": "Check to upgrade items or attributes"
+    },
+    {
+     "action": "Pursue entertainment check"
+    },
+    {
+     "action": "Collect healing herbs",
+     "chance": 95
+    },
+    {
+     "action": "Follow and support a Barbarian",
+     "chance": 90
+    },
+    {
+     "action": "Explore",
+     "chance": 95
+    },
+    {
+     "action": "Combat wandering monsters",
+     "chance": 75
+    },
+    {
+     "action": "Combat wandering enemy heroes",
+     "chance": 55
+    },
+    {
+     "action": "Journey to distant lands",
+     "chance": 30
+    },
+    {
+     "action": "Go home",
+     "chance": 15
+    },
+    {
+     "action": "Train Magic Resistance",
+     "chance": 15
+    },
+    {
+     "action": "Learn spell",
+     "chance": 30
+    },
+    {
+     "action": "Raid lair",
+     "chance": 15
+    },
+    {
+     "action": "Raid enemy building",
+     "chance": 10
+    },
+    {
+     "action": "Visit Royal Gardens",
+     "chance": 30
+    },
+    {
+     "action": "Visit Inn",
+     "chance": 15
+    },
+    {
+     "action": "Wander"
+    }
+   ]
+  },
+  {
+   "class": "Rogue",
+   "cost": 275,
+   "hp": 11,
+   "weapon": "Light Crossbow (8)",
+   "armour": "Soft Leather Armor (3)",
+   "moveSpeed": "Fast",
+   "attackSpeed": "Average",
+   "keyAttribute": "Artifice",
+   "str": [
+    7,
+    11
+   ],
+   "int": [
+    13,
+    15
+   ],
+   "art": [
+    23,
+    28
+   ],
+   "vit": [
+    9,
+    13
+   ],
+   "wil": 3,
+   "melee": 0,
+   "ranged": 55,
+   "parry": 35,
+   "dodge": 45,
+   "resist": 0,
+   "greed": 26,
+   "loyalty": 0,
+   "luck": 16,
+   "speed": 3,
+   "sight": 200,
+   "range": 130,
+   "home": "Rogues Guild",
+   "decisions": [
+    {
+     "action": "Check for nearby hostile creatures or heroes"
+    },
+    {
+     "action": "Check for interest in Reward Flags"
+    },
+    {
+     "action": "Defend home or Palace if under assault"
+    },
+    {
+     "action": "Defend Gambling Hall if under assault"
+    },
+    {
+     "action": "Rest if needed"
+    },
+    {
+     "action": "Check to upgrade items or attributes"
+    },
+    {
+     "action": "Pursue entertainment check"
+    },
+    {
+     "action": "Loot gravestones",
+     "chance": 100
+    },
+    {
+     "action": "Steal",
+     "chance": 95
+    },
+    {
+     "action": "Collect special items left on the map",
+     "chance": 90
+    },
+    {
+     "action": "Collect poison plants",
+     "chance": 90
+    },
+    {
+     "action": "Train Magic Resistance",
+     "chance": 15
+    },
+    {
+     "action": "Learn spell",
+     "chance": 25
+    },
+    {
+     "action": "Combat wandering monsters",
+     "chance": 65
+    },
+    {
+     "action": "Combat wandering enemy heroes",
+     "chance": 55
+    },
+    {
+     "action": "Raid lair",
+     "chance": 35
+    },
+    {
+     "action": "Visit Inn",
+     "chance": 35
+    },
+    {
+     "action": "Explore",
+     "chance": 20
+    },
+    {
+     "action": "Visit Royal Gardens",
+     "chance": 30
+    },
+    {
+     "action": "Go home",
+     "chance": 95
+    },
+    {
+     "action": "Wander"
+    }
+   ]
+  },
+  {
+   "class": "Wizard",
+   "cost": 500,
+   "hp": 4,
+   "weapon": "Wooden Staff (8)",
+   "armour": "No Armor (0)",
+   "moveSpeed": "Slow (teleport at level 4 makes it average)",
+   "attackSpeed": "Fast",
+   "keyAttribute": "Intelligence",
+   "str": [
+    1,
+    4
+   ],
+   "int": [
+    23,
+    27
+   ],
+   "art": [
+    2,
+    6
+   ],
+   "vit": [
+    2,
+    6
+   ],
+   "wil": 17,
+   "melee": 25,
+   "ranged": 0,
+   "parry": 15,
+   "dodge": 25,
+   "resist": 35,
+   "greed": 11,
+   "loyalty": 30,
+   "luck": 15,
+   "speed": 1,
+   "sight": 240,
+   "range": 0,
+   "home": "Wizard's Guild",
+   "decisions": [
+    {
+     "action": "Check for nearby hostile creatures or heroes"
+    },
+    {
+     "action": "Check for interest in Reward Flags"
+    },
+    {
+     "action": "Defend home or Palace if under assault"
+    },
+    {
+     "action": "Defend Library if under assault"
+    },
+    {
+     "action": "Defend Marketplace if under assault"
+    },
+    {
+     "action": "Rest if needed"
+    },
+    {
+     "action": "Check to upgrade items or attributes"
+    },
+    {
+     "action": "Pursue entertainment check"
+    },
+    {
+     "action": "Learn new spell at Library",
+     "chance": 90
+    },
+    {
+     "action": "Train Intelligence at Library",
+     "chance": 55
+    },
+    {
+     "action": "Train Magic Resistance at Library",
+     "chance": 15
+    },
+    {
+     "action": "Follow and support a Barbarian",
+     "chance": 30
+    },
+    {
+     "action": "Follow and support a Monk",
+     "chance": 20
+    },
+    {
+     "action": "Raid lair",
+     "chance": 45
+    },
+    {
+     "action": "Raid enemy building",
+     "chance": 30
+    },
+    {
+     "action": "Combat wandering monsters",
+     "chance": 65
+    },
+    {
+     "action": "Combat wandering enemy heroes",
+     "chance": 60
+    },
+    {
+     "action": "Explore",
+     "chance": 50
+    },
+    {
+     "action": "Visit Royal Gardens",
+     "chance": 5
+    },
+    {
+     "action": "Go home",
+     "chance": 85
+    },
+    {
+     "action": "Wander"
+    }
+   ]
+  },
+  {
+   "class": "Paladin",
+   "cost": 1000,
+   "hp": 21,
+   "weapon": "Longsword (10)",
+   "armour": "Partial Plate Armor (10)",
+   "moveSpeed": "Fast",
+   "attackSpeed": "Average",
+   "keyAttribute": "Intelligence",
+   "str": [
+    19,
+    23
+   ],
+   "int": [
+    12,
+    16
+   ],
+   "art": [
+    8,
+    12
+   ],
+   "vit": [
+    18,
+    22
+   ],
+   "wil": 23,
+   "melee": 85,
+   "ranged": 0,
+   "parry": 75,
+   "dodge": 55,
+   "resist": 5,
+   "greed": 3,
+   "loyalty": 90,
+   "luck": 15,
+   "speed": 2,
+   "sight": 200,
+   "range": 0,
+   "home": "Warriors Guild (needs a Temple to Dauros)",
+   "decisions": [
+    {
+     "action": "Check for nearby hostile creatures or heroes"
+    },
+    {
+     "action": "Check for interest in Reward Flags"
+    },
+    {
+     "action": "Defend home or Palace if under assault"
+    },
+    {
+     "action": "Defend Temple to Dauros if under assault"
+    },
+    {
+     "action": "Rest if needed"
+    },
+    {
+     "action": "Check to upgrade items or attributes"
+    },
+    {
+     "action": "Pursue entertainment check"
+    },
+    {
+     "action": "Raid lair",
+     "chance": 85
+    },
+    {
+     "action": "Raid enemy building",
+     "chance": 85
+    },
+    {
+     "action": "Combat wandering monsters",
+     "chance": 90
+    },
+    {
+     "action": "Combat wandering enemy heroes",
+     "chance": 80
+    },
+    {
+     "action": "Visit Royal Gardens",
+     "chance": 10
+    },
+    {
+     "action": "Train Magic Resistance",
+     "chance": 25
+    },
+    {
+     "action": "Go home",
+     "chance": 80
+    },
+    {
+     "action": "Wander"
+    }
+   ]
+  },
+  {
+   "class": "Warrior of Discord",
+   "cost": 900,
+   "hp": 35,
+   "weapon": "Blade-stick (16)",
+   "armour": "Leather Harness (5)",
+   "moveSpeed": "Slow",
+   "attackSpeed": "Average",
+   "keyAttribute": "Vitality",
+   "str": [
+    33,
+    37
+   ],
+   "int": [
+    1,
+    4
+   ],
+   "art": 3,
+   "vit": [
+    33,
+    37
+   ],
+   "wil": 12,
+   "melee": 95,
+   "ranged": 0,
+   "parry": 30,
+   "dodge": 30,
+   "resist": 0,
+   "greed": 4,
+   "loyalty": 0,
+   "luck": 15,
+   "speed": 1,
+   "sight": 200,
+   "range": 0,
+   "home": "Warrior's Guild",
+   "decisions": [
+    {
+     "action": "Check for nearby hostile creatures or heroes"
+    },
+    {
+     "action": "Check for interest in Reward Flags"
+    },
+    {
+     "action": "Defend home or Palace if under assault"
+    },
+    {
+     "action": "Defend Temple to Fervus if under assault"
+    },
+    {
+     "action": "Rest if needed"
+    },
+    {
+     "action": "Check to upgrade items or attributes"
+    },
+    {
+     "action": "Pursue entertainment check"
+    },
+    {
+     "action": "Raid enemy building",
+     "chance": 95
+    },
+    {
+     "action": "Raid lair",
+     "chance": 95
+    },
+    {
+     "action": "Combat wandering enemy heroes",
+     "chance": 95
+    },
+    {
+     "action": "Combat wandering monsters",
+     "chance": 95
+    },
+    {
+     "action": "Visit Royal Gardens",
+     "chance": 20
+    },
+    {
+     "action": "Train Magic Resistance",
+     "chance": 5
+    },
+    {
+     "action": "Learn spell",
+     "chance": 5
+    },
+    {
+     "action": "Go home",
+     "chance": 50
+    },
+    {
+     "action": "Wander"
+    }
+   ]
+  },
+  {
+   "class": "Healer",
+   "cost": 300,
+   "hp": 7,
+   "weapon": "Cheap Iron Dagger (4)",
+   "armour": "No Amor (0)",
+   "moveSpeed": "Fast",
+   "attackSpeed": "Average",
+   "keyAttribute": "Intelligence",
+   "str": [
+    1,
+    3
+   ],
+   "int": [
+    20,
+    24
+   ],
+   "art": 3,
+   "vit": [
+    5,
+    9
+   ],
+   "wil": 25,
+   "melee": 15,
+   "ranged": 0,
+   "parry": 25,
+   "dodge": 40,
+   "resist": 0,
+   "greed": 1,
+   "loyalty": 50,
+   "luck": 15,
+   "speed": 2,
+   "sight": 220,
+   "range": 0,
+   "home": "Temple to Agrela",
+   "decisions": [
+    {
+     "action": "Check for nearby hostile creatures or heroes"
+    },
+    {
+     "action": "Check for interest in Reward Flags"
+    },
+    {
+     "action": "Defend home or Palace if under assault"
+    },
+    {
+     "action": "Rest if needed"
+    },
+    {
+     "action": "Check to upgrade items or attributes"
+    },
+    {
+     "action": "Heal Others",
+     "chance": 95
+    },
+    {
+     "action": "Follow and Heal a Warrior",
+     "chance": 75
+    },
+    {
+     "action": "Follow and Heal a Wizard",
+     "chance": 35
+    },
+    {
+     "action": "Follow and Heal a Tax Collector",
+     "chance": 50
+    },
+    {
+     "action": "Plant healing plants",
+     "chance": 50
+    },
+    {
+     "action": "Visit Inn",
+     "chance": 20
+    },
+    {
+     "action": "Visit Royal Gardens",
+     "chance": 50
+    },
+    {
+     "action": "Train Magic Resistance",
+     "chance": 35
+    },
+    {
+     "action": "Go home",
+     "chance": 90
+    },
+    {
+     "action": "Wander"
+    }
+   ]
+  },
+  {
+   "class": "Monk",
+   "cost": 550,
+   "hp": 19,
+   "weapon": "Bare Hands (8)",
+   "armour": "No Amor (0)",
+   "moveSpeed": "Slow",
+   "attackSpeed": "Average",
+   "keyAttribute": "Willpower",
+   "str": [
+    15,
+    19
+   ],
+   "int": [
+    18,
+    22
+   ],
+   "art": [
+    3,
+    7
+   ],
+   "vit": [
+    17,
+    21
+   ],
+   "wil": 27,
+   "melee": 55,
+   "ranged": 0,
+   "parry": 75,
+   "dodge": 70,
+   "resist": 30,
+   "greed": 2,
+   "loyalty": 30,
+   "luck": 15,
+   "speed": 1,
+   "sight": 200,
+   "range": 0,
+   "home": "Temple to Dauros",
+   "decisions": [
+    {
+     "action": "Check for nearby hostile creatures or heroes"
+    },
+    {
+     "action": "Check for interest in Reward Flags"
+    },
+    {
+     "action": "Defend home or Palace if under assault"
+    },
+    {
+     "action": "Defend Marketplace if under assault"
+    },
+    {
+     "action": "Rest if needed"
+    },
+    {
+     "action": "Guard a Healer",
+     "chance": 95
+    },
+    {
+     "action": "Guard a Caravan",
+     "chance": 75
+    },
+    {
+     "action": "Combat wandering monsters",
+     "chance": 75
+    },
+    {
+     "action": "Raid lair",
+     "chance": 50
+    },
+    {
+     "action": "Visit Inn",
+     "chance": 50
+    },
+    {
+     "action": "Visit Royal Gardens",
+     "chance": 40
+    },
+    {
+     "action": "Train Magic Resistance",
+     "chance": 45
+    },
+    {
+     "action": "Learn spell",
+     "chance": 55
+    },
+    {
+     "action": "Collect special items left on the map",
+     "chance": 70
+    },
+    {
+     "action": "Go home",
+     "chance": 60
+    },
+    {
+     "action": "Wander"
+    }
+   ]
+  },
+  {
+   "class": "Priestess",
+   "cost": 400,
+   "hp": 10,
+   "weapon": "Wooden Staff (8)",
+   "armour": "No Armor (0)",
+   "moveSpeed": "Slow",
+   "attackSpeed": "Slow",
+   "keyAttribute": "Intelligence",
+   "str": [
+    1,
+    4
+   ],
+   "int": [
+    22,
+    26
+   ],
+   "art": [
+    3,
+    7
+   ],
+   "vit": [
+    4,
+    8
+   ],
+   "wil": 18,
+   "melee": 20,
+   "ranged": 0,
+   "parry": 10,
+   "dodge": 20,
+   "resist": 35,
+   "greed": 3,
+   "loyalty": 30,
+   "luck": 15,
+   "speed": 1,
+   "sight": 220,
+   "range": 0,
+   "home": "Temple to Krypta",
+   "decisions": [
+    {
+     "action": "Create Skeleton followers",
+     "chance": 95
+    },
+    {
+     "action": "Check for nearby hostile creatures or heroes"
+    },
+    {
+     "action": "Check for interest in Reward Flags"
+    },
+    {
+     "action": "Defend home or Palace if under assault"
+    },
+    {
+     "action": "Rest if needed"
+    },
+    {
+     "action": "Check to upgrade items or attributes"
+    },
+    {
+     "action": "Pursue entertainment check"
+    },
+    {
+     "action": "Combat wandering monsters",
+     "chance": 75
+    },
+    {
+     "action": "Combat wandering enemy heroes",
+     "chance": 70
+    },
+    {
+     "action": "Raid lair",
+     "chance": 40
+    },
+    {
+     "action": "Raid enemy building",
+     "chance": 30
+    },
+    {
+     "action": "Explore",
+     "chance": 50
+    },
+    {
+     "action": "Visit Royal Gardens",
+     "chance": 15
+    },
+    {
+     "action": "Train Magic Resistance",
+     "chance": 45
+    },
+    {
+     "action": "Learn spell",
+     "chance": 70
+    },
+    {
+     "action": "Go home",
+     "chance": 80
+    },
+    {
+     "action": "Wander"
+    }
+   ]
+  },
+  {
+   "class": "Cultist",
+   "cost": 400,
+   "hp": 11,
+   "weapon": "Cheap Iron Dagger (4)",
+   "armour": "Soft Leather Armor (3)",
+   "moveSpeed": "Fast",
+   "attackSpeed": "Fast",
+   "keyAttribute": "Artifice",
+   "str": [
+    9,
+    13
+   ],
+   "int": [
+    19,
+    23
+   ],
+   "art": [
+    13,
+    17
+   ],
+   "vit": [
+    6,
+    10
+   ],
+   "wil": 4,
+   "melee": 35,
+   "ranged": "55 (doesn't use)",
+   "parry": 30,
+   "dodge": 30,
+   "resist": 0,
+   "greed": 5,
+   "loyalty": 5,
+   "luck": 19,
+   "speed": 3,
+   "sight": 260,
+   "range": 110,
+   "home": "Temple to Fervus",
+   "decisions": [
+    {
+     "action": "Charm animal followers",
+     "chance": 95
+    },
+    {
+     "action": "Check for nearby hostile creatures or heroes"
+    },
+    {
+     "action": "Check for interest in Reward Flags"
+    },
+    {
+     "action": "Defend home or Palace if under assault"
+    },
+    {
+     "action": "Rest if needed"
+    },
+    {
+     "action": "Check to upgrade items or attributes"
+    },
+    {
+     "action": "Pursue entertainment check"
+    },
+    {
+     "action": "Swarm Attack with other Cultists",
+     "chance": 90
+    },
+    {
+     "action": "Combat wandering monsters",
+     "chance": 85
+    },
+    {
+     "action": "Combat wandering enemy heroes",
+     "chance": 85
+    },
+    {
+     "action": "Patrol creature den",
+     "chance": 60
+    },
+    {
+     "action": "Steal",
+     "chance": 25
+    },
+    {
+     "action": "Plant poison plants",
+     "chance": 55
+    },
+    {
+     "action": "Collect special items left on the map",
+     "chance": 45
+    },
+    {
+     "action": "Go home",
+     "chance": 30
+    },
+    {
+     "action": "Raid lair",
+     "chance": 20
+    },
+    {
+     "action": "Visit Royal Gardens",
+     "chance": 50
+    },
+    {
+     "action": "Train Magic Resistance",
+     "chance": 25
+    },
+    {
+     "action": "Learn Spell",
+     "chance": 30
+    },
+    {
+     "action": "Raid enemy building",
+     "chance": 20
+    },
+    {
+     "action": "Wander"
+    }
+   ]
+  },
+  {
+   "class": "Barbarian",
+   "cost": 350,
+   "hp": 20,
+   "weapon": "Axe & Club (22)",
+   "armour": "No Armor (0)",
+   "moveSpeed": "Slow",
+   "attackSpeed": "Average",
+   "keyAttribute": "Vitality",
+   "str": [
+    23,
+    27
+   ],
+   "int": [
+    3,
+    7
+   ],
+   "art": [
+    7,
+    11
+   ],
+   "vit": [
+    18,
+    22
+   ],
+   "wil": 8,
+   "melee": 85,
+   "ranged": 0,
+   "parry": 45,
+   "dodge": 55,
+   "resist": 20,
+   "greed": 9,
+   "loyalty": 40,
+   "luck": 15,
+   "speed": 1,
+   "sight": 180,
+   "range": 0,
+   "home": "Temple to Krolm",
+   "decisions": [
+    {
+     "action": "Check for nearby hostile creatures or heroes"
+    },
+    {
+     "action": "Check for interest in Reward Flags"
+    },
+    {
+     "action": "Defend home or Palace if under assault"
+    },
+    {
+     "action": "Defend Rangers Guild if under assault"
+    },
+    {
+     "action": "Rest if needed"
+    },
+    {
+     "action": "Check to upgrade items or attributes"
+    },
+    {
+     "action": "Pursue entertainment check"
+    },
+    {
+     "action": "Raid enemy building",
+     "chance": 95
+    },
+    {
+     "action": "Raid lair",
+     "chance": 95
+    },
+    {
+     "action": "Combat wandering enemy heroes",
+     "chance": 95
+    },
+    {
+     "action": "Combat wandering monsters",
+     "chance": 95
+    },
+    {
+     "action": "Explore",
+     "chance": 45
+    },
+    {
+     "action": "Train Magic Resistance",
+     "chance": 5
+    },
+    {
+     "action": "Learn spell",
+     "chance": 5
+    },
+    {
+     "action": "Collect special items left on the map",
+     "chance": 30
+    },
+    {
+     "action": "Go home",
+     "chance": 45
+    },
+    {
+     "action": "Wander"
+    }
+   ]
+  },
+  {
+   "class": "Adept",
+   "cost": 500,
+   "hp": 17,
+   "weapon": "Wooden Staff (8)",
+   "armour": "Soft Leather Armor (3)",
+   "moveSpeed": "Very fast",
+   "attackSpeed": "Fast",
+   "keyAttribute": "Strength",
+   "str": [
+    14,
+    18
+   ],
+   "int": [
+    17,
+    21
+   ],
+   "art": [
+    5,
+    9
+   ],
+   "vit": [
+    13,
+    17
+   ],
+   "wil": 16,
+   "melee": 75,
+   "ranged": 0,
+   "parry": 75,
+   "dodge": 75,
+   "resist": 0,
+   "greed": 2,
+   "loyalty": 95,
+   "luck": 15,
+   "speed": 5,
+   "sight": 200,
+   "range": 0,
+   "home": "Temple to Lunord",
+   "decisions": [
+    {
+     "action": "Check for nearby hostile creatures or heroes"
+    },
+    {
+     "action": "Check for interest in Reward Flags"
+    },
+    {
+     "action": "Defend home or Palace if under assault"
+    },
+    {
+     "action": "Rest if needed"
+    },
+    {
+     "action": "Check to upgrade items or attributes"
+    },
+    {
+     "action": "Pursue entertainment check"
+    },
+    {
+     "action": "Patrol the kingdom",
+     "chance": 95
+    },
+    {
+     "action": "Combat wandering monsters",
+     "chance": 60
+    },
+    {
+     "action": "Combat wandering enemy heroes",
+     "chance": 55
+    },
+    {
+     "action": "Visit Royal Gardens",
+     "chance": 20
+    },
+    {
+     "action": "Train Magic Resistance",
+     "chance": 25
+    },
+    {
+     "action": "Learn spell",
+     "chance": 40
+    },
+    {
+     "action": "Go home",
+     "chance": 95
+    },
+    {
+     "action": "Wander"
+    }
+   ]
+  },
+  {
+   "class": "Solarus",
+   "cost": 500,
+   "hp": 25,
+   "weapon": "Mace (12)",
+   "armour": "Iron Chain Mail (6)",
+   "moveSpeed": "Fast",
+   "attackSpeed": "Fast",
+   "keyAttribute": "Strength",
+   "str": [
+    17,
+    21
+   ],
+   "int": [
+    14,
+    18
+   ],
+   "art": [
+    4,
+    8
+   ],
+   "vit": [
+    16,
+    20
+   ],
+   "wil": 15,
+   "melee": 85,
+   "ranged": 0,
+   "parry": 55,
+   "dodge": 60,
+   "resist": 0,
+   "greed": 3,
+   "loyalty": 15,
+   "luck": 15,
+   "speed": 2,
+   "sight": 200,
+   "range": 0,
+   "home": "Temple to Helia",
+   "decisions": [
+    {
+     "action": "Check for nearby hostile creatures or heroes"
+    },
+    {
+     "action": "Check for interest in Reward Flags"
+    },
+    {
+     "action": "Defend home or Palace if under assault"
+    },
+    {
+     "action": "Defend Marketplace if under assault"
+    },
+    {
+     "action": "Rest if needed"
+    },
+    {
+     "action": "Check to upgrade items or attributes"
+    },
+    {
+     "action": "Pursue entertainment check"
+    },
+    {
+     "action": "Find hidden lairs and raid lairs",
+     "chance": 95
+    },
+    {
+     "action": "Garrison check",
+     "chance": 50
+    },
+    {
+     "action": "Explore",
+     "chance": 75
+    },
+    {
+     "action": "Visit Royal Gardens",
+     "chance": 15
+    },
+    {
+     "action": "Train Magic Resistance",
+     "chance": 15
+    },
+    {
+     "action": "Learn spell",
+     "chance": 50
+    },
+    {
+     "action": "Go home",
+     "chance": 5
+    },
+    {
+     "action": "Wander"
+    }
+   ]
+  },
+  {
+   "class": "Elf",
+   "cost": 500,
+   "hp": 11,
+   "weapon": "Longbow (6)",
+   "armour": "Iron Chain Mail (6)",
+   "moveSpeed": "Fast",
+   "attackSpeed": "Average",
+   "keyAttribute": "Artifice",
+   "str": [
+    8,
+    12
+   ],
+   "int": 16,
+   "art": 20,
+   "vit": [
+    9,
+    13
+   ],
+   "wil": 6,
+   "melee": 0,
+   "ranged": 90,
+   "parry": 15,
+   "dodge": 60,
+   "resist": 30,
+   "greed": 23,
+   "loyalty": 15,
+   "luck": 15,
+   "speed": 3,
+   "sight": 280,
+   "range": 260,
+   "home": "Elven Bungalow",
+   "decisions": [
+    {
+     "action": "Check for nearby hostile creatures or heroes"
+    },
+    {
+     "action": "Check for interest in Reward Flags"
+    },
+    {
+     "action": "Defend home or Palace if under assault"
+    },
+    {
+     "action": "Defend Gambling Hall if under assault"
+    },
+    {
+     "action": "Defend Elven Lounge if under assault"
+    },
+    {
+     "action": "Rest if needed"
+    },
+    {
+     "action": "Check to upgrade items or attributes"
+    },
+    {
+     "action": "Visit Inn to entertain",
+     "chance": 50
+    },
+    {
+     "action": "Pursue entertainment check"
+    },
+    {
+     "action": "Visit the Trading Post to entertain",
+     "chance": 35
+    },
+    {
+     "action": "Visit the Marketplace to entertain",
+     "chance": 20
+    },
+    {
+     "action": "Combat wandering monsters",
+     "chance": 80
+    },
+    {
+     "action": "Combat wandering enemy heroes",
+     "chance": 80
+    },
+    {
+     "action": "Raid lair",
+     "chance": 15
+    },
+    {
+     "action": "Raid enemy building",
+     "chance": 15
+    },
+    {
+     "action": "Steal",
+     "chance": 50
+    },
+    {
+     "action": "Collect special items left on the map",
+     "chance": 80
+    },
+    {
+     "action": "Visit Royal Gardens",
+     "chance": 45
+    },
+    {
+     "action": "Train Magic Resistance",
+     "chance": 25
+    },
+    {
+     "action": "Learn spell",
+     "chance": 55
+    },
+    {
+     "action": "Go home",
+     "chance": 90
+    },
+    {
+     "action": "Wander"
+    }
+   ]
+  },
+  {
+   "class": "Dwarf",
+   "cost": 500,
+   "hp": 22,
+   "weapon": "Hammer (12)",
+   "armour": "Partial Plate Armor (9)",
+   "moveSpeed": "Slow",
+   "keyAttribute": "Strength",
+   "str": [
+    17,
+    21
+   ],
+   "int": [
+    7,
+    11
+   ],
+   "art": [
+    21,
+    25
+   ],
+   "vit": [
+    20,
+    24
+   ],
+   "wil": 16,
+   "melee": 70,
+   "ranged": 0,
+   "parry": 40,
+   "dodge": 25,
+   "resist": 70,
+   "greed": 20,
+   "loyalty": 15,
+   "luck": 15,
+   "speed": 1,
+   "sight": 150,
+   "range": 0,
+   "home": "Dwarven Settlement",
+   "decisions": [
+    {
+     "action": "Check for nearby hostile creatures or heroes"
+    },
+    {
+     "action": "Check for interest in Reward Flags"
+    },
+    {
+     "action": "Defend home or Palace if under assault"
+    },
+    {
+     "action": "Defend Blacksmith if under assault"
+    },
+    {
+     "action": "Rest if needed"
+    },
+    {
+     "action": "Check to upgrade items or attributes"
+    },
+    {
+     "action": "Pursue entertainment check"
+    },
+    {
+     "action": "Raid lair",
+     "chance": 75
+    },
+    {
+     "action": "Raid enemy building",
+     "chance": 80
+    },
+    {
+     "action": "Combat wandering monsters",
+     "chance": 15
+    },
+    {
+     "action": "Combat wandering enemy heroes",
+     "chance": 15
+    },
+    {
+     "action": "Help construct building",
+     "chance": 85
+    },
+    {
+     "action": "Collect special items left on the map",
+     "chance": 40
+    },
+    {
+     "action": "Visit Inn",
+     "chance": 20
+    },
+    {
+     "action": "Train Magic Resistance",
+     "chance": 15
+    },
+    {
+     "action": "Learn spell",
+     "chance": 25
+    },
+    {
+     "action": "Go home",
+     "chance": 80
+    },
+    {
+     "action": "Wander"
+    }
+   ]
+  },
+  {
+   "class": "Gnome",
+   "cost": 100,
+   "hp": 3,
+   "weapon": "Cheap Iron Dagger (4)",
+   "armour": "No Armor (0)",
+   "moveSpeed": "Fast",
+   "attackSpeed": "Average",
+   "keyAttribute": "Willpower",
+   "str": 1,
+   "int": [
+    10,
+    14
+   ],
+   "art": 12,
+   "vit": [
+    1,
+    5
+   ],
+   "wil": 18,
+   "melee": 20,
+   "ranged": 0,
+   "parry": 75,
+   "dodge": 75,
+   "resist": 0,
+   "greed": 1,
+   "loyalty": 45,
+   "luck": 21,
+   "speed": 2,
+   "sight": 180,
+   "range": 0,
+   "home": "Gnome Hovel",
+   "decisions": [
+    {
+     "action": "Check for nearby hostile creatures or heroes"
+    },
+    {
+     "action": "Check for interest in Reward Flags"
+    },
+    {
+     "action": "Rest if needed"
+    },
+    {
+     "action": "Check to upgrade items or attributes"
+    },
+    {
+     "action": "Pursue entertainment check"
+    },
+    {
+     "action": "Help Construct Building",
+     "chance": 75
+    },
+    {
+     "action": "Combat wandering monsters",
+     "chance": 20
+    },
+    {
+     "action": "Combat wandering enemy heroes",
+     "chance": 10
+    },
+    {
+     "action": "Visit Royal Gardens",
+     "chance": 50
+    },
+    {
+     "action": "Train Magic Resistance",
+     "chance": 10
+    },
+    {
+     "action": "Learn spell",
+     "chance": 15
+    },
+    {
+     "action": "Go home",
+     "chance": 90
+    },
+    {
+     "action": "Wander"
+    }
+   ]
+  }
+ ]
+}

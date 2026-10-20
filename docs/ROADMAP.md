@@ -212,6 +212,50 @@ shown by livery hints (the same army on both sides, not two factions).
 - [x] Tidier plateaus (short ramps mid-side, never round a corner; a wider clearing round the cliffs)
 - [x] AI against AI in tests (`world.aiTeams`): a long game where no soldier stands stuck and the battle ends
 
+## v0.5a: Realm (heroes on their own, after Majesty)
+
+A third mode (research in `docs/research/`): heroes act on their own and the player steers them with gold. It lives
+in `src/sim/realm/` so it can be spun out into a game of its own.
+
+- [x] Guilds (Warriors' Hall, Rangers' Lodge, Rogues' Den) hire heroes with names, traits and levels
+- [x] Hero AI: courage checks, a class plan (defend, hunt, raid, patrol, explore, home), resting and healing at home
+- [x] Carried gold: kill gold and loot to the hero, tax at home, gear bought at the Smithy (sales tax)
+- [x] Bounty flags: attack (shared by damage) and explore (first to reach it); takers and refusals on the card
+- [x] Outlaw camps: guards that refill, growth, raids on the town, loot; a new camp rises after one burns
+- [x] Fog of war in chunks; no building in unseen land
+- [x] Day/night: Survival's waves by night
+- [x] Hero, camp and flag cards; barks and flag labels over the battlefield; Realm on the minimap
+- [x] Realm look, stage 0 (see [research/10-ui-and-art-direction.md](research/10-ui-and-art-direction.md): "a living
+      chart"): unseen land as blank vellum with an ink-bleed edge; barks as scrolls in the guild's colours, a few at a
+      time (danger first), never over the speaker; bounties as wax seals stamped with their gold, a pip per taker;
+      chronicle entries sealed by severity (gold, grey, amber, red), merged when repeated, a tap looks there; on
+      phones, a herald ribbon with the latest news in place of toasts (a tap unrolls the chronicle); brighter
+      bounty marks on the minimap
+- [x] A Realm builds only its guilds for now (`REALM.buildable`, per game in `world.realm.buildable`, so more can be
+      unlocked later); heroes explore of their own accord instead of milling about the town
+- [x] A detailed parchment for unseen land (`render/parchment.js`): fibres, laid lines, foxing, a graticule, hatched
+      and browned towards the known land
+- [x] Realm look, stage 1: rings under heroes in their guild's colour, a sign over each head for what it's up to, a
+      hero rail (portraits with health and level; a tap opens the card), a sun-and-moon day dial, the herald crying
+      dusk, edge arrows towards raiders and fleeing heroes out of sight, flag cards that say what would change a
+      refusing hero's mind
+- [x] Realm look, stage 1 finished: the rings show health (the lost part darkened), heroes drawn 12% larger, a blue
+      pennant by day at the map's edge where the night's army will come from, and the cards as documents (a hero's
+      commission with its trait in plain words and when it runs, a camp's "wanted" notice, a bounty under its seal).
+      (A Decree button splitting the wheel is no longer needed: the Realm wheel holds just the guilds and the flag.)
+- [x] Realm look, stage 2: night grade (a CSS grade and vignette) with lantern light round the Hall, camps and heroes,
+      the parchment an indigo ink wash at night, the dawn page, each guild's own lettering for its words (Settings →
+      Hero lettering → Plain), a rumour mark on the parchment where a camp rose out of sight
+- [ ] Realm look, stage 2 still to do: more cartographer's marks in the fog (roads running on past the known edge,
+      hill symbols), shape-coded pennants (with stage 3's bake), a sepia "stale" fog for land no longer watched (needs
+      the sim to keep when each chunk was last seen)
+- [ ] Realm look, stage 3 (needs a bake): hero class silhouettes and guild tabards, distinct outlaws
+- [ ] More hero classes (a healer, a wizard) and temples that unlock them
+- [ ] Hero spells and items; a marketplace and inns (more ways to tax)
+- [ ] Monster lairs beyond outlaws (wolves, a dragon), and their own bounty rules
+- [ ] Control-model toggles B and C from the research (a "rally" order, a direct-control hero)
+- [ ] Spin out into its own game: its own map generator, menu and save
+
 ## v0.5: Heroes
 
 - [ ] One hero you control directly (click to move/attack)

@@ -22,6 +22,12 @@ describe('wallSeat (drawing towers on the walls they are built into)', () => {
     expect(wallSeat(world, 'archerTower', 8, 9)).toEqual({ shape: 'nse', dx: -0.5, dz: -0.5 });
   });
 
+  it('only towers and the gatehouse are built into a wall: a Barracks or a guild in a wall line is drawn whole', () => {
+    const world = worldWithWalls([...[4, 5, 6, 7, 8].map((x) => [x, 8]), ...[11, 12, 13, 14].map((x) => [x, 8])]);
+    expect(wallSeat(world, 'archerTower', 9, 8).shape).toBe('we');
+    for (const type of ['barracks', 'warriorsHall', 'rangersLodge', 'roguesDen', 'smithy', 'flagFort']) expect(wallSeat(world, type, 9, 8), type).toEqual({ shape: null, dx: 0, dz: 0 });
+  });
+
   it('a crossroads has no in-wall model (normal tower with joints)', () => {
     const world = worldWithWalls([...[6, 7, 8, 9, 10, 11, 12].map((x) => [x, 8]), [10, 6], [10, 7], [10, 10], [10, 11]]);
     expect(wallSeat(world, 'archerTower', 9, 8).shape).toBeNull();

@@ -1,0 +1,53 @@
+{
+ "source": "Thronefall wiki (throne-fall.github.io, the official community wiki), Oct 2026. Costs in gold; income is paid each morning by buildings that survived the night. Damage multiplies by every matching tag of the target (e.g. tower base 8 x 1.15 vs flying).",
+ "buildings": [
+  { "name": "Castle Center", "role": "core", "cost": [3, 7, 20], "hp": [100, 300, 700], "attack": { "perSecond": [0.25, 0.5, 1], "range": 35, "damage": 4.5 }, "notes": "Lose if destroyed. Each upgrade offers a pick of 1 from 4 (L2: Royal Training, Builder's Guild, Magic Armor, Assassin's Training; L3: Royal Mastery, Commander, Castle-Up, Godly Curse)" },
+  { "name": "House", "role": "economy", "cost": [2, 2], "hp": [20, 30], "incomePerNight": [1, 2] },
+  { "name": "Mill", "role": "economy", "cost": [3, 4, 6], "hp": [30, 50, 80], "incomePerNight": [1, 2, 6], "notes": "Unlocks fields. Pick 1 of 4 on building: Improved Plow (+1 income per later upgrade), Explosive Trap (explodes when destroyed), Scarecrows (anti-air on its fields), Wind Spirits (block enemy arrows nearby)" },
+  { "name": "Fishing Harbour", "role": "economy", "cost": [3, 7], "hp": [60, 120], "incomePerNight": "1 per boat (2 at L2); gains a boat each night, up to 5" },
+  { "name": "Gold Mine", "role": "economy", "cost": 5, "hp": 20, "incomePerNight": "6, minus 1 each night after building" },
+  { "name": "Tower", "role": "defence", "cost": [3, 5, 15], "hp": [100, 250], "attack": { "perSecond": [0.5, 0.714], "range": 36, "damage": 8, "vsFlying": 1.15, "vsRangedResistant": 0.6, "vsTowerVulnerable": 2 }, "notes": "L2 pick: Castle (+150 HP, faster), Sniper (+50% range, +180% damage, targets highest HP and siege), Armoured (+350 HP, targets lowest HP or flying, shield on first hit), Bunker (+75 HP, random target). L3 pick: Archer's Spire (+1 arrow), Ballistic Spire (+450% damage, slows), Fire Spire (splash and oil), Healing Spire (heals allies)" },
+  { "name": "Wall", "role": "defence", "cost": "3-5 (or 15)", "upgrade": "5-7 (or 20)", "hp": [240, 640] },
+  { "name": "Barricade", "role": "defence", "notes": "0 HP but indestructible; slows enemies, doesn't block" },
+  { "name": "Barracks", "role": "military", "cost": [4, 8, 16], "hp": [30, 40, 50], "units": [4, 8, 12], "respawn": "10 s / 6 s / 6 s during the night, all at dawn", "notes": "Pick one unit type for good: Knights, Spearmen, Flails, Berserks" },
+  { "name": "Archery Range", "role": "military", "cost": [4, 8, 16], "hp": [30, 40, 50], "units": [4, 8, 12], "notes": "Pick one: Longbow Archers, Crossbowmen, Hunters, Fire Archers" },
+  { "name": "Blacksmith (Royal Forge)", "role": "research", "cost": [4, 9, 16], "hp": 80, "researches": [1, 2, 3], "notes": "Each level: pick 1 of 4 researches that buff everything: melee +20% (3 days), ranged +20% (3 days), melee resistance +30% (2 days), ranged resistance +30% (2 days)" },
+  { "name": "Shrine", "role": "defence", "cost": 3, "hp": 777, "attack": { "perSecond": 3, "range": 20, "damage": 3.5 }, "notes": "Must be activated by killing 350 HP of enemies near it; then shoots and pays 2 gold a night; +20% per other active shrine" },
+  { "name": "Hero's Quarters", "role": "military", "notes": "One hero unit (Golem, Firewing, Lizard Rider, Support Mage) that grows stronger with upgrades instead of more numerous" }
+ ],
+ "units": [
+  { "name": "Knight", "from": "Barracks", "tags": ["melee", "ranged resistant"], "hp": 100, "speed": 4, "damage": 2.5, "perSecond": 1, "notes": "Versatile, armoured against arrows" },
+  { "name": "Spearman", "from": "Barracks", "tags": ["melee", "ranged vulnerable"], "hp": 60, "speed": 8, "damage": 1.75, "perSecond": 2, "notes": "x1.75 damage vs fast enemies and slows them 67% for 2 s" },
+  { "name": "Flail", "from": "Barracks", "tags": ["melee"], "hp": 70, "speed": 5, "damage": 1.5, "perSecond": 1, "notes": "Hits every enemy around it" },
+  { "name": "Berserk", "from": "Barracks", "tags": ["melee"], "notes": "Targets siege units and other high-HP targets" },
+  { "name": "Longbow Archer", "from": "Archery Range", "tags": ["ranged"], "notes": "Very long range, fragile" },
+  { "name": "Crossbowman", "from": "Archery Range", "tags": ["ranged", "ranged resistant"], "notes": "Short range, high damage, bonus vs ranged units, weak vs flying" },
+  { "name": "Hunter", "from": "Archery Range", "tags": ["ranged"], "hp": 45, "speed": 6, "damage": 3.5, "notes": "x2 vs monsters, +40% range vs monsters, a melee attack too; weak vs ranged" },
+  { "name": "Fire Archer", "from": "Archery Range", "tags": ["ranged"], "notes": "Splash; bonus vs siege engines" },
+  { "name": "Firewing", "from": "Hero's Quarters", "tags": ["ranged", "flying", "hero"], "hp": 30, "speed": 10, "notes": "Splash vs ground and air" },
+  { "name": "Golem", "from": "Hero's Quarters", "tags": ["melee", "hero"], "notes": "Huge area and single-target damage" },
+  { "name": "Support Mage", "from": "Hero's Quarters", "tags": ["ranged", "hero"], "notes": "Heals the king and units, blocks magic projectiles" },
+  { "name": "The King", "from": "player", "tags": ["hero"], "hp": 50, "speed": "14 walking, 23 sprinting", "notes": "Regenerates 10%/s after 1 s; the only builder; weapon chosen before the map (bow and dagger, spear, sword, lightning staff)" }
+ ],
+ "enemies": [
+  { "name": "Peasant", "group": "human", "notes": "Rare basic enemy" },
+  { "name": "Swordsman", "group": "human", "hp": 25, "speed": 5, "damage": 2.5, "prefers": "none" },
+  { "name": "Archer", "group": "human", "hp": 20, "speed": 5, "damage": 4, "range": 40, "prefers": "none", "tags": ["ranged", "tower vulnerable"] },
+  { "name": "Elite Crossbow Man", "group": "human", "hp": 40, "speed": 4, "damage": 15, "range": 15, "prefers": "units", "notes": "x0.15 vs walls" },
+  { "name": "Pikes", "group": "human", "notes": "Slow and hurt the king's horse when ridden into" },
+  { "name": "Flying Mage", "group": "human", "tags": ["flying", "ranged"], "prefers": "units", "notes": "Splash" },
+  { "name": "Ogre", "group": "human (tank)", "hp": 200, "speed": 4, "damage": 20, "prefers": "defensive buildings", "notes": "x0.5 vs units" },
+  { "name": "Racer", "group": "monster", "hp": 35, "speed": 10, "damage": 2.5, "prefers": "castle center", "notes": "x2 vs castle, resists the king, never chases the king" },
+  { "name": "Wasp", "group": "monster", "hp": 25, "speed": 8, "damage": 2.5, "prefers": "economic buildings", "tags": ["flying"] },
+  { "name": "Hunterling", "group": "monster", "prefers": "the king" },
+  { "name": "Monster Rider", "group": "monster" },
+  { "name": "Exploder", "group": "monster", "notes": "Dies attacking a building and explodes" },
+  { "name": "Slime / Spiky Slime", "group": "monster", "notes": "Spiky: about 3x health and damage" },
+  { "name": "Fury", "group": "monster", "tags": ["flying"], "prefers": "defences", "notes": "Slow, dodgeable, devastating projectiles" },
+  { "name": "Catapult", "group": "siege", "hp": 45, "speed": 2, "damage": 150, "range": 26.4, "prefers": "buildings", "notes": "x0.2 vs castle centre; never targets the king" },
+  { "name": "Ram", "group": "siege", "hp": 250, "speed": 2.25, "damage": 15, "prefers": "buildings", "tags": ["ranged resistant", "high health"] },
+  { "name": "Barrel Knight", "group": "siege", "notes": "Wooden enchanted melee siege unit" },
+  { "name": "Quicksling", "group": "siege", "notes": "High damage, shoots at random targets in range" },
+  { "name": "Shadow in the Water / Strange Statues", "group": "boss" }
+ ]
+}

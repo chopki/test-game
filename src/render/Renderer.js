@@ -27,6 +27,7 @@ import { CATAPULT_ARM_FRAMES, ENEMY_ANIMS, FLAG_FRAMES, crystalHeight, spriteKey
 import { hallEffects, STAGE_WALL_VARIANTS } from './stageModels.js';
 import { aimStreaks, createArrowStreaks } from './arrows.js';
 import { PENNANT_W } from './modelKit.js';
+import { RealmLayer } from './realmLayer.js';
 
 const SKY = 0xa9d3ee;
 
@@ -51,6 +52,7 @@ const COLOUR_GRADE = 'sepia(0.08) saturate(1.04) contrast(1.04)';
 const DECOR_LIGHTS = { torch: [0, 1.38, 0.2, 0.9], brazier: [0, 0.66, 0.24, 1.2], lantern: [0, 0.85, 0.36, 0.8] };
 /** The light in rain and in winter (CSS filters on the canvas, after the grade). */
 const RAIN_LIGHT = 'brightness(0.9) saturate(0.82)';
+const NIGHT_LIGHT = 'brightness(0.62) saturate(0.7) hue-rotate(-12deg) contrast(1.06)'; // Realm's nights (setNight)
 const WINTER_LIGHT = 'saturate(0.88) brightness(1.02)';
 /** Broadleaf trees and bushes, whose leaves turn in autumn (conifers stay green). */
 const BROADLEAF = new Set(['oak', 'birch', 'beech', 'bush']);
@@ -65,19 +67,20 @@ const NEIGHBOURS = [
   ['s', 0, 1],
   ['w', -1, 0],
 ];
-const ENEMY_BAR_WIDTH = { swordsman: 0.55, pikeman: 0.55, archer: 0.5, knight: 0.7, ram: 1.0, mangonel: 1.0 };
-const ENEMY_BLOB_RADIUS = { swordsman: 0.26, pikeman: 0.26, archer: 0.24, knight: 0.32, ram: 0.72, mangonel: 0.78 };
+const ENEMY_BAR_WIDTH = { swordsman: 0.55, rogue: 0.5, pikeman: 0.55, archer: 0.5, knight: 0.7, ram: 1.0, mangonel: 1.0 };
+const ENEMY_BLOB_RADIUS = { swordsman: 0.26, rogue: 0.24, pikeman: 0.26, archer: 0.24, knight: 0.32, ram: 0.72, mangonel: 0.78 };
 // Tiles covered by one walk cycle, so feet keep pace with the ground.
 /** With Health bars 'On hit': how long a bar shows after a hit, and how long it takes to fade at the end (s). */
 const BAR_SHOW = 2.5;
 const BAR_FADE = 0.4;
-const WALK_STRIDE = { swordsman: 0.7, pikeman: 0.7, archer: 0.7, knight: 0.75, ram: 0.6, mangonel: 0.6 };
+const WALK_STRIDE = { swordsman: 0.7, rogue: 0.7, pikeman: 0.7, archer: 0.7, knight: 0.75, ram: 0.6, mangonel: 0.6 };
 const DEATH_FRAME_TIME = 0.11; // seconds per death frame
 /** Ring colours for hero abilities (see HEROES.abilities). */
 const ABILITY_RINGS = { warCry: 0xe8c25a, charge: 0xd9562e, volley: 0xc23a2a, fleetFoot: 0x9fd1a8, shieldWall: 0x7fa6d9, rally: 0xf2e2a0 };
 /** Far-out rings under soldiers, in each side's colour (see TeamMarkerBatch). */
 const TEAM_MARKERS = { red: 0xd23a2a, blue: 0x3a64c8, neutral: 0xd8cfb8 };
 const CORPSE_TIME = 0.9; // how long a fallen enemy stays before vanishing
+const REALM_HERO_GROW = 1.12; // Realm's heroes drawn this much bigger than other crowned men, to pick out
 // Visible world height at zoom 1 is at least this; portrait screens show at least VIEW_WIDTH across.
 const VIEW_HEIGHT = 30;
 const VIEW_WIDTH = 30;
@@ -159,6 +162,7 @@ export class Renderer {
     this.glows = new GlowBatch(this.overlayLayer, ISO_QUATERNION);
     this.precipitation = new Precipitation(this.overlayLayer);
     this.wildlife = new Wildlife(this);
+    this.realm = new RealmLayer(this);
     this.weather = { season: 'summer', weather: 'clear' };
     this._look = weatherLook('summer', 'clear');
     this.scorches = [];
@@ -596,6 +600,11 @@ export class Renderer {
     return lines;
   }
 
+  /** The build-mode tile lines on or off (Settings → Build grid). */
+  showGridLines(on) {
+    if (this._gridLines) this._gridLines.visible = on;
+  }
+
   /** Build-mode tint over tiles whose terrain can't be built on. */
   _createBlockedTint(grid) {
     const m = grid.spawnMargin;
@@ -729,6 +738,7 @@ export class Renderer {
     this.setWeather(season, this._weatherFor(0, season));
     this._look = this._targetLook();
     this.wildlife.reset(world);
+    this.realm.attach(world);
     const ev = world.events;
     this._unsubscribe = [
       ev.on('projectileFired', ({ projectile }) => {
@@ -752,7 +762,7 @@ export class Renderer {
       ev.on('troopKilled', ({ troop, dismissed }) => {
         if (dismissed) return;
         this._fxDust(troop.x, 0.25, troop.z, 3, 0.35);
-        this.corpses.push({ type: troop.type, elite: troop.elite ?? false, team: troop.team, heading: troop.heading, x: troop.x, z: troop.z, age: 0 });
+        this.corpses.push({ type: troop.type, elite: troop.elite ?? troop.realm === 'hero', team: troop.team, heading: troop.heading, x: troop.x, z: troop.z, age: 0 });
       }),
       // Heroes: a gold ring for a war cry, a small one where yours is sent.
       // Hero abilities: a ring in the ability's colour where it lands.
@@ -868,8 +878,10 @@ export class Renderer {
     if (world) {
       this._sync(this.views.buildings, world.buildings.values(), (b) => this._createBuildingView(b), (v, b) => this._updateBuildingView(v, b));
       this._drawFlags();
+      this.realm.update(this._time);
       this._sync(this.views.enemies, world.enemies, () => ({ walk: Math.random() }), (v, e) => this._updateEnemyView(v, e));
-      this._sync(this.views.troops, world.troops, () => ({ walk: Math.random() }), (v, t) => this._updateEnemyView(v, t));
+      const troops = world.realm ? world.troops.filter((t) => !this.realm.hides(t)) : world.troops;
+      this._sync(this.views.troops, troops, () => ({ walk: Math.random() }), (v, t) => this._updateEnemyView(v, t));
       this._drawCorpses(dt);
       this._sync(this.views.projectiles, world.projectiles, (p) => this._createProjectileView(p), (v, p) => this._updateProjectileView(v, p));
     }
@@ -1061,7 +1073,14 @@ export class Renderer {
     this.precipitation.update(dt, this.controls.target, falling, this._time);
   }
 
-  /** The canvas's CSS filter: the warm grade (Glow and colour) and the weather's light (dimmer in rain). */
+  /** Realm: night falls (or day breaks), cooling and dimming the field (see NIGHT_LIGHT); it eases over 3 s. */
+  setNight(night) {
+    if (this._night === night) return;
+    this._night = night;
+    this._applyFilter();
+  }
+
+  /** The canvas's CSS filter: the warm grade (Glow and colour), the weather's light (dimmer in rain), and night. */
   _applyFilter() {
     const parts = [];
     if (this.graphics?.glow) parts.push(COLOUR_GRADE);
@@ -1069,6 +1088,7 @@ export class Renderer {
       if (this.weather?.weather === 'rain') parts.push(RAIN_LIGHT);
       else if (this.weather?.season === 'winter') parts.push(WINTER_LIGHT);
     }
+    if (this._night) parts.push(NIGHT_LIGHT);
     const el = this.renderer.domElement;
     el.style.transition = 'filter 3s';
     el.style.filter = parts.join(' ');
@@ -1213,8 +1233,10 @@ export class Renderer {
     }
     view.anim = anim;
     view.frame = frame;
-    const scale = e.elite ? 1.3 : 1;
-    this._addEnemySprite(e.type, e.elite, e.heading, anim, frame, this.toScene(e.x, 0, e.z, this._v), team);
+    const elite = e.elite || e.realm === 'hero'; // Realm's heroes wear crowns, and stand a little taller still
+    const grow = e.realm === 'hero' ? REALM_HERO_GROW : 1;
+    const scale = (elite ? 1.3 : 1) * grow;
+    this._addEnemySprite(e.type, elite, e.heading, anim, frame, this.toScene(e.x, 0, e.z, this._v), team, grow);
     this.blobShadows.add(this.toScene(e.x, 0.02, e.z, this._v), (ENEMY_BLOB_RADIUS[e.type] ?? 0.3) * scale);
     // Far out: a ring in his side's colour (bigger for a hero), and only heroes keep their health bars.
     if (this._far > 0) this.teamMarkers.add(team, this.toScene(e.x, 0.03, e.z, this._v), (e.hero ? 0.55 : 0.36) * (1 + (LOD.markerGrow - 1) * this._far));
@@ -1239,13 +1261,13 @@ export class Renderer {
     return Math.max(0, Math.min(1, (BAR_SHOW - since) / BAR_FADE));
   }
 
-  _addEnemySprite(type, elite, heading, anim, frame, ground, team = 'blue') {
+  _addEnemySprite(type, elite, heading, anim, frame, ground, team = 'blue', grow = 1) {
     let key = spriteKeys.enemy(type, heading, elite, anim, frame, team);
-    let spriteScale = 1;
+    let spriteScale = grow;
     if (elite && !this.atlas.frame(key)) {
       // No baked elite sprite for this type: scale the normal one.
       key = spriteKeys.enemy(type, heading, false, anim, frame);
-      spriteScale = 1.3;
+      spriteScale = 1.3 * grow;
     }
     this.sprites.add(key, ground, spriteScale, 0, 0, SPRITE_KIND.unit);
   }

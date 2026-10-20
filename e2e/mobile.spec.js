@@ -276,3 +276,45 @@ test('conquest on a phone: giving the hero orders, a drag still pans and the min
   expect(errors).toEqual([]);
 });
 
+
+test('Realm on a phone: a guild placed with ✓, and one tap on Hire hires one hero', async ({ page }) => {
+  const errors = await openGame(page, { query: 'mode=realm' });
+  const touch = await touchInput(page);
+  await (await buildButton(page, /Rogues' Den/)).tap();
+  await touch.tap(await tileToScreen(page, 14, 15));
+  await expect(page.locator('#confirm')).toBeVisible();
+  await page.locator('#confirm-yes').tap();
+  await expect.poll(() => buildingAt(page, 14, 15)).toBe('roguesDen');
+
+  await touch.tap(await tileToScreen(page, 14, 15));
+  const hire = page.getByRole('button', { name: /Hire a Rogue/ });
+  await expect(hire).toBeVisible();
+  await hire.tap();
+  await expect(page.locator('#info')).toContainText('Rogues: 1/4');
+  // The card is redrawn under the finger: the browser's click after the tap mustn't hire a second.
+  await page.waitForTimeout(1000);
+  expect(await page.evaluate(() => window.game.world.realm.heroes.length)).toBe(1);
+  expect(errors).toEqual([]);
+});
+
+test('Realm on a phone: the herald ribbon cries the news, and a tap unrolls the chronicle; a tap on an entry looks there', async ({ page }) => {
+  const errors = await openGame(page, { query: 'mode=realm' });
+  await expect(page.locator('#herald')).toBeVisible(); // the opening news
+  await page.evaluate(() => {
+    const w = window.game.world;
+    w.realm.lairs[0].nextRaid = 0;
+    w.update(1 / 30);
+  });
+  await expect(page.locator('#herald')).toContainText('Outlaws are out raiding');
+  await expect(page.locator('#herald')).toHaveClass(/danger/);
+  await expect(page.locator('#toasts .toast')).toHaveCount(0);
+  await page.locator('#herald').tap();
+  await expect(page.locator('#chronicle')).toBeVisible();
+  const camera = () => page.evaluate(() => window.game.renderer.controls.target.toArray().map((v) => Math.round(v)));
+  await page.evaluate(() => window.game.renderer.focusOn(6, 6)); // look elsewhere first
+  const before = await camera();
+  await page.locator('#chronicle-list li.jump').first().tap();
+  await expect(page.locator('#chronicle')).toBeHidden();
+  await expect.poll(camera).not.toEqual(before);
+  expect(errors).toEqual([]);
+});

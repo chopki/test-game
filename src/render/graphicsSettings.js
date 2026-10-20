@@ -67,6 +67,16 @@ export const OPTIONS = {
     [false, 'Off'],
     [true, 'On'],
   ],
+  // Realm: heroes' barks lettered in their guild's hand, or in the plain UI face (easier to read).
+  lettering: [
+    ['hand', 'Hand-lettered'],
+    ['plain', 'Plain'],
+  ],
+  // The tile grid drawn over the map while placing a building.
+  buildGrid: [
+    [false, 'Off'],
+    [true, 'On'],
+  ],
   // How far the camera may zoom out (see ZOOM), and whether far out the small things are simplified (see LOD).
   zoomOut: [
     ['normal', 'Normal'],
@@ -124,7 +134,7 @@ export const GROUND_DETAIL = { off: 0, low: 0.6, medium: 1, high: 1.4 };
 export const RELOAD_REQUIRED = ['antialias', 'sprites'];
 
 export function settingsForPreset(preset) {
-  return { preset, ...PRESETS[preset], showFps: false, zoomOut: 'far', lod: 'auto', sprites: 'auto' };
+  return { preset, ...PRESETS[preset], showFps: false, buildGrid: false, lettering: 'hand', zoomOut: 'far', lod: 'auto', sprites: 'auto' };
 }
 
 /** The preset whose values all match `settings`, or 'custom'. */

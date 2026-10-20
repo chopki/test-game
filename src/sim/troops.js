@@ -194,6 +194,12 @@ function pickTarget(world, t, post) {
   for (const e of world.enemies) {
     if (e.alive && dist(e, post) <= TROOPS.guardRadius) near.push(e);
   }
+  // In a Realm, outlaws who come near (raiders, or a camp's guards) count too.
+  if (world.realm) {
+    for (const u of world.troops) {
+      if (u.alive && u.team === 'neutral' && dist(u, post) <= TROOPS.guardRadius) near.push(u);
+    }
+  }
   near.sort((a, b) => dist(a, t) - dist(b, t));
   const passable = troopPassable(world);
   for (const e of near.slice(0, 4)) {
@@ -273,6 +279,7 @@ export function walkTo(world, t, gx, gz, dt, near, opts = {}) {
 function strike(world, t, e) {
   const r = t.def.ranged;
   if (!r) {
+    if (e.team) return world._hurt(e, t.def.damage, t.team, t); // an outlaw (Realm)
     world._damageEnemy(e, t.def.damage);
     if (e.alive && !e.def.siege && !e.troopTarget) world._engageTroop(e, t);
     return;
@@ -298,6 +305,7 @@ function strike(world, t, e) {
     flightTime: Math.max(0.05, dist(t, e) / r.projectileSpeed),
     alive: true,
   };
+  if (e.team) Object.assign(p, { team: t.team, from: t });
   world.projectiles.push(p);
   world.events.emit('projectileFired', { projectile: p, troop: t });
 }
