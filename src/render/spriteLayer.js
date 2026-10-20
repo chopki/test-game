@@ -86,10 +86,24 @@ const SEASON_GLSL = /* glsl */ `
 export const SPRITE_KIND = { foliage: -1, unit: -2 };
 
 export class SpriteLayer {
-  constructor(atlas, parent, kind = 'object') {
+  /**
+   * `antialias`: the canvas has MSAA, so object sprites use alpha-to-coverage: their alpha-cut edges (every
+   * silhouette and ink line) get the multisampled smoothing that a plain alpha test can't have.
+   */
+  constructor(atlas, parent, kind = 'object', { antialias = false } = {}) {
     this.atlas = atlas;
     this.kind = kind;
-    this.layers = atlas.pages.map((page) => this._makePage(page.texture, parent));
+    this.antialias = antialias;
+    // Only pages that hold something this layer draws get a mesh: a page's texture goes to the GPU the first time
+    // its mesh renders, even with no instances, and the UI-icon pages (read by the HUD from their images) would
+    // otherwise take 16 MiB (standard set) to 68 MiB (HD) of GPU memory for nothing.
+    const drawn = new Set();
+    for (const [key, f] of atlas.frames) {
+      if (kind === 'shadow') {
+        if (f.shadow) drawn.add(f.shadow.page);
+      } else if (!key.startsWith('icon:')) drawn.add(f.page);
+    }
+    this.layers = atlas.pages.map((page, i) => (drawn.has(i) ? this._makePage(page.texture, parent) : null));
     this._m = new THREE.Matrix4();
     this._centre = new THREE.Vector3();
     this._scale = new THREE.Vector3();
@@ -108,15 +122,20 @@ export class SpriteLayer {
 
   _makePage(texture, parent) {
     const shadow = this.kind === 'shadow';
+    // Sprite quads face the camera, so they're never seen at a slant: anisotropic filtering would do no work.
+    texture.anisotropy = 1;
     const material = new THREE.MeshBasicMaterial({
       map: texture,
       alphaTest: shadow ? 0 : 0.5,
+      alphaToCoverage: !shadow && this.antialias,
       depthWrite: !shadow,
       depthTest: !shadow,
-      // Shadows blend but stay in the opaque pass, so renderOrder can put them under the sprites.
-      blending: shadow ? THREE.CustomBlending : THREE.NormalBlending,
-      blendSrc: THREE.SrcAlphaFactor,
-      blendDst: THREE.OneMinusSrcAlphaFactor,
+      // Shadows blend but stay in the opaque pass, so renderOrder can put them under the sprites. Sprites don't
+      // blend their colour (alpha-to-coverage does their edges), and neither touches the canvas alpha: an edge's
+      // partial alpha written there would let the page show through.
+      blending: THREE.CustomBlending,
+      blendSrc: shadow ? THREE.SrcAlphaFactor : THREE.OneFactor,
+      blendDst: shadow ? THREE.OneMinusSrcAlphaFactor : THREE.ZeroFactor,
       blendSrcAlpha: THREE.ZeroFactor, // keep the canvas opaque (see underlay() in Renderer.js)
       blendDstAlpha: THREE.OneFactor,
       fog: false,
@@ -188,7 +207,7 @@ export class SpriteLayer {
   }
 
   begin() {
-    for (const p of this.layers) p.count = 0;
+    for (const p of this.layers) if (p) p.count = 0;
   }
 
   /**
@@ -204,6 +223,7 @@ export class SpriteLayer {
     const f = this.kind === 'shadow' ? base.shadow : base;
     if (!f) return;
     const page = this.layers[f.page];
+    if (!page) return;
     if (page.count >= page.capacity) this._grow(page, page.capacity * 2);
     const w = f.w * scale;
     const h = f.h * scale;
@@ -221,6 +241,7 @@ export class SpriteLayer {
 
   end() {
     for (const p of this.layers) {
+      if (!p) continue;
       p.mesh.count = p.count;
       p.mesh.instanceMatrix.needsUpdate = true;
       p.rects.needsUpdate = true;

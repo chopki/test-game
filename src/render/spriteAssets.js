@@ -57,7 +57,6 @@ async function loadPrebaked(baseUrl, onProgress = null) {
     await img.decode().catch(() => loaded);
     const texture = new THREE.Texture(img);
     texture.colorSpace = THREE.SRGBColorSpace;
-    texture.anisotropy = 4;
     texture.needsUpdate = true;
     atlas.pages.push({ source: img, texture });
     onProgress?.(atlas.pages.length, data.pages.length);

@@ -107,7 +107,7 @@ export function parchmentTexture(size = 1024) {
 
   const texture = new THREE.CanvasTexture(c);
   texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-  texture.anisotropy = 4;
+  texture.anisotropy = 2; // it lies on the ground (see Renderer's ground texture)
   cached = texture;
   return texture;
 }

@@ -59,7 +59,7 @@ export function groundDetailTexture() {
   }
   const tex = new THREE.CanvasTexture(c);
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  tex.anisotropy = 8;
+  tex.anisotropy = 2; // the ground is squashed about 1.6:1 on screen (see Renderer's ground texture)
   cachedTexture = tex;
   return tex;
 }

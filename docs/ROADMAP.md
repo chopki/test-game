@@ -95,6 +95,12 @@ Pre-rendered sprites on a fixed isometric camera (see ARCHITECTURE.md), working 
       bars are left out (or Always full). Close up, fine grass detail fades in over the painted ground; Settings →
       Sprite detail (Auto, Standard, HD) lets a phone load the HD sprites for sharper close-ups. Sharper soldiers
       (80 px a tile in HD, from 56) and heroes (112 in HD, 72 standard, from 43)
+- [x] **Sharper edges, less GPU memory** (stage 1 of `docs/research/11-high-res-graphics.md`): on High (MSAA),
+      sprites use alpha-to-coverage, so silhouettes and ink lines are anti-aliased instead of cut hard; the UI-icon
+      atlas pages never go to the GPU (the HUD reads them from their images; ~5 MiB standard, ~50 MiB HD); anisotropic filtering only where
+      it helps (2× on the ground, none on sprites); at the screen's own density the canvas matches the device
+      pixels exactly (no whole-frame resample at fractional pixel ratios, where the browser reports them).
+      Next: edge bleed and padding in the atlas, per-terrain ground detail, 2× MSAA on Medium, then KTX2
 - [x] **Hills**: on about 60% of maps, raised plateaus behind cliffs, climbed by ramps (slower going); towers on
       high ground reach further, and arrows shot uphill come slower (Settings → Hills). Cliff faces are baked
       sprites: rocky earth banks with boulders under a grass lip, and sloping sides beside the ramps

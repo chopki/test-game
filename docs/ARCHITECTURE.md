@@ -90,8 +90,12 @@ so the whole battlefield is ~15 draw calls and a few hundred triangles however d
   Chromium and writes `atlas.json` + WebP pages (lossless alpha; AVIF was tried and dropped, see ROADMAP) for each set in `SPRITE_SETS`: `public/sprites/`
   (standard, 72 px per tile; soldiers 56, heroes 72) and `public/sprites-hd/` (144 px per tile for buildings,
   walls, towers, scenery and icons; soldiers 80, heroes 112). Soldier and hero specs carry `res: 'unit' | 'hero'`
-  and take `unitPx` / `heroPx` from the set's options. Production builds load one (`spriteAssets.js`): desktops get HD, touch screens standard (a phone shows
-  fewer pixels per tile than the standard set has, even zoomed in); `?sprites=standard|hd` overrides it.
+  and take `unitPx` / `heroPx` from the set's options. Production builds load one (`spriteAssets.js`): desktops get HD, touch screens standard (to save GPU
+  memory: uncompressed with mips, standard is ~325 MiB and HD ~1 GiB, and phones close tabs that use too much; zoomed in
+  past ~2× a phone at its own density does show more pixels than the standard set has, see
+  docs/research/11-high-res-graphics.md); `?sprites=standard|hd` overrides it. `SpriteLayer` makes meshes only for
+  pages that hold battlefield sprites, so the UI-icon pages stay off the GPU, and on High (MSAA) it uses
+  alpha-to-coverage for anti-aliased sprite edges.
   The dev server bakes live, so model edits show immediately. `test/sprites.test.js` fails when the atlas is
   stale (hash of the model/texture sources), so a deploy can't ship out-of-date sprites. A missing sprite at
   runtime falls back to a live bake.

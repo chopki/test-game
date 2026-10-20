@@ -148,7 +148,7 @@ export class Renderer {
     this.overlayLayer = new THREE.Group();
     this.scene.add(this.groundLayer, this.entityLayer, this.overlayLayer);
     this.shadowSprites = new SpriteLayer(this.atlas, this.groundLayer, 'shadow');
-    this.sprites = new SpriteLayer(this.atlas, this.entityLayer, 'object');
+    this.sprites = new SpriteLayer(this.atlas, this.entityLayer, 'object', { antialias: graphics.antialias });
     this.turretHeights = {};
 
     this.views = { buildings: new Map(), enemies: new Map(), troops: new Map(), projectiles: new Map() };
@@ -182,6 +182,7 @@ export class Renderer {
 
     this.applySettings(graphics);
     window.addEventListener('resize', () => this._resize());
+    this._watchDevicePixels();
     this._resize();
   }
 
@@ -308,7 +309,8 @@ export class Renderer {
 
     const texture = new THREE.CanvasTexture(painted.canvas);
     texture.colorSpace = THREE.SRGBColorSpace;
-    texture.anisotropy = 4;
+    // The camera looks down at 38°, so the ground is squashed about 1.6:1 on screen: 2× anisotropic filtering covers it.
+    texture.anisotropy = 2;
     const { width: TW, height: TH } = painted.tiles;
     // Close up, fine detail fades in over the painted ground (groundDetail.js), on the flat ground and plateau tops.
     const waterMask = new THREE.CanvasTexture(painted.waterMask);
@@ -706,6 +708,46 @@ export class Renderer {
     Object.assign(this.camera, { left: (-viewH * aspect) / 2, right: (viewH * aspect) / 2, top: viewH / 2, bottom: -viewH / 2 });
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(w, h);
+    this._fitDevicePixels();
+  }
+
+  /**
+   * Where the browser reports the canvas's size in device pixels (Chrome, Edge, Firefox), note it, so that at the
+   * screen's own density the canvas matches the screen exactly (see _fitDevicePixels).
+   */
+  _watchDevicePixels() {
+    this._devicePixels = null;
+    if (typeof ResizeObserver !== 'function') return;
+    const observer = new ResizeObserver(([entry]) => {
+      const box = entry.devicePixelContentBoxSize?.[0];
+      if (!box) return;
+      this._devicePixels = { w: box.inlineSize, h: box.blockSize };
+      this._fitDevicePixels();
+    });
+    try {
+      observer.observe(this.renderer.domElement, { box: 'device-pixel-content-box' });
+    } catch {
+      // Safari: no device-pixel box; three.js's own sizing stands.
+    }
+  }
+
+  /**
+   * three.js sizes the canvas as floor(CSS size × pixel ratio), which at a fractional ratio (a Pixel 7's 2.625)
+   * comes out a pixel short, and the browser then resamples the whole frame to fit the screen: a faint blur over
+   * everything. At the screen's own density, size it to the device pixels the browser reported instead. Only a
+   * pixel or so of rounding is put right; anything more is a resize the observer hasn't reported yet.
+   */
+  _fitDevicePixels() {
+    const exact = this._devicePixels;
+    const canvas = this.renderer.domElement;
+    const ratio = this.renderer.getPixelRatio();
+    if (!exact || Math.abs(ratio - (window.devicePixelRatio || 1)) > 1e-6) return;
+    if (canvas.width === exact.w && canvas.height === exact.h) return;
+    if (Math.abs(canvas.width - exact.w) > 2 || Math.abs(canvas.height - exact.h) > 2) return;
+    canvas.width = exact.w;
+    canvas.height = exact.h;
+    // The viewport in CSS pixels, so that × ratio (rounded or floored by three.js) gives the canvas's pixels exactly.
+    this.renderer.setViewport(0, 0, (exact.w + 1e-3) / ratio, (exact.h + 1e-3) / ratio);
   }
 
   // ---------------------------------------------------------------- world binding

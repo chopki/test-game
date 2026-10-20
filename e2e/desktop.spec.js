@@ -1,4 +1,4 @@
-import { test } from '@playwright/test';
+import { chromium, test } from '@playwright/test';
 import { buildingAt, buildShowcase, countBuildings, expect, gold, graphicsState, minCanvasAlpha, nearestTerrainTile, openGame, settingButton, tileToScreen, zoomTo } from './helpers.js';
 
 // The Town Hall covers tiles 18–20 on both axes; tiles inside 2..37 are buildable.
@@ -344,6 +344,59 @@ test('walls reshape to join their neighbours and towers', async ({ page }) => {
     });
   await expect.poll(async () => new Set(await variants()).size).toBeGreaterThanOrEqual(3);
   expect(await variants()).toEqual(await variants());
+});
+
+test('sprites on High: alpha-to-coverage edges, no anisotropy, and the UI-icon pages stay off the GPU', async ({ page }) => {
+  const errors = await openGame(page);
+  const r = await page.evaluate(() => {
+    const g = window.game.renderer;
+    const gl = g.renderer.getContext();
+    const iconOnly = g.atlas.pages.map((_, i) => ![...g.atlas.frames].some(([key, f]) => f.page === i && !key.startsWith('icon:')));
+    return {
+      samples: gl.getParameter(gl.SAMPLES),
+      coverage: g.sprites.layers.filter(Boolean).map((p) => p.material.alphaToCoverage),
+      anisotropy: [...new Set(g.atlas.pages.map((p) => p.texture.anisotropy))],
+      iconOnly,
+      uploaded: g.atlas.pages.map((p) => !!g.renderer.properties.get(p.texture).__webglTexture),
+      icons: [...document.querySelectorAll('#buildbar .build-btn img')].filter((img) => img.src.startsWith('data:image/png')).length,
+    };
+  });
+  expect(r.samples).toBeGreaterThan(1); // High has MSAA…
+  expect(r.coverage.length).toBeGreaterThan(0);
+  expect(r.coverage.every(Boolean)).toBe(true); // …which smooths the sprites' alpha-cut edges
+  expect(r.anisotropy).toEqual([1]); // camera-facing quads are never seen at a slant
+  expect(r.iconOnly.filter(Boolean).length).toBeGreaterThan(0);
+  r.iconOnly.forEach((icons, i) => expect(r.uploaded[i], `page ${i}`).toBe(!icons)); // battlefield pages only
+  expect(r.icons).toBeGreaterThan(0); // the HUD still has its icons, from the pages' images
+  expect(errors).toEqual([]);
+});
+
+test('at the screen’s own density the canvas matches its device pixels exactly (no resampling)', async ({ baseURL }) => {
+  // A real fractional pixel ratio, as on a Pixel 7: forced on a browser of its own, since Playwright's emulated
+  // ratios don't reach the device-pixel size the browser reports.
+  const browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--force-device-scale-factor=2.625'] });
+  try {
+    const page = await (await browser.newContext({ baseURL, viewport: { width: 412, height: 839 }, deviceScaleFactor: 2.625, reducedMotion: 'reduce' })).newPage();
+    const errors = await openGame(page);
+    const r = await page.evaluate(
+      () =>
+        new Promise((resolve) => {
+          const canvas = window.game.renderer.renderer.domElement;
+          new ResizeObserver(([e], observer) => {
+            observer.disconnect();
+            const box = e.devicePixelContentBoxSize[0];
+            const gl = window.game.renderer.renderer.getContext();
+            resolve({ device: [box.inlineSize, box.blockSize], canvas: [canvas.width, canvas.height], viewport: [...gl.getParameter(gl.VIEWPORT)].slice(2), ratio: window.devicePixelRatio });
+          }).observe(canvas, { box: 'device-pixel-content-box' });
+        }),
+    );
+    expect(r.ratio).toBeCloseTo(2.625, 3); // where floor(CSS size × ratio) can fall a pixel short
+    expect(r.canvas).toEqual(r.device);
+    expect(r.viewport).toEqual(r.device); // and every pixel of it is drawn
+    expect(errors).toEqual([]);
+  } finally {
+    await browser.close();
+  }
 });
 
 test('draw calls stay flat as walls and enemies are added (instancing)', { tag: '@smoke' }, async ({ page }) => {
@@ -713,7 +766,7 @@ test('woods mix several kinds of tree, and the trees (not the rocks) sway in the
   expect(spots.filter((s) => s.kind !== 'outcrop').every((s) => s.sway > 0)).toBe(true);
   // The sway reaches the GPU, and the wind's clock runs.
   const swaying = () =>
-    page.evaluate(() => window.game.renderer.sprites.layers.reduce((n, p) => n + p.fx.array.subarray(0, p.count * 2).filter((v, i) => i % 2 === 0 && v > 0).length, 0));
+    page.evaluate(() => window.game.renderer.sprites.layers.filter(Boolean).reduce((n, p) => n + p.fx.array.subarray(0, p.count * 2).filter((v, i) => i % 2 === 0 && v > 0).length, 0));
   await expect.poll(swaying).toBeGreaterThan(50);
   const clock = () => page.evaluate(() => window.game.renderer.sprites._time.value);
   const t0 = await clock();
@@ -816,7 +869,7 @@ test('damage states: buildings and walls look more battered as health drops, and
   const damage = () =>
     page.evaluate(() => {
       const counts = { 0: 0, 0.5: 0, 1: 0 };
-      for (const p of window.game.renderer.sprites.layers) for (let i = 0; i < p.count; i++) counts[p.fx.array[i * 2 + 1]] = (counts[p.fx.array[i * 2 + 1]] ?? 0) + 1;
+      for (const p of window.game.renderer.sprites.layers.filter(Boolean)) for (let i = 0; i < p.count; i++) counts[p.fx.array[i * 2 + 1]] = (counts[p.fx.array[i * 2 + 1]] ?? 0) + 1;
       return counts;
     });
   await expect.poll(async () => (await damage())[1]).toBeGreaterThan(8);
@@ -888,7 +941,7 @@ test('living buildings: pennants wave, lookouts scan, the Town Hall chimney smok
       const keys = new Set();
       for (const v of r.views.buildings.values()) if (v.look !== undefined) keys.add(`look:${Math.round(v.look * 100)}`);
       const frames = [];
-      for (const p of r.sprites.layers) {
+      for (const p of r.sprites.layers.filter(Boolean)) {
         for (let i = 0; i < p.count; i++) {
           const [u, v] = [p.rects.getX(i), p.rects.getY(i)];
           for (const [key, f] of r.atlas.frames) if (key.startsWith('flag:') && Math.abs(f.u0 - u) < 1e-6 && Math.abs(f.v0 - v) < 1e-6) frames.push(key);
