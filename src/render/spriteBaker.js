@@ -41,14 +41,15 @@ export class SpriteAtlas {
 }
 
 /**
- * Bake `specs` = [{ key, make: () => Object3D, shadow = true, ink = true, pxPerUnit? }] into a SpriteAtlas.
- * `pxPerUnit` is the sprite resolution at zoom 1 (rendered at `supersample`× and scaled down for smooth edges).
+ * Bake `specs` = [{ key, make: () => Object3D, shadow = true, ink = true, pxPerUnit?, res? }] into a SpriteAtlas.
+ * `pxPerUnit` is the sprite resolution at zoom 1 (rendered at `supersample`× and scaled down for smooth edges); a
+ * spec's own `pxPerUnit` overrides it, and `res` 'unit' or 'hero' takes the set's `unitPx` or `heroPx` instead.
  *
  * `cached` (scripts/bake-sprites.mjs's incremental bake): a Map of key → a sprite rendered before
  * ({ image, shadowImage?, w, h, anchorX, anchorY }, see spriteFingerprint), used as it is; `onRendered(key, item)`
  * hears of each sprite rendered afresh, so it can be cached.
  */
-export function bakeSprites(specs, { pxPerUnit = 64, supersample = 2, ink = true, cached = null, onRendered = null } = {}) {
+export function bakeSprites(specs, { pxPerUnit = 64, supersample = 2, ink = true, cached = null, onRendered = null, unitPx = 56, heroPx = unitPx } = {}) {
   const started = performance.now();
   const atlas = new SpriteAtlas();
   const canvas = document.createElement('canvas');
@@ -161,7 +162,8 @@ export function bakeSprites(specs, { pxPerUnit = 64, supersample = 2, ink = true
 
       const w = maxX - minX;
       const h = maxY - minY;
-      const ppu = spec.pxPerUnit ?? pxPerUnit; // a spec can bake at its own resolution (small, moving sprites)
+      // A spec can bake at its own resolution, or a soldier's or hero's from the set (`res`).
+      const ppu = spec.pxPerUnit ?? (spec.res === 'hero' ? heroPx : spec.res === 'unit' ? unitPx : pxPerUnit);
       const outW = Math.max(1, Math.ceil(w * ppu));
       const outH = Math.max(1, Math.ceil(h * ppu));
 
@@ -329,7 +331,7 @@ export function frameToDataURL(atlas, key) {
 export function spriteFingerprint(object, spec, salt, memo = new Map()) {
   const h = new Hasher();
   h.str(salt);
-  h.str(JSON.stringify([spec.shadow ?? true, spec.ink ?? true, spec.pxPerUnit ?? null]));
+  h.str(JSON.stringify([spec.shadow ?? true, spec.ink ?? true, spec.pxPerUnit ?? null, spec.res ?? null]));
   object.updateMatrixWorld(true);
   object.traverseVisible((o) => {
     if (!o.isMesh) return;

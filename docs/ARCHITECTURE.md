@@ -87,8 +87,9 @@ so the whole battlefield is ~15 draw calls and a few hundred triangles however d
 
 - **Baking is done ahead of time**: `npm run bake` (scripts/bake-sprites.mjs) renders the atlases in headless
   Chromium and writes `atlas.json` + WebP pages (lossless alpha; AVIF was tried and dropped, see ROADMAP) for each set in `SPRITE_SETS`: `public/sprites/`
-  (standard, 72 px per tile) and `public/sprites-hd/` (144 px per tile for buildings, walls, towers, scenery and
-  icons). Production builds load one (`spriteAssets.js`): desktops get HD, touch screens standard (a phone shows
+  (standard, 72 px per tile; soldiers 56, heroes 72) and `public/sprites-hd/` (144 px per tile for buildings,
+  walls, towers, scenery and icons; soldiers 80, heroes 112). Soldier and hero specs carry `res: 'unit' | 'hero'`
+  and take `unitPx` / `heroPx` from the set's options. Production builds load one (`spriteAssets.js`): desktops get HD, touch screens standard (a phone shows
   fewer pixels per tile than the standard set has, even zoomed in); `?sprites=standard|hd` overrides it.
   The dev server bakes live, so model edits show immediately. `test/sprites.test.js` fails when the atlas is
   stale (hash of the model/texture sources), so a deploy can't ship out-of-date sprites. A missing sprite at

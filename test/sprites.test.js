@@ -14,6 +14,21 @@ describe('pre-baked sprites', () => {
     });
   }
 
+  // Pixels per tile on the battlefield (SPRITE_SETS in spriteCatalog.js): soldiers, and heroes (crowned elites).
+  for (const [dir, unit, hero] of [
+    ['sprites', 56, 72],
+    ['sprites-hd', 80, 112],
+  ]) {
+    it(`public/${dir} has soldiers at ${unit} px a tile and heroes at ${hero}`, () => {
+      const atlas = JSON.parse(readFileSync(new URL(`../public/${dir}/atlas.json`, import.meta.url), 'utf8'));
+      const density = (key) => atlas.frames[key].pixels.w / atlas.frames[key].w;
+      const frames = Object.keys(atlas.frames).filter((k) => k.startsWith('e:knight:'));
+      // (Within a pixel's rounding of the frame's width.)
+      expect(density(frames.find((k) => !k.includes(':elite:')))).toBeCloseTo(unit, -0.5);
+      expect(density(frames.find((k) => k.includes(':elite:')))).toBeCloseTo(hero, -0.5);
+    });
+  }
+
   it('the baked cliff faces are a hill level high (change CLIFF_HEIGHT in models.js with it, then bake)', () => {
     const models = readFileSync(new URL('../src/render/models.js', import.meta.url), 'utf8');
     expect(Number(models.match(/export const CLIFF_HEIGHT = ([\d.]+);/)[1])).toBe(TERRAIN.hills.levelHeight);

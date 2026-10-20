@@ -77,21 +77,21 @@ const BUILDING_PARTS = {
   magicSpire: { crystal: true },
 };
 
+/** Men and engines are small and always moving, so they're baked at a lower resolution (pixels per tile). */
+const UNIT_PX = 56;
 /** Options every bake uses (runtime and scripts/bake-sprites.mjs). */
 export const BAKE_OPTIONS = { pxPerUnit: 72, supersample: 2 };
 
 /**
- * The two pre-baked sprite sets. Phones use 'standard': even zoomed right in they show fewer screen pixels per
- * tile than it has. Desktops use 'hd', where zooming in would otherwise stretch the sprites: buildings, walls,
- * towers, scenery and icons at twice the resolution (enemies and catapult frames, which set their own resolution,
- * stay as they are, since they're small and always moving).
+ * The two pre-baked sprite sets. Phones use 'standard', desktops 'hd', where zooming in would otherwise stretch the
+ * sprites: buildings, walls, towers, scenery and icons at twice the resolution. Soldiers (`unitPx`, thousands of
+ * frames) are baked at a lower resolution than buildings, and higher in HD; heroes and warlords (`heroPx`, a few
+ * hundred frames, and the ones you zoom in on) higher still. Both are pixels per tile as seen on the battlefield.
  */
 export const SPRITE_SETS = {
-  standard: { dir: 'sprites/', options: BAKE_OPTIONS },
-  hd: { dir: 'sprites-hd/', options: { pxPerUnit: 144, supersample: 1.5 } },
+  standard: { dir: 'sprites/', options: { ...BAKE_OPTIONS, unitPx: UNIT_PX, heroPx: 72 } },
+  hd: { dir: 'sprites-hd/', options: { pxPerUnit: 144, supersample: 1.5, unitPx: 80, heroPx: 112 } },
 };
-/** Men and engines are small and always moving, so they're baked at a lower resolution (there are ~1000 frames). */
-const ENEMY_PX_PER_UNIT = 56;
 
 /** Pose the catapult arm for a reload frame. */
 function poseArm(userData, frame) {
@@ -224,8 +224,8 @@ export function spriteSpecs() {
             specs.push({
               key: spriteKeys.enemy(type, heading, elite, anim, f, team),
               shadow: false,
-              // Elites are drawn 1.3× bigger; this keeps their frames the same size in pixels.
-              pxPerUnit: elite ? ENEMY_PX_PER_UNIT / 1.3 : ENEMY_PX_PER_UNIT,
+              // Resolution from the set (see SPRITE_SETS); elites are drawn 1.3× bigger, which the baker allows for.
+              res: elite ? 'hero' : 'unit',
               make: () => {
                 const m = poseEnemy(createEnemyModel(type, elite, team), anim, f);
                 m.rotation.y = heading;
@@ -252,7 +252,7 @@ export function spriteSpecs() {
         specs.push({
           key: spriteKeys.animal(kind, heading, pose),
           shadow: false,
-          pxPerUnit: ENEMY_PX_PER_UNIT,
+          pxPerUnit: UNIT_PX,
           make: () => {
             const m = createAnimal(kind, pose);
             m.rotation.y = heading;

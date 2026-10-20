@@ -390,11 +390,13 @@ test('draw calls stay flat as walls and enemies are added (instancing)', { tag: 
       }
     });
   });
-  // Enemies are sprites on a few atlas pages of their own (one batch each); health bars and blob shadows add 2 more.
-  expect(await calls()).toBeLessThanOrEqual(withSomeWalls + 7);
+  // Enemies are sprites on a few atlas pages of their own (one batch each; about six for six kinds of soldier at HD's
+  // resolution); health bars and blob shadows add 2 more.
+  expect(await calls()).toBeLessThanOrEqual(withSomeWalls + 8);
   // The whole battlefield in a couple of dozen draw calls (more atlas pages since troops and the enemy castle's
-  // blue buildings came; sprites are packed by kind to keep it down, see atlasPacking.js).
-  expect(await calls()).toBeLessThanOrEqual(28);
+  // blue buildings came, and since HD soldiers went up to 80 px a tile; sprites are packed by kind to keep it down,
+  // see atlasPacking.js).
+  expect(await calls()).toBeLessThanOrEqual(30);
 });
 
 test('showcase: a walled base with every tower and enemy renders without errors (screenshot attached)', async ({ page }, testInfo) => {
